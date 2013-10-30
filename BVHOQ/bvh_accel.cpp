@@ -194,24 +194,6 @@ unsigned bvh_accel::build_hierarchy(unsigned begin, unsigned end, std::vector<bu
 		mid = find_best_split(begin, end, b, centroids_bbox, sah_val);
 		assert(mid >= begin && mid <= end);
 	}
-
-	// sort primitives along the chosen axis
-    //std::sort(&primitives_[0] + begin, &primitives_[0] + end, [axis, this](triangle const& t1, triangle const& t2)
-    //          {
-    //              bbox b1 = triangle_bbox(t1);
-    //              bbox b2 = triangle_bbox(t2);
-    //              switch(axis)
-    //              {
-    //                  case 0:
-    //                      return b1.center().x() < b2.center().x();
-    //                  case 1:
-    //                      return b1.center().y() < b2.center().y();
-    //                  case 2:
-    //                      return b1.center().z() < b2.center().z();
-    //              }
-    //              
-    //              return false;
-    //          });
     
     // Decide whether to split or to create new leaf
 	if (num_prims > max_node_prims_ || (sah_val > num_prims && num_prims > 1))
@@ -323,14 +305,7 @@ unsigned   bvh_accel::find_best_split(unsigned begin, unsigned end, bbox const& 
 
 	sah_val = min_sah_cost;
 
-	return (iter - &build_info_[begin]) + begin;
-    /*unsigned split_idx = begin;
-    for (unsigned i = 0; i <= min_sah_split_idx; ++i)
-    {
-        split_idx += bins[i].count;
-    }*/
-    
-    //return split_idx;
+	return (unsigned)((iter - &build_info_[begin]) + begin);
 }
 
 std::vector<vector3> const& bvh_accel::vertices() const

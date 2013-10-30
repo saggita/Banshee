@@ -52,39 +52,47 @@ GLuint g_index_buffer_id;
 #define CAMERA_AT vector3(-1,0,0)
 #define CAMERA_UP vector3(0,1,0)
 #define CAMERA_NEAR_PLANE 0.1f
-#define CAMERA_PIXEL_SIZE 0.0005f
+#define CAMERA_PIXEL_SIZE 0.00025f
 
 void display()
 {
-	glClear(GL_COLOR_BUFFER_BIT);
+	try
+	{
+		glClear(GL_COLOR_BUFFER_BIT);
 
-	glBindBuffer(GL_ARRAY_BUFFER, g_vertex_buffer_id);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_index_buffer_id);
+		glBindBuffer(GL_ARRAY_BUFFER, g_vertex_buffer_id);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_index_buffer_id);
 
-	GLuint program = g_shader_manager->get_shader_program("simple");
-	GLuint texture_loc = glGetUniformLocation(program, "g_Texture");
-	assert(texture_loc >= 0);
+		GLuint program = g_shader_manager->get_shader_program("simple");
+		GLuint texture_loc = glGetUniformLocation(program, "g_Texture");
+		assert(texture_loc >= 0);
 
-	glUniform1i(texture_loc, 0);
+		glUniform1i(texture_loc, 0);
 
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, g_render->output_texture());
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, g_render->output_texture());
 
-	GLuint positionAttribId = glGetAttribLocation(program, "inPosition");
-	GLuint texcoordAttribId = glGetAttribLocation(program, "inTexcoord");
+		GLuint positionAttribId = glGetAttribLocation(program, "inPosition");
+		GLuint texcoordAttribId = glGetAttribLocation(program, "inTexcoord");
 
-	glVertexAttribPointer(positionAttribId, 3, GL_FLOAT, GL_FALSE, sizeof(float)*5, 0);
-	glVertexAttribPointer(texcoordAttribId, 2, GL_FLOAT, GL_FALSE, sizeof(float)*5, (void*)(sizeof(float) * 3));
+		glVertexAttribPointer(positionAttribId, 3, GL_FLOAT, GL_FALSE, sizeof(float)*5, 0);
+		glVertexAttribPointer(texcoordAttribId, 2, GL_FLOAT, GL_FALSE, sizeof(float)*5, (void*)(sizeof(float) * 3));
 
-	/// Move away this state changes later
-	glEnableVertexAttribArray(positionAttribId);
-	glEnableVertexAttribArray(texcoordAttribId);
+		/// Move away this state changes later
+		glEnableVertexAttribArray(positionAttribId);
+		glEnableVertexAttribArray(texcoordAttribId);
 
-	glUseProgram(program);
+		glUseProgram(program);
 
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, nullptr);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, nullptr);
 
-	glutSwapBuffers();
+		glutSwapBuffers();
+	}
+	catch (std::runtime_error& e)
+	{
+		std::cout << e.what();
+		exit(-1);
+	}
 }
 
 void update()
@@ -97,7 +105,7 @@ void update()
 	float cam_rot_y = 0.f;
 	float cam_rot_x = 0.f;
 
-    const float MOUSE_SENSITIVITY = 0.005f;
+    const float MOUSE_SENSITIVITY = 0.0025f;
     vector2 delta = mouse_delta * vector2(MOUSE_SENSITIVITY, MOUSE_SENSITIVITY);
     cam_rot_x = -delta.y();
     cam_rot_y = -delta.x();
@@ -108,7 +116,7 @@ void update()
 	if (cam_rot_x != 0.f)
 		g_camera->tilt(cam_rot_x);
     
-    const float MOVEMENT_SPEED = 0.1f;
+    const float MOVEMENT_SPEED = 0.01f;
 	if (forward_arrow_pressed)
 	{
 		g_camera->move_forward((float)time_delta.count() * MOVEMENT_SPEED);
@@ -266,8 +274,8 @@ int main(int argc, const char * argv[])
 
 		glutSpecialFunc(on_key);
         glutSpecialUpFunc(on_key_up);
-        //glutPassiveMotionFunc(on_mouse_move);
-		glutMotionFunc(on_mouse_move);
+        glutPassiveMotionFunc(on_mouse_move);
+		//glutMotionFunc(on_mouse_move);
 		
 		glutIdleFunc (update);
         

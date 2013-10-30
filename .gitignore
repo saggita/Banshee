@@ -1,0 +1,10 @@
+*.opensdf
+*.sdf
+*.suo
+*.user
+*.exe
+*.lastbuildstate
+*.log
+*.pdb
+*.tlog
+*.obj

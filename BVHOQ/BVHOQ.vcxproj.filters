@@ -66,6 +66,9 @@
     <ClInclude Include="vector.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="thread_pool.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bbox.cpp">

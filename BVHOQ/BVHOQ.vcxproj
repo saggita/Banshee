@@ -97,6 +97,7 @@
     <ClInclude Include="simple_camera.h" />
     <ClInclude Include="simple_rt_render.h" />
     <ClInclude Include="simple_scene.h" />
+    <ClInclude Include="thread_pool.h" />
     <ClInclude Include="utils.h" />
     <ClInclude Include="vector.h" />
   </ItemGroup>

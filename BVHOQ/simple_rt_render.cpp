@@ -8,6 +8,8 @@
 
 #include "simple_rt_render.h"
 
+#include "thread_pool.h"
+
 #include <limits>
 #include <chrono>
 #include <iostream>
@@ -16,6 +18,8 @@
 #include "camera_base.h"
 
 #include "bbox.h"
+
+//#define MULTITHREADED
 
 GLuint simple_rt_render::output_texture() const
 {
@@ -48,6 +52,10 @@ void simple_rt_render::init(unsigned width, unsigned height)
 
 void simple_rt_render::render()
 {
+#ifdef MULTITHREADED
+	static thread_pool<float> pool;
+	static std::vector<std::future<float> > futures(width_*height_);
+#endif
     auto start_time = std::chrono::high_resolution_clock::now();
     
     vector3 v = camera()->direction();
@@ -59,6 +67,7 @@ void simple_rt_render::render()
     for (unsigned i = 0; i < width_; ++i)
         for (unsigned j = 0; j < height_; ++j)
         {
+#ifndef MULTITHREADED
             int ii = i - (width_ >> 1);
             int jj = j - (height_ >> 1);
             
@@ -81,8 +90,42 @@ void simple_rt_render::render()
                 data_[j * (width_ * 4) + i * 4 + 2] = t;
                 data_[j * (width_ * 4) + i * 4 + 3] = t;
             }
-        }
-    
+#else
+			float t = 50.f;
+            data_[j * (width_ * 4) + i * 4] = t;
+            data_[j * (width_ * 4) + i * 4 + 1] = t;
+            data_[j * (width_ * 4) + i * 4 + 2] = t;
+            data_[j * (width_ * 4) + i * 4 + 3] = t;
+
+			futures[j*width_ + i] = std::move(pool.submit([=,this]()->float
+			{
+				int ii = i - (width_ >> 1);
+				int jj = j - (height_ >> 1);
+            
+				float t = 50.f;
+				vector3 dir = normalize(v * camera()->near_z() + u * (jj + 0.5f) * pixel_size + r * (ii + 0.5f) * pixel_size);
+				vector3 orig = camera()->position();
+            
+				ray rr(orig, dir);
+            
+				if (accel_->intersect(rr, t))
+				{
+					t /= 30.f;	
+					data_[j * (width_ * 4) + i * 4] = t;
+					data_[j * (width_ * 4) + i * 4 + 1] = t;
+					data_[j * (width_ * 4) + i * 4 + 2] = t;
+					data_[j * (width_ * 4) + i * 4 + 3] = t;
+				}
+				return t;
+			}));
+#endif
+		}
+
+
+#ifdef MULTITHREADED
+		pool.wait();
+#endif
+
     glBindTexture(GL_TEXTURE_2D, gl_tex_);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F_ARB, width_, height_,
                  0, GL_RGBA, GL_FLOAT, &data_[0]);

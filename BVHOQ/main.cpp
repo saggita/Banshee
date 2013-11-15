@@ -180,8 +180,8 @@ void init_data()
 	cl_platform_id platform;
 	clGetPlatformIDs(1, &platform, nullptr);
 
-	g_render.reset(new opencl_render(platform));
-	//g_render.reset(new simple_rt_render());
+	//g_render.reset(new opencl_render(platform));
+	g_render.reset(new simple_rt_render());
 	g_render->set_scene(scene);
 	g_render->set_camera(g_camera);
 

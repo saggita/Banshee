@@ -19,7 +19,7 @@
 
 #include "bbox.h"
 
-//#define MULTITHREADED
+#define MULTITHREADED
 
 GLuint simple_rt_render::output_texture() const
 {
@@ -97,7 +97,7 @@ void simple_rt_render::render()
             data_[j * (width_ * 4) + i * 4 + 2] = t;
             data_[j * (width_ * 4) + i * 4 + 3] = t;
 
-			futures[j*width_ + i] = std::move(pool.submit([=,this]()->float
+			futures[j*width_ + i] = std::move(pool.submit([=]()->float
 			{
 				int ii = i - (width_ >> 1);
 				int jj = j - (height_ >> 1);

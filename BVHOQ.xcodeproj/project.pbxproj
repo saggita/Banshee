@@ -89,6 +89,7 @@
 		885D755A1803D2E500F634D1 /* simple_camera.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = simple_camera.h; sourceTree = "<group>"; };
 		885E12DD1806F3AB0097750B /* cubes.objm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = cubes.objm; path = BVHOQ/cubes.objm; sourceTree = "<group>"; };
 		88691E2D180FC69000B14DFA /* libassimpD.3.0.255.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libassimpD.3.0.255.dylib; path = "../assimp--3.0.1270-sdk/tmp/code/Debug/libassimpD.3.0.255.dylib"; sourceTree = "<group>"; };
+		8892D856183C4B1200D15969 /* thread_pool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = thread_pool.h; sourceTree = "<group>"; };
 		88EEE4E4180E62FD00F26D8E /* depthmap.cl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.opencl; name = depthmap.cl; path = BVHOQ/depthmap.cl; sourceTree = "<group>"; };
 		88EEE4E7180EB6BC00F26D8E /* sibenik.objm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sibenik.objm; path = BVHOQ/sibenik.objm; sourceTree = "<group>"; };
 		88F9220F1802F41E0016F18C /* bbox.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = bbox.cpp; sourceTree = "<group>"; };
@@ -139,6 +140,7 @@
 		2EECB7DA17FFEDE8002EA88F /* BVHOQ */ = {
 			isa = PBXGroup;
 			children = (
+				8892D856183C4B1200D15969 /* thread_pool.h */,
 				2EECB80518004F97002EA88F /* mesh.cpp */,
 				2EECB80618004F97002EA88F /* mesh.h */,
 				2EECB80018004788002EA88F /* vector.h */,

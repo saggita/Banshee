@@ -32,7 +32,7 @@ public:
 	void wait_and_pop(T& t)
 	{
 		std::unique_lock<std::mutex> lock(mutex_);
-		cv_.wait(lock, [this](){return !queue_.empty()});
+		cv_.wait(lock, [this](){return !queue_.empty();});
 		t = queue_.front();
 		queue_.pop();
 	}
@@ -67,7 +67,7 @@ public:
 		int num_threads = std::thread::hardware_concurrency();
 		num_threads = num_threads == 0 ? 1 : num_threads-1;
 		
-		std::cout << num_threads + 1 << " hardware threads available\n";
+		std::cout << num_threads << " hardware threads available\n";
 		
 		for (int i=0; i < num_threads; ++i)
 		{

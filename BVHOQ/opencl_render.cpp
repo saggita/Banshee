@@ -285,11 +285,8 @@ void opencl_render::render()
     
     CHECK_ERROR(clEnqueueAcquireGLObjects(command_queue_, 1, &output_, 0,0,0));
     
-    CHECK_ERROR(clSetKernelArg(rt_kernel_, 0, sizeof(cl_mem), &bvh_));
-    CHECK_ERROR(clSetKernelArg(rt_kernel_, 1, sizeof(cl_mem), &vertices_));
-    CHECK_ERROR(clSetKernelArg(rt_kernel_, 2, sizeof(cl_mem), &indices_));
-    CHECK_ERROR(clSetKernelArg(rt_kernel_, 3, sizeof(cl_mem), &config_));
-    CHECK_ERROR(clSetKernelArg(rt_kernel_, 4, sizeof(cl_mem), &output_));
+
+
 
     size_t local_work_size[2];
     
@@ -299,7 +296,7 @@ void opencl_render::render()
     }
     else
     {
-        local_work_size[0] = local_work_size[1] = 16;
+        local_work_size[0] = local_work_size[1] = 8;
     }
     
     size_t global_work_size[2] = {
@@ -311,6 +308,13 @@ void opencl_render::render()
 		(output_size_.s[1] + local_work_size[1] - 1)/(local_work_size[1]) * local_work_size[1]
 #endif
 };
+
+	CHECK_ERROR(clSetKernelArg(rt_kernel_, 0, sizeof(cl_mem), &bvh_));
+    CHECK_ERROR(clSetKernelArg(rt_kernel_, 1, sizeof(cl_mem), &vertices_));
+    CHECK_ERROR(clSetKernelArg(rt_kernel_, 2, sizeof(cl_mem), &indices_));
+    CHECK_ERROR(clSetKernelArg(rt_kernel_, 3, sizeof(cl_mem), &config_));
+    CHECK_ERROR(clSetKernelArg(rt_kernel_, 4, sizeof(cl_mem), &output_));
+	//CHECK_ERROR(clSetKernelArg(rt_kernel_, 5, sizeof(cl_int) * local_work_size[0] * local_work_size[1] * 64 , nullptr));
     
     cl_int status = clEnqueueNDRangeKernel(command_queue_, rt_kernel_, 2, nullptr, global_work_size, local_work_size, 0, nullptr, &kernel_execution_event);
     CHECK_ERROR(status);

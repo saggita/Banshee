@@ -65,9 +65,9 @@ public:
 	{
 		done_ = false;
 		int num_threads = std::thread::hardware_concurrency();
-		num_threads = num_threads == 0 ? 1 : num_threads-1;
+		num_threads = std::min(std::max(1, num_threads), 4);
 		
-		std::cout << num_threads << " hardware threads available\n";
+		std::cout << num_threads + 1 << " hardware threads will be used\n";
 		
 		for (int i=0; i < num_threads; ++i)
 		{

@@ -21,6 +21,8 @@
 
 #define MULTITHREADED
 
+ 
+
 GLuint simple_rt_render::output_texture() const
 {
     return gl_tex_;

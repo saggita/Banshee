@@ -34,10 +34,15 @@ public:
     
     void    set_near_z(float nz);
     void    set_pixel_size(float pixel_size);
+	void	set_film_resolution(ui_size res);
+
     float   near_z() const;
     float   pixel_size() const;
+	ui_size film_resolution() const;
 
-    
+	matrix4x4 view_matrix() const;
+	matrix4x4 proj_matrix() const;
+
 protected:
 	void rotate_camera(vector3 const& v, float angle);
     void lookat(vector3 const& eye, vector3 const& at, vector3 const& up);
@@ -50,6 +55,7 @@ private:
 	float tilt_;
     float near_z_;
     float pixel_size_;
+	ui_size film_resolution_;
 };
 
 

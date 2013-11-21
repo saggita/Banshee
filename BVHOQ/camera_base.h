@@ -22,6 +22,7 @@ public:
     virtual vector3 up() const = 0;
     virtual float   near_z() const = 0;
     virtual float   pixel_size() const = 0;
+	virtual ui_size film_resolution() const = 0;
     
 private:
     camera_base& operator =(camera_base const&);

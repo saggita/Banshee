@@ -7,6 +7,7 @@
 #include <iosfwd>
 
 #include "common_types.h"
+#include "bbox.h"
 
 class mesh
 {
@@ -28,6 +29,7 @@ public:
 	uint get_vertex_count() const;
 	uint get_index_count() const;
 	uint get_vertex_size_in_bytes() const;
+	bbox bounds() const;
 
 private:
 	void load_from_file(std::string const& file_name);
@@ -37,6 +39,8 @@ private:
 
 	std::vector<vertex> interleaved_data_;
 	std::vector<unsigned> interleaved_indices_;
+	
+	bbox bbox_;
 };
 
 #endif 

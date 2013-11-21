@@ -23,6 +23,12 @@ massive_scene::massive_scene(std::shared_ptr<mesh> mesh_ptr)
 				{
 					indices_.push_back(mesh_ptr->get_index_array_pointer()[idx] + base_idx);
 				}
+
+				bbox b = mesh_ptr->bounds();
+				b.min() += offset;
+				b.max() += offset;
+
+				bboxes_.push_back(b);
 			}
 }
 
@@ -39,6 +45,11 @@ std::vector<vector3> const& massive_scene::vertices() const
 std::vector<unsigned int> const& massive_scene::indices() const
 {
 	return indices_;
+}
+
+std::vector<bbox> const& massive_scene::bounds() const
+{
+	return bboxes_;
 }
 
 std::shared_ptr<massive_scene> massive_scene::create_from_obj(std::string const& file_name)

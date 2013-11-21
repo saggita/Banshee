@@ -51,9 +51,6 @@
     <ClInclude Include="shader_manager.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="simple_camera.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="simple_rt_render.h">
       <Filter>Source Files</Filter>
     </ClInclude>
@@ -67,6 +64,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="thread_pool.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="massive_scene.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -92,9 +92,6 @@
     <ClCompile Include="shader_manager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="simple_camera.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="simple_rt_render.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -104,10 +101,15 @@
     <ClCompile Include="utils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="massive_scene.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="depthmap.cl" />
     <None Include="simple.fsh" />
     <None Include="simple.vsh" />
+    <None Include="scene.vsh" />
+    <None Include="scene.fsh" />
   </ItemGroup>
 </Project>

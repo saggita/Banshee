@@ -86,6 +86,7 @@
     <ClInclude Include="bvh_accel.h" />
     <ClInclude Include="camera_base.h" />
     <ClInclude Include="common_types.h" />
+    <ClInclude Include="massive_scene.h" />
     <ClInclude Include="matrix.h" />
     <ClInclude Include="mesh.h" />
     <ClInclude Include="opencl_render.h" />
@@ -94,7 +95,6 @@
     <ClInclude Include="render_base.h" />
     <ClInclude Include="scene_base.h" />
     <ClInclude Include="shader_manager.h" />
-    <ClInclude Include="simple_camera.h" />
     <ClInclude Include="simple_rt_render.h" />
     <ClInclude Include="simple_scene.h" />
     <ClInclude Include="thread_pool.h" />
@@ -105,17 +105,19 @@
     <ClCompile Include="bbox.cpp" />
     <ClCompile Include="bvh_accel.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="massive_scene.cpp" />
     <ClCompile Include="mesh.cpp" />
     <ClCompile Include="opencl_render.cpp" />
     <ClCompile Include="quaternion_camera.cpp" />
     <ClCompile Include="shader_manager.cpp" />
-    <ClCompile Include="simple_camera.cpp" />
     <ClCompile Include="simple_rt_render.cpp" />
     <ClCompile Include="simple_scene.cpp" />
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="depthmap.cl" />
+    <None Include="scene.fsh" />
+    <None Include="scene.vsh" />
     <None Include="simple.fsh" />
     <None Include="simple.vsh" />
   </ItemGroup>

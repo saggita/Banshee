@@ -56,6 +56,8 @@ void mesh::load_from_file(std::string const& file_name)
 
     unsigned int base_idx = 0;
     
+	bbox_ = bbox(vector3(scene->mMeshes[0]->mVertices[0].x, scene->mMeshes[0]->mVertices[0].y, scene->mMeshes[0]->mVertices[0].z));
+
     for (int m = 0; m < scene->mNumMeshes; ++m)
     {
         const aiMesh* mesh = scene->mMeshes[0];
@@ -88,6 +90,7 @@ void mesh::load_from_file(std::string const& file_name)
             }
         
             interleaved_data_.push_back(v);
+			bbox_ = bbox_union(bbox_, v.position);
         }
         
         base_idx = (unsigned int)interleaved_data_.size();
@@ -95,7 +98,7 @@ void mesh::load_from_file(std::string const& file_name)
 
 	std::cout << "Scene " << file_name << " loaded.\n";
 	std::cout << interleaved_indices_.size()/3 << " triangles " << 
-		interleaved_data_.size() <<" vertices\n";
+	interleaved_data_.size() <<" vertices\n";
 }
 
 shared_ptr<mesh>  mesh::create_from_file(string const& file_name)
@@ -132,6 +135,11 @@ uint mesh::get_index_count() const
 uint mesh::get_vertex_size_in_bytes() const
 {
 	return sizeof(vertex);
+}
+
+bbox mesh::bounds() const
+{
+	return bbox_;
 }
 
 

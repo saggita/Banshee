@@ -50,6 +50,16 @@ float   quaternion_camera::pixel_size() const
     return pixel_size_;
 }
 
+void	quaternion_camera::set_film_resolution(ui_size res)
+{
+	film_resolution_ = res;
+}
+
+ui_size quaternion_camera::film_resolution() const
+{
+	return film_resolution_;
+}
+
 vector3 quaternion_camera::direction() const
 {
 	matrix4x4 cameraMatrix = q_.to_matrix();
@@ -111,5 +121,22 @@ void quaternion_camera::tilt(float angle)
 void quaternion_camera::move_forward(float distance)
 {
 	p_ += distance * direction();
+}
+
+matrix4x4 quaternion_camera::view_matrix() const
+{
+	matrix4x4 cameraMatrix = q_.to_matrix();
+    vector3 u = vector3(cameraMatrix(1,0), cameraMatrix(1,1), cameraMatrix(1,2));
+    vector3 v = vector3(cameraMatrix(2,0), cameraMatrix(2,1), cameraMatrix(2,2));
+
+    return lookat_matrix_lh_dx(p_, p_ + v, u);
+}
+
+matrix4x4 quaternion_camera::proj_matrix() const
+{
+	float width = film_resolution_.w * pixel_size_;
+	float height = film_resolution_.h * pixel_size_;
+
+	return perspective_proj_matrix_lh_dx(-width/2, width/2, -height/2, height/2, near_z_, 1000.f);
 }
 

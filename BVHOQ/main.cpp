@@ -25,12 +25,12 @@
 #include "shader_manager.h"
 #include "simple_rt_render.h"
 #include "opencl_render.h"
-#include "simple_camera.h"
 #include "quaternion_camera.h"
 #include "simple_scene.h"
 #include "massive_scene.h"
 #include "bvh_accel.h"
 #include "mesh.h"
+#include "utils.h"
 
 
 std::unique_ptr<shader_manager> g_shader_manager;
@@ -47,6 +47,10 @@ static vector2 mouse_delta = vector2(0,0);
 GLuint g_vertex_buffer_id;
 GLuint g_index_buffer_id; 
 
+GLuint g_scene_vb_id;
+GLuint g_scene_ib_id; 
+GLuint g_scene_index_count;
+
 #define WINDOW_WIDTH  800
 #define WINDOW_HEIGHT 600
 #define CAMERA_POSITION vector3(0,0,0)
@@ -59,33 +63,70 @@ void display()
 {
 	try
 	{
-		glClear(GL_COLOR_BUFFER_BIT);
+#ifdef OUTPUT_RAYTRACED
 
-		glBindBuffer(GL_ARRAY_BUFFER, g_vertex_buffer_id);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_index_buffer_id);
+#else
+		{
+			glEnable(GL_DEPTH_TEST);
+			glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
-		GLuint program = g_shader_manager->get_shader_program("simple");
-		GLuint texture_loc = glGetUniformLocation(program, "g_Texture");
-		assert(texture_loc >= 0);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		glUniform1i(texture_loc, 0);
+			glBindBuffer(GL_ARRAY_BUFFER, g_scene_vb_id);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_scene_ib_id);
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, g_render->output_texture());
+			GLuint program = g_shader_manager->get_shader_program("scene");
+			glUseProgram(program);
 
-		GLuint positionAttribId = glGetAttribLocation(program, "inPosition");
-		GLuint texcoordAttribId = glGetAttribLocation(program, "inTexcoord");
+			GLuint positionAttribId = glGetAttribLocation(program, "inPosition");
 
-		glVertexAttribPointer(positionAttribId, 3, GL_FLOAT, GL_FALSE, sizeof(float)*5, 0);
-		glVertexAttribPointer(texcoordAttribId, 2, GL_FLOAT, GL_FALSE, sizeof(float)*5, (void*)(sizeof(float) * 3));
+			glVertexAttribPointer(positionAttribId, 3, GL_FLOAT, GL_FALSE, sizeof(float)*3, 0);
+			glEnableVertexAttribArray(positionAttribId);
 
-		/// Move away this state changes later
-		glEnableVertexAttribArray(positionAttribId);
-		glEnableVertexAttribArray(texcoordAttribId);
+			//matrix4x4 projMatrix = perspective_proj_fovy_matrix_lh_gl(M_PI_4, (float)WINDOW_WIDTH / WINDOW_HEIGHT, 0.1, 100.0);
+			matrix4x4 worldViewProj = g_camera->proj_matrix() * g_camera->view_matrix();
 
-		glUseProgram(program);
+			glUniformMatrix4fv(glGetUniformLocation(program, "g_mWorldViewProj"), 1, false, &(worldViewProj(0,0)));
 
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, nullptr);
+			glDrawElements(GL_TRIANGLES, g_scene_index_count, GL_UNSIGNED_INT, nullptr);
+			glDisable(GL_DEPTH_TEST);
+		}
+		{
+			glViewport(10, 10, 160, 120);
+
+			glBindBuffer(GL_ARRAY_BUFFER, g_vertex_buffer_id);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_index_buffer_id);
+
+			GLuint program = g_shader_manager->get_shader_program("simple");
+			glUseProgram(program);
+
+			GLuint texture_loc = glGetUniformLocation(program, "g_Texture");
+			assert(texture_loc >= 0);
+
+			glUniform1i(texture_loc, 0);
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, g_render->output_texture());
+
+			GLuint positionAttribId = glGetAttribLocation(program, "inPosition");
+			GLuint texcoordAttribId = glGetAttribLocation(program, "inTexcoord");
+
+			glVertexAttribPointer(positionAttribId, 3, GL_FLOAT, GL_FALSE, sizeof(float)*5, 0);
+			glVertexAttribPointer(texcoordAttribId, 2, GL_FLOAT, GL_FALSE, sizeof(float)*5, (void*)(sizeof(float) * 3));
+
+			glEnableVertexAttribArray(positionAttribId);
+			glEnableVertexAttribArray(texcoordAttribId);
+
+			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, nullptr);
+
+			glDisableVertexAttribArray(texcoordAttribId);
+			glBindTexture(GL_TEXTURE_2D, 0);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+			glUseProgram(0);
+		}
+#endif
+
 
 		glutSwapBuffers();
 	}
@@ -98,36 +139,36 @@ void display()
 
 void update()
 {
-    static auto prev_time = std::chrono::high_resolution_clock::now();
-    auto curr_time = std::chrono::high_resolution_clock::now();
-    auto time_delta = std::chrono::duration_cast<std::chrono::duration<double> >(curr_time - prev_time);
+	static auto prev_time = std::chrono::high_resolution_clock::now();
+	auto curr_time = std::chrono::high_resolution_clock::now();
+	auto time_delta = std::chrono::duration_cast<std::chrono::duration<double> >(curr_time - prev_time);
 
-    
+
 	float cam_rot_y = 0.f;
 	float cam_rot_x = 0.f;
 
-    const float MOUSE_SENSITIVITY = 0.0025f;
-    vector2 delta = mouse_delta * vector2(MOUSE_SENSITIVITY, MOUSE_SENSITIVITY);
-    cam_rot_x = -delta.y();
-    cam_rot_y = -delta.x();
-    
+	const float MOUSE_SENSITIVITY = 0.00125f;
+	vector2 delta = mouse_delta * vector2(MOUSE_SENSITIVITY, MOUSE_SENSITIVITY);
+	cam_rot_x = -delta.y();
+	cam_rot_y = -delta.x();
+
 	if (cam_rot_y != 0.f)
 		g_camera->rotate(cam_rot_y);
-    
+
 	if (cam_rot_x != 0.f)
 		g_camera->tilt(cam_rot_x);
-    
-    const float MOVEMENT_SPEED = 0.01f;
+
+	const float MOVEMENT_SPEED = 0.001f;
 	if (forward_arrow_pressed)
 	{
 		g_camera->move_forward((float)time_delta.count() * MOVEMENT_SPEED);
 	}
-    
+
 	if (back_arrow_pressed)
 	{
 		g_camera->move_forward(-(float)time_delta.count() * MOVEMENT_SPEED);
 	}
-    
+
 	g_render->commit();
 	g_render->render();
 
@@ -182,9 +223,10 @@ void init_data()
 {
 	auto scene = massive_scene::create_from_obj("monkey.objm");
 	g_camera = quaternion_camera::look_at(CAMERA_POSITION, CAMERA_AT, CAMERA_UP);
-    
-    g_camera->set_near_z(CAMERA_NEAR_PLANE);
-    g_camera->set_pixel_size(CAMERA_PIXEL_SIZE);
+
+	g_camera->set_near_z(CAMERA_NEAR_PLANE);
+	g_camera->set_pixel_size(CAMERA_PIXEL_SIZE);
+	g_camera->set_film_resolution(ui_size(WINDOW_WIDTH, WINDOW_HEIGHT));
 
 	cl_platform_id platform;
 	clGetPlatformIDs(1, &platform, nullptr);
@@ -195,6 +237,22 @@ void init_data()
 	g_render->set_camera(g_camera);
 
 	g_render->init(WINDOW_WIDTH, WINDOW_HEIGHT);
+
+	glGenBuffers(1, &g_scene_vb_id);
+	glGenBuffers(1, &g_scene_ib_id);
+
+	// create vertex buffer
+	glBindBuffer(GL_ARRAY_BUFFER, g_scene_vb_id);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_scene_ib_id);
+
+	// fill data
+	glBufferData(GL_ARRAY_BUFFER, scene->vertices().size() * sizeof(vector3), &scene->vertices()[0], GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, scene->indices().size() * sizeof(unsigned), &scene->indices()[0], GL_STATIC_DRAW);
+
+	g_scene_index_count = scene->indices().size();
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 
@@ -202,49 +260,49 @@ void init_data()
 
 void on_mouse_move(int x, int y)
 {
-    mouse_delta = vector2(x,y) - mouse_pos;
-    mouse_pos = vector2(x,y);
+	mouse_delta = vector2(x,y) - mouse_pos;
+	mouse_pos = vector2(x,y);
 }
 
 void on_key(int key, int x, int y)
 {
-    switch (key)
-    {
-        case GLUT_KEY_UP:
-            forward_arrow_pressed = true;
-            break;
-        case GLUT_KEY_DOWN:
-            back_arrow_pressed = true;
-            break;
-        case GLUT_KEY_LEFT:
-            left_arrow_pressed = true;
-            break;
-        case GLUT_KEY_RIGHT:
-            right_arrow_pressed = true;
-        default:
-        break;
-    }
+	switch (key)
+	{
+	case GLUT_KEY_UP:
+		forward_arrow_pressed = true;
+		break;
+	case GLUT_KEY_DOWN:
+		back_arrow_pressed = true;
+		break;
+	case GLUT_KEY_LEFT:
+		left_arrow_pressed = true;
+		break;
+	case GLUT_KEY_RIGHT:
+		right_arrow_pressed = true;
+	default:
+		break;
+	}
 }
 
 
 void on_key_up(int key, int x, int y)
 {
-    switch (key)
-    {
-        case GLUT_KEY_UP:
-            forward_arrow_pressed = false;
-            break;
-        case GLUT_KEY_DOWN:
-            back_arrow_pressed = false;
-            break;
-        case GLUT_KEY_LEFT:
-            left_arrow_pressed = false;
-            break;
-        case GLUT_KEY_RIGHT:
-            right_arrow_pressed = false;
-        default:
-            break;
-    }
+	switch (key)
+	{
+	case GLUT_KEY_UP:
+		forward_arrow_pressed = false;
+		break;
+	case GLUT_KEY_DOWN:
+		back_arrow_pressed = false;
+		break;
+	case GLUT_KEY_LEFT:
+		left_arrow_pressed = false;
+		break;
+	case GLUT_KEY_RIGHT:
+		right_arrow_pressed = false;
+	default:
+		break;
+	}
 }
 
 int main(int argc, const char * argv[])
@@ -252,7 +310,7 @@ int main(int argc, const char * argv[])
 	// GLUT Window Initialization:
 	glutInit (&argc, (char**)argv);
 	glutInitWindowSize (WINDOW_WIDTH, WINDOW_HEIGHT);
-	glutInitDisplayMode (GLUT_RGBA | GLUT_DOUBLE);
+	glutInitDisplayMode (GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
 	glutCreateWindow ("test");
 
 #ifdef WIN32
@@ -274,12 +332,12 @@ int main(int argc, const char * argv[])
 		glutReshapeFunc (reshape);
 
 		glutSpecialFunc(on_key);
-        glutSpecialUpFunc(on_key_up);
-        glutPassiveMotionFunc(on_mouse_move);
+		glutSpecialUpFunc(on_key_up);
+		glutPassiveMotionFunc(on_mouse_move);
 		//glutMotionFunc(on_mouse_move);
-		
+
 		glutIdleFunc (update);
-        
+
 		// Create our popup menu
 		// BuildPopupMenu ();
 		// glutAttachMenu (GLUT_RIGHT_BUTTON);

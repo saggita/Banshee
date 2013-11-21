@@ -155,6 +155,8 @@ void load_file_contents(std::string const& name, std::vector<char>& contents, bo
 
     if (in)
     {
+		contents.clear();
+
         std::streamoff beg = in.tellg();
 
         in.seekg(0, std::ios::end);

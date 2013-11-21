@@ -35,30 +35,30 @@ inline uint	rand_uint() { return (uint)rand(); }
 /// Convert cartesian coordinates to spherical
 inline void	cartesian_to_spherical ( const vector3& cart, real& r, real& phi, real& theta )
 {
-    real temp = atan2(cart.x(), cart.z());
-    r = sqrt(cart.x()*cart.x() + cart.y()*cart.y() + cart.z()*cart.z());
-    phi = (real)((temp >= 0)?temp:(temp + 2*M_PI));
-    theta = acos(cart.y()/r);
+	real temp = atan2(cart.x(), cart.z());
+	r = sqrt(cart.x()*cart.x() + cart.y()*cart.y() + cart.z()*cart.z());
+	phi = (real)((temp >= 0)?temp:(temp + 2*M_PI));
+	theta = acos(cart.y()/r);
 }
 
 /// Convert cartesian coordinates to spherical
 inline void	cartesian_to_spherical ( const vector3& cart, vector3& sph ) 
 {
-    cartesian_to_spherical(cart, sph.x(), sph.y(), sph.z());
+	cartesian_to_spherical(cart, sph.x(), sph.y(), sph.z());
 }
 
 /// Convert spherical coordinates to cartesian 
 inline void	spherical_to_cartesian ( const real& r, const real& phi, const real& theta, vector3& cart )
 {
-    cart.y() = r * cos(theta);
-    cart.z() = r * sin(theta) * cos(phi);
-    cart.x() = r * sin(theta) * sin(phi);
+	cart.y() = r * cos(theta);
+	cart.z() = r * sin(theta) * cos(phi);
+	cart.x() = r * sin(theta) * sin(phi);
 }
 
 /// Convert spherical coordinates to cartesian 
 inline void	spherical_to_cartesian ( const vector3& sph, vector3& cart )
 {
-    spherical_to_cartesian(sph.x(), sph.y(), sph.z(), cart); 
+	spherical_to_cartesian(sph.x(), sph.y(), sph.z(), cart); 
 }
 
 /// Solve quadratic equation

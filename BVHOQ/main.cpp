@@ -34,7 +34,8 @@
 
 
 std::unique_ptr<shader_manager> g_shader_manager;
-std::unique_ptr<render_base> g_render;
+std::unique_ptr<opencl_render> g_render;
+std::shared_ptr<scene_base> g_scene;
 std::shared_ptr<quaternion_camera> g_camera;
 
 static bool left_arrow_pressed = false;
@@ -83,7 +84,6 @@ void display()
 			glVertexAttribPointer(positionAttribId, 3, GL_FLOAT, GL_FALSE, sizeof(float)*3, 0);
 			glEnableVertexAttribArray(positionAttribId);
 
-			//matrix4x4 projMatrix = perspective_proj_fovy_matrix_lh_gl(M_PI_4, (float)WINDOW_WIDTH / WINDOW_HEIGHT, 0.1, 100.0);
 			matrix4x4 worldViewProj = g_camera->proj_matrix() * g_camera->view_matrix();
 
 			glUniformMatrix4fv(glGetUniformLocation(program, "g_mWorldViewProj"), 1, false, &(worldViewProj(0,0)));
@@ -91,6 +91,7 @@ void display()
 			glDrawElements(GL_TRIANGLES, g_scene_index_count, GL_UNSIGNED_INT, nullptr);
 			glDisable(GL_DEPTH_TEST);
 		}
+
 		{
 			glViewport(10, 10, 160, 120);
 
@@ -172,6 +173,9 @@ void update()
 	g_render->commit();
 	g_render->render();
 
+	matrix4x4 worldViewProj = g_camera->proj_matrix() * g_camera->view_matrix();
+	g_render->cull(worldViewProj, g_scene->bounds());
+
 	glutPostRedisplay();
 }
 
@@ -221,7 +225,7 @@ void init_graphics()
 
 void init_data()
 {
-	auto scene = massive_scene::create_from_obj("monkey.objm");
+	g_scene = massive_scene::create_from_obj("monkey.objm");
 	g_camera = quaternion_camera::look_at(CAMERA_POSITION, CAMERA_AT, CAMERA_UP);
 
 	g_camera->set_near_z(CAMERA_NEAR_PLANE);
@@ -233,7 +237,7 @@ void init_data()
 
 	g_render.reset(new opencl_render(platform));
 	//g_render.reset(new simple_rt_render());
-	g_render->set_scene(scene);
+	g_render->set_scene(g_scene);
 	g_render->set_camera(g_camera);
 
 	g_render->init(WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -246,16 +250,14 @@ void init_data()
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_scene_ib_id);
 
 	// fill data
-	glBufferData(GL_ARRAY_BUFFER, scene->vertices().size() * sizeof(vector3), &scene->vertices()[0], GL_STATIC_DRAW);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, scene->indices().size() * sizeof(unsigned), &scene->indices()[0], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, g_scene->vertices().size() * sizeof(vector3), &g_scene->vertices()[0], GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, g_scene->indices().size() * sizeof(unsigned), &g_scene->indices()[0], GL_STATIC_DRAW);
 
-	g_scene_index_count = scene->indices().size();
+	g_scene_index_count = g_scene->indices().size();
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
-
-
 
 
 void on_mouse_move(int x, int y)
@@ -283,7 +285,6 @@ void on_key(int key, int x, int y)
 		break;
 	}
 }
-
 
 void on_key_up(int key, int x, int y)
 {

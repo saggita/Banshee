@@ -1,10 +1,10 @@
 #include "massive_scene.h"
 
-    
+	
 massive_scene::massive_scene(std::shared_ptr<mesh> mesh_ptr)
 {
 	mesh::vertex const* vertex_data = mesh_ptr->get_vertex_array_pointer();
-    unsigned const* index_data = mesh_ptr->get_index_array_pointer();
+	unsigned const* index_data = mesh_ptr->get_index_array_pointer();
 
 	for (int i=-5; i < 5; i+=1)
 		for (int j=-5; j < 5; j+=1)
@@ -55,7 +55,7 @@ std::vector<bbox> const& massive_scene::bounds() const
 std::shared_ptr<massive_scene> massive_scene::create_from_obj(std::string const& file_name)
 {
 	auto mesh = mesh::create_from_file(file_name);
-    
-    return std::make_shared<massive_scene>(mesh);
+	
+	return std::make_shared<massive_scene>(mesh);
 }
 

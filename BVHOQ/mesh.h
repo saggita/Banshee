@@ -12,7 +12,7 @@
 class mesh
 {
 public:
-    mesh();
+	mesh();
 	~mesh();
 
 	struct vertex

@@ -19,18 +19,18 @@
 class shader_manager
 {
 public:
-    shader_manager();
-    ~shader_manager();
-    
-    GLuint get_shader_program(std::string const& prog_name);
-    
+	shader_manager();
+	~shader_manager();
+	
+	GLuint get_shader_program(std::string const& prog_name);
+	
 private:
-    GLuint compile_program(std::string const& prog_name);
-    
-    shader_manager(shader_manager const&);
-    shader_manager& operator = (shader_manager const&);
-    
-    std::map<std::string, GLuint> shader_cache_;
+	GLuint compile_program(std::string const& prog_name);
+	
+	shader_manager(shader_manager const&);
+	shader_manager& operator = (shader_manager const&);
+	
+	std::map<std::string, GLuint> shader_cache_;
 };
 
 

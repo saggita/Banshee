@@ -23,23 +23,23 @@
 class simple_rt_render : public render_base
 {
 public:
-    simple_rt_render(){}
-    ~simple_rt_render(){}
-    
-    void init(unsigned width, unsigned height);
-    void commit(){}
-    void render();
-    
-    GLuint output_texture() const;
-    
+	simple_rt_render(){}
+	~simple_rt_render(){}
+	
+	void init(unsigned width, unsigned height);
+	void commit(){}
+	void render();
+	
+	GLuint output_texture() const;
+	
 private:
-    unsigned width_;
-    unsigned height_;
-    
-    std::shared_ptr<bvh_accel> accel_;
-    
-    std::vector<float> data_;
-    unsigned gl_tex_;
+	unsigned width_;
+	unsigned height_;
+	
+	std::shared_ptr<bvh_accel> accel_;
+	
+	std::vector<float> data_;
+	unsigned gl_tex_;
 };
 
 #endif

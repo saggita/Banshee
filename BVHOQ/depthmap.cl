@@ -1,3 +1,6 @@
+/// Extensions
+#pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
+
 /// Type definitions
 typedef struct _bbox
 {
@@ -35,6 +38,14 @@ typedef struct _ray
     float3 o;
     float3 d;
 } ray;
+
+typedef  struct {
+    uint  count;
+    uint  instanceCount;
+    uint  firstIndex;
+    uint  baseVertex;
+    uint  baseInstance;
+} DrawElementsIndirectCommand;
 
 /// Macro definitions
 #define NULL 0
@@ -397,4 +408,74 @@ __kernel void k(__global bvh_node* bvh,
         
         write_imagef(output, global_id, res);
     }
+}
+
+float3 make_float3(float x, float y, float z)
+{
+	float3 res;
+	res.x = x;
+	res.y = y;
+	res.z = z;
+	return res;
+}
+
+float3 transform_point(float16 mvp, float3 p)
+{
+	float3 res;
+	float invw = 1.0 / (mvp.sc * p.x + mvp.sd * p.y + mvp.se * p.z + mvp.sf);
+	res.x = invw * (mvp.s0 * p.x + mvp.s1 * p.y + mvp.s2 * p.z + mvp.s3);
+	res.y = invw * (mvp.s4 * p.x + mvp.s5 * p.y + mvp.s6 * p.z + mvp.s7);
+	res.z = invw * (mvp.s8 * p.x + mvp.s9 * p.y + mvp.sa * p.z + mvp.sb);
+	return res;
+}
+
+bool frustum_check(float3 p)
+{
+	return p.x >= -1 && p.x <= 1 && p.y >= -1 && p.y <= 1 &&
+		p.z >= -1 && p.z <= 1;
+}
+
+__kernel void bbox_cull(float16 mvp, uint num_bounds, __global bbox* bounds, __read_only image2d_t depthmap, __global DrawElementsIndirectCommand* commands, __global int* counter)
+{
+	uint global_id = get_global_id(0);
+
+	if (global_id < num_bounds)
+	{
+		float3 pmin = bounds[global_id].pmin;
+		float3 pmax = bounds[global_id].pmax;
+
+		float3 p0 = make_float3(pmin.x, pmin.y, pmax.z);
+		float3 p1 = make_float3(pmin.x, pmax.y, pmax.z);
+
+		float3 p2 = make_float3(pmax.x, pmin.y, pmax.z);
+		float3 p3 = make_float3(pmin.x, pmax.y, pmin.z);
+
+		float3 p4 = make_float3(pmax.x, pmin.y, pmin.z);
+		float3 p5 = make_float3(pmax.x, pmax.y, pmin.z);
+
+		pmin = transform_point(mvp, pmin);
+		pmax = transform_point(mvp, pmax);
+
+		p0 = transform_point(mvp, p0);
+		p1 = transform_point(mvp, p1);
+		p2 = transform_point(mvp, p2);
+		p3 = transform_point(mvp, p3);
+		p4 = transform_point(mvp, p4);
+		p5 = transform_point(mvp, p5);
+
+		bool inside = frustum_check(pmin) || frustum_check(pmax) || frustum_check(p0)
+					|| frustum_check(p1) || frustum_check(p2) || frustum_check(p3) 
+					|| frustum_check(p4) || frustum_check(p5);
+
+		if (inside)
+		{
+			int idx = atom_inc(counter);
+			__global DrawElementsIndirectCommand* cmd = commands + idx;
+			cmd->count = 1;//
+			cmd->instanceCount = 1;
+			cmd->firstIndex= 1; //
+			cmd->baseVertex = 0; //
+			cmd->baseInstance = 0;
+		}
+	}
 }

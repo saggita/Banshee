@@ -40,61 +40,61 @@ mesh::~mesh()
 
 void mesh::load_from_file(std::string const& file_name)
 {
-    Importer importer;
-    
+	Importer importer;
+	
 	const aiScene* scene = importer.ReadFile(
-                                             file_name,
-                                             aiProcess_Triangulate            |
-                                             aiProcess_JoinIdenticalVertices  |
-                                             aiProcess_SortByPType
-                                             );
-    
-    if( !scene)
-    {
-        throw runtime_error("Shit happens: check the path to your models");
-    }
+											 file_name,
+											 aiProcess_Triangulate			|
+											 aiProcess_JoinIdenticalVertices  |
+											 aiProcess_SortByPType
+											 );
+	
+	if( !scene)
+	{
+		throw runtime_error("Shit happens: check the path to your models");
+	}
 
-    unsigned int base_idx = 0;
-    
+	unsigned int base_idx = 0;
+	
 	bbox_ = bbox(vector3(scene->mMeshes[0]->mVertices[0].x, scene->mMeshes[0]->mVertices[0].y, scene->mMeshes[0]->mVertices[0].z));
 
-    for (int m = 0; m < scene->mNumMeshes; ++m)
-    {
-        const aiMesh* mesh = scene->mMeshes[0];
-    
-        for (int i = 0; i < mesh->mNumFaces; ++i)
-        {
-            interleaved_indices_.push_back(base_idx + mesh->mFaces[i].mIndices[0]);
-            interleaved_indices_.push_back(base_idx + mesh->mFaces[i].mIndices[1]);
-            interleaved_indices_.push_back(base_idx + mesh->mFaces[i].mIndices[2]);
-        }
-    
-        for (int i = 0; i < mesh->mNumVertices; ++i)
-        {
-            vertex v;
-            v.position.x() = mesh->mVertices[i].x;
-            v.position.y() = mesh->mVertices[i].y;
-            v.position.z() = mesh->mVertices[i].z;
-        
-            if (mesh->HasNormals())
-            {
-                v.normal.x() = mesh->mNormals[i].x;
-                v.normal.y() = mesh->mNormals[i].y;
-                v.normal.z() = mesh->mNormals[i].z;
-            }
-        
-            if (mesh->HasTextureCoords(0))
-            {
-                v.texcoord.x() = mesh->mTextureCoords[0][i].x;
-                v.texcoord.y() = mesh->mTextureCoords[0][i].y;
-            }
-        
-            interleaved_data_.push_back(v);
+	for (int m = 0; m < scene->mNumMeshes; ++m)
+	{
+		const aiMesh* mesh = scene->mMeshes[0];
+	
+		for (int i = 0; i < mesh->mNumFaces; ++i)
+		{
+			interleaved_indices_.push_back(base_idx + mesh->mFaces[i].mIndices[0]);
+			interleaved_indices_.push_back(base_idx + mesh->mFaces[i].mIndices[1]);
+			interleaved_indices_.push_back(base_idx + mesh->mFaces[i].mIndices[2]);
+		}
+	
+		for (int i = 0; i < mesh->mNumVertices; ++i)
+		{
+			vertex v;
+			v.position.x() = mesh->mVertices[i].x;
+			v.position.y() = mesh->mVertices[i].y;
+			v.position.z() = mesh->mVertices[i].z;
+		
+			if (mesh->HasNormals())
+			{
+				v.normal.x() = mesh->mNormals[i].x;
+				v.normal.y() = mesh->mNormals[i].y;
+				v.normal.z() = mesh->mNormals[i].z;
+			}
+		
+			if (mesh->HasTextureCoords(0))
+			{
+				v.texcoord.x() = mesh->mTextureCoords[0][i].x;
+				v.texcoord.y() = mesh->mTextureCoords[0][i].y;
+			}
+		
+			interleaved_data_.push_back(v);
 			bbox_ = bbox_union(bbox_, v.position);
-        }
-        
-        base_idx = (unsigned int)interleaved_data_.size();
-    }
+		}
+		
+		base_idx = (unsigned int)interleaved_data_.size();
+	}
 
 	std::cout << "Scene " << file_name << " loaded.\n";
 	std::cout << interleaved_indices_.size()/3 << " triangles " << 
@@ -103,9 +103,9 @@ void mesh::load_from_file(std::string const& file_name)
 
 shared_ptr<mesh>  mesh::create_from_file(string const& file_name)
 {
-    shared_ptr<mesh> res = make_shared<mesh>();
-    res->load_from_file(file_name);
-    return res;
+	shared_ptr<mesh> res = make_shared<mesh>();
+	res->load_from_file(file_name);
+	return res;
 }
 
 mesh::vertex const* mesh::get_vertex_array_pointer() const

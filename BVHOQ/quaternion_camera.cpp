@@ -11,9 +11,9 @@
 
 std::shared_ptr<quaternion_camera> quaternion_camera::look_at(vector3 const& eye, vector3 const& at, vector3 const& up)
 {
-    std::shared_ptr<quaternion_camera> camera = std::make_shared<quaternion_camera>();
-    camera->lookat(eye, at, up);
-    return camera;
+	std::shared_ptr<quaternion_camera> camera = std::make_shared<quaternion_camera>();
+	camera->lookat(eye, at, up);
+	return camera;
 }
 
 quaternion_camera::quaternion_camera()
@@ -25,29 +25,29 @@ quaternion_camera::~quaternion_camera()
 {
 }
 
-void    quaternion_camera::set_near_z(float nz)
+void	quaternion_camera::set_near_z(float nz)
 {
-    near_z_ = nz;
+	near_z_ = nz;
 }
 
-void    quaternion_camera::set_pixel_size(float pixel_size)
+void	quaternion_camera::set_pixel_size(float pixel_size)
 {
-    pixel_size_ = pixel_size;
+	pixel_size_ = pixel_size;
 }
 
 vector3 quaternion_camera::position() const
 {
-    return p_;
+	return p_;
 }
 
 float   quaternion_camera::near_z() const
 {
-    return near_z_;
+	return near_z_;
 }
 
 float   quaternion_camera::pixel_size() const
 {
-    return pixel_size_;
+	return pixel_size_;
 }
 
 void	quaternion_camera::set_film_resolution(ui_size res)
@@ -83,18 +83,18 @@ void quaternion_camera::lookat(vector3 const& eye, vector3 const& at, vector3 co
 	vector3 v = normalize(at - eye);
 	vector3 r = normalize(cross(normalize(up), v));
 	vector3 u = normalize(cross(v, r));
-    
+	
 	/// matrix should have basis vectors in rows
 	/// to be used for quaternion construction
 	/// would be good to add several options
 	/// to quaternion class
 	matrix4x4 cameraMatrix = matrix4x4(r.x(), u.x() , v.x() , 0,
-                                       r.y(), u.y(), v.y(), 0,
-                                       r.z(), u.z(), v.z(), 0,
-                                       0, 0, 0, 1);
-    
+									   r.y(), u.y(), v.y(), 0,
+									   r.z(), u.z(), v.z(), 0,
+									   0, 0, 0, 1);
+	
 	q_ = normalize(quat(cameraMatrix));
-    
+	
 	p_ = eye;
 }
 
@@ -114,7 +114,7 @@ void quaternion_camera::tilt(float angle)
 	{
 		rotate_camera(right(), angle);
 	}
-    
+	
 	tilt_ = std::max(std::min(tilt_ + angle, static_cast<real>(M_PI_2)), -static_cast<real>(M_PI_2));
 }
 
@@ -126,10 +126,10 @@ void quaternion_camera::move_forward(float distance)
 matrix4x4 quaternion_camera::view_matrix() const
 {
 	matrix4x4 cameraMatrix = q_.to_matrix();
-    vector3 u = vector3(cameraMatrix(1,0), cameraMatrix(1,1), cameraMatrix(1,2));
-    vector3 v = vector3(cameraMatrix(2,0), cameraMatrix(2,1), cameraMatrix(2,2));
+	vector3 u = vector3(cameraMatrix(1,0), cameraMatrix(1,1), cameraMatrix(1,2));
+	vector3 v = vector3(cameraMatrix(2,0), cameraMatrix(2,1), cameraMatrix(2,2));
 
-    return lookat_matrix_lh_dx(p_, p_ + v, u);
+	return lookat_matrix_lh_dx(p_, p_ + v, u);
 }
 
 matrix4x4 quaternion_camera::proj_matrix() const
@@ -137,6 +137,6 @@ matrix4x4 quaternion_camera::proj_matrix() const
 	float width = film_resolution_.w * pixel_size_;
 	float height = film_resolution_.h * pixel_size_;
 
-	return perspective_proj_matrix_lh_dx(-width/2, width/2, -height/2, height/2, near_z_, 1000.f);
+	return perspective_proj_matrix_lh_gl(-width/2, width/2, -height/2, height/2, near_z_, 1000.f);
 }
 

@@ -11,16 +11,18 @@
 
 #include <vector>
 #include "common_types.h"
+#include "bbox.h"
 
 class scene_base
 {
 public:
-    virtual ~scene_base() = 0;
-    virtual std::vector<vector3> const& vertices() const = 0;
-    virtual std::vector<unsigned int> const& indices() const = 0;
-    
+	virtual ~scene_base() = 0;
+	virtual std::vector<vector3> const& vertices() const = 0;
+	virtual std::vector<unsigned int> const& indices() const = 0;
+	virtual std::vector<bbox> const& bounds() const = 0;
+	
 private:
-    scene_base& operator= (scene_base const&);
+	scene_base& operator= (scene_base const&);
 };
 
 inline scene_base::~scene_base(){}

@@ -20,18 +20,20 @@
 class simple_scene : public scene_base
 {
 public:
-    static std::shared_ptr<simple_scene> create_from_obj(std::string const& file_name);
-    
-    simple_scene(std::shared_ptr<mesh> mesh_ptr);
-    ~simple_scene();
-    
-    std::vector<vector3> const& vertices() const;
-    std::vector<unsigned int> const& indices() const;
-    
-    
+	static std::shared_ptr<simple_scene> create_from_obj(std::string const& file_name);
+	
+	simple_scene(std::shared_ptr<mesh> mesh_ptr);
+	~simple_scene();
+	
+	std::vector<vector3> const& vertices() const;
+	std::vector<unsigned int> const& indices() const;
+	std::vector<bbox> const& bounds() const;
+	
+	
 private:
-    std::vector<vector3> vertices_;
-    std::vector<unsigned int> indices_;
+	std::vector<vector3> vertices_;
+	std::vector<unsigned int> indices_;
+	std::vector<bbox> bounds_;
 };
 
 

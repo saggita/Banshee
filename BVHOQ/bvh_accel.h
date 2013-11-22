@@ -21,7 +21,7 @@ class bvh_accel
 public:
 	static std::shared_ptr<bvh_accel> create_from_scene(scene_base const& scene);
 	
-	bvh_accel(std::vector<vector3> const& vertices, std::vector<unsigned> const& indices, unsigned max_node_prims);
+	template <typename T> bvh_accel(std::vector<T> const& vertices, std::vector<unsigned> const& indices, unsigned max_node_prims);
 	~bvh_accel();
 	
 	struct node

@@ -17,7 +17,9 @@ massive_scene::massive_scene(std::shared_ptr<mesh> mesh_ptr)
 
 				for (int v = 0; v < mesh_ptr->get_vertex_count(); ++v)
 				{
-					vertices_.push_back(vertex_data[v].position + offset);
+					mesh::vertex vtx = vertex_data[v];
+					vtx.position += offset;
+					vertices_.push_back(vtx);
 				}
 
 				for (int idx = 0; idx < mesh_ptr->get_index_count(); ++idx)
@@ -39,7 +41,7 @@ massive_scene::~massive_scene()
 
 }
 
-std::vector<vector3> const& massive_scene::vertices() const
+std::vector<mesh::vertex> const& massive_scene::vertices() const
 {
 	return	vertices_;
 }

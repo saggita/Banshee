@@ -26,12 +26,12 @@ public:
 	massive_scene(std::shared_ptr<mesh> mesh_ptr);
 	~massive_scene();
 	
-	std::vector<vector3> const& vertices() const;
+	std::vector<mesh::vertex> const& vertices() const;
 	std::vector<unsigned int> const& indices() const;
 	std::vector<mesh_desc> const& meshes() const;
 	
 private:
-	std::vector<vector3> vertices_;
+	std::vector<mesh::vertex> vertices_;
 	std::vector<unsigned int> indices_;
 	std::vector<mesh_desc> meshes_;
 };

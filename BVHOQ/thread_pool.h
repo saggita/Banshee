@@ -47,8 +47,6 @@ public:
 		return true;
 	}
 
-	
-
 private:
 	std::mutex mutex_;
 	std::condition_variable cv_;
@@ -61,7 +59,7 @@ template <typename RetType> class thread_pool
 {
 public:
 
-	thread_pool() 
+	thread_pool()
 	{
 		done_ = false;
 		int num_threads = std::thread::hardware_concurrency();

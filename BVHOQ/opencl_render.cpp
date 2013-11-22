@@ -227,8 +227,7 @@ void opencl_render::init(unsigned width, unsigned height)
 #else
 		output_size_.s[0], output_size_.s[1],
 #endif
-				 0, GL_RGBA, GL_FLOAT, nullptr);
-
+		0, GL_RGBA, GL_FLOAT, nullptr);
 
 	output_ = clCreateFromGLTexture(context_, CL_MEM_READ_WRITE, GL_TEXTURE_2D, 0, gl_tex_, &status);
 	CHECK_ERROR(status);
@@ -241,7 +240,6 @@ void opencl_render::init(unsigned width, unsigned height)
 	glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(draw_command) * MAX_BOUNDS, nullptr, GL_STATIC_READ);
 	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
 
-	//cull_result_ = clCreateBuffer(context_, CL_MEM_WRITE_ONLY, sizeof(draw_command) * MAX_BOUNDS, nullptr, &status);
 	cull_result_ = clCreateFromGLBuffer(context_, CL_MEM_WRITE_ONLY, gl_buffer_, &status);
 	CHECK_ERROR(status);
 }

@@ -111,10 +111,16 @@ std::shared_ptr<bvh_accel> bvh_accel::create_from_scene(scene_base const& scene)
 	return std::make_shared<bvh_accel>(scene.vertices(), scene.indices(), 5);
 }
 
-bvh_accel::bvh_accel(std::vector<vector3> const& vertices, std::vector<unsigned> const& indices, unsigned max_node_prims)
-	: vertices_(vertices)
-	, max_node_prims_(max_node_prims)
+template <typename T> bvh_accel::bvh_accel(std::vector<T> const& vertices, std::vector<unsigned> const& indices, unsigned max_node_prims)
+	: max_node_prims_(max_node_prims)
 {
+	vertices_.resize(vertices.size());
+	std::transform(vertices.begin(), vertices.end(), vertices_.begin(), 
+		[](T const& v)
+	{
+		return v.position;
+	});
+
 	/// build primitives list
 	primitives_.resize(indices.size()/3);
 	build_info_.resize(indices.size()/3);

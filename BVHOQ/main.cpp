@@ -20,6 +20,7 @@
 #include <cassert>
 #include <vector>
 #include <stdexcept>
+#include <sstream>
 
 #include "common_types.h"
 #include "shader_manager.h"
@@ -60,6 +61,25 @@ GLuint g_scene_index_count;
 #define CAMERA_NEAR_PLANE 0.1f
 #define CAMERA_PIXEL_SIZE 0.00025f
 
+
+struct PointLightData
+{
+	vector4 pos;
+	vector4 color;
+};
+
+struct SpotLightData
+{
+	vector4 pos;
+	vector4 dir;
+	vector4 color;
+	vector4 angle;
+};
+
+std::vector<PointLightData> g_point_lights;
+std::vector<SpotLightData>  g_spot_lights;
+
+
 void display()
 {
 	try
@@ -79,14 +99,67 @@ void display()
 			GLuint program = g_shader_manager->get_shader_program("scene");
 			glUseProgram(program);
 
-			GLuint positionAttribId = glGetAttribLocation(program, "inPosition");
+			glVertexAttribPointer(glGetAttribLocation(program, "inPosition"), 3, GL_FLOAT, GL_FALSE, sizeof(mesh::vertex), 0);
+			glVertexAttribPointer(glGetAttribLocation(program, "inTexcoord"), 2, GL_FLOAT, GL_FALSE, sizeof(mesh::vertex), (void*)(sizeof(float)*3));
+			glVertexAttribPointer(glGetAttribLocation(program, "inNormal"), 3, GL_FLOAT, GL_FALSE, sizeof(mesh::vertex), (void*)(sizeof(float)*5));
 
-			glVertexAttribPointer(positionAttribId, 3, GL_FLOAT, GL_FALSE, sizeof(float)*3, 0);
-			glEnableVertexAttribArray(positionAttribId);
+			glEnableVertexAttribArray(glGetAttribLocation(program, "inPosition"));
+			glEnableVertexAttribArray(glGetAttribLocation(program, "inTexcoord"));
+			glEnableVertexAttribArray(glGetAttribLocation(program, "inNormal"));
 
 			matrix4x4 worldViewProj = g_camera->proj_matrix() * g_camera->view_matrix();
 
 			glUniformMatrix4fv(glGetUniformLocation(program, "g_mWorldViewProj"), 1, false, &(worldViewProj(0,0)));
+
+			// Point lights
+			for (int i = 0; i < g_point_lights.size(); ++i)
+			{
+				std::ostringstream stream;
+				stream << "g_PointLights[" << i << "].vPos";
+
+				GLint location = glGetUniformLocation(program, stream.str().c_str());
+				assert(location != -1);
+				glUniform4fv(location, 1, &g_point_lights[i].pos[0]);
+
+				stream = std::ostringstream();
+				stream << "g_PointLights[" << i << "].vColor";
+
+				location = glGetUniformLocation(program, stream.str().c_str());
+				assert(location != -1);
+				glUniform4fv(location, 1, &g_point_lights[i].color[0]);
+			}
+
+			// Spot lights data
+			for (int i = 0; i < g_spot_lights.size(); ++i)
+			{
+				std::ostringstream stream;
+				stream << "g_SpotLights[" << i << "].vPos";
+
+				GLint location = glGetUniformLocation(program, stream.str().c_str());
+				assert(location != -1);
+				glUniform4fv(location, 1, &g_spot_lights[i].pos[0]);
+
+				stream = std::ostringstream();
+				stream << "g_SpotLights[" << i << "].vColor";
+
+				location = glGetUniformLocation(program, stream.str().c_str());
+				assert(location != -1);
+				glUniform4fv(location, 1, &g_spot_lights[i].color[0]);
+
+				stream = std::ostringstream();
+				stream << "g_SpotLights[" << i << "].vDir";
+
+				location = glGetUniformLocation(program, stream.str().c_str());
+				assert(location != -1);
+				glUniform4fv(location, 1, &g_spot_lights[i].dir[0]);
+
+				stream = std::ostringstream();
+				stream << "g_SpotLights[" << i << "].vAngle";
+
+				location = glGetUniformLocation(program, stream.str().c_str());
+				assert(location != -1);
+				glUniform4fv(location, 1, &g_spot_lights[i].angle[0]);
+			}
 
 			unsigned num_objects = g_render->draw_command_count();
 			GLuint draw_buffer = g_render->draw_command_buffer();
@@ -96,6 +169,9 @@ void display()
 			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
 
 			glDisable(GL_DEPTH_TEST);
+			glDisableVertexAttribArray(glGetAttribLocation(program, "inPosition"));
+			glDisableVertexAttribArray(glGetAttribLocation(program, "inTexcoord"));
+			glDisableVertexAttribArray(glGetAttribLocation(program, "inNormal"));
 		}
 
 		{
@@ -222,6 +298,23 @@ void init_graphics()
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	g_point_lights.resize(4);
+	g_spot_lights.resize(4);
+
+	memset(&g_point_lights[0], 0, sizeof(PointLightData)*4);
+	memset(&g_spot_lights[0], 0, sizeof(SpotLightData)*4);
+
+	g_spot_lights[0].pos = vector4(0,0,-3,1);
+	g_spot_lights[0].dir = vector4(0.5,0.5, 1,1);
+	g_spot_lights[0].color = vector4(0.5,0,0,1);
+	g_spot_lights[0].angle = vector4(0.707, 0.5, 0, 0);
+
+	g_spot_lights[1].pos = vector4(0,0,-3,1);
+	g_spot_lights[1].dir = vector4(-0.5,-0.5, 1,1);
+	g_spot_lights[1].color = vector4(0,0.5,0,1);
+	g_spot_lights[1].angle = vector4(0.707, 0.5, 0, 0);
+
 }
 
 void init_data()
@@ -251,7 +344,7 @@ void init_data()
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_scene_ib_id);
 
 	// fill data
-	glBufferData(GL_ARRAY_BUFFER, g_scene->vertices().size() * sizeof(vector3), &g_scene->vertices()[0], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, g_scene->vertices().size() * sizeof(mesh::vertex), &g_scene->vertices()[0], GL_STATIC_DRAW);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, g_scene->indices().size() * sizeof(unsigned), &g_scene->indices()[0], GL_STATIC_DRAW);
 
 	g_scene_index_count = g_scene->indices().size();

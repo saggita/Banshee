@@ -12,6 +12,7 @@
 #include <vector>
 #include "common_types.h"
 #include "bbox.h"
+#include "mesh.h"
 
 class scene_base
 {
@@ -24,7 +25,7 @@ public:
 	};
 
 	virtual ~scene_base() = 0;
-	virtual std::vector<vector3> const& vertices() const = 0;
+	virtual std::vector<mesh::vertex> const& vertices() const = 0;
 	virtual std::vector<unsigned int> const& indices() const = 0;
 	virtual std::vector<mesh_desc> const& meshes() const = 0;
 	

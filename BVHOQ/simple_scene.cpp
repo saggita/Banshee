@@ -15,7 +15,7 @@ std::shared_ptr<simple_scene> simple_scene::create_from_obj(std::string const& f
 	return std::make_shared<simple_scene>(mesh);
 }
 
-std::vector<vector3> const& simple_scene::vertices() const
+std::vector<mesh::vertex> const& simple_scene::vertices() const
 {
 	return vertices_;
 }
@@ -39,7 +39,7 @@ simple_scene::simple_scene(std::shared_ptr<mesh> mesh_ptr)
 	bbox b = bbox(vertex_data[0].position);
 	for (int i = 0; i < mesh_ptr->get_vertex_count(); ++i)
 	{
-		vertices_[i] = vertex_data[i].position;
+		vertices_[i] = vertex_data[i];
 		b = bbox_union(b, vertex_data[i].position);
 	}
 	std::copy(index_data, index_data + mesh_ptr->get_index_count(), indices_.begin());

@@ -52,7 +52,7 @@ void simple_rt_render::init(unsigned width, unsigned height)
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void simple_rt_render::render()
+void simple_rt_render::render_and_cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc> const& meshes)
 {
 #ifdef MULTITHREADED
 	static thread_pool<float> pool;

@@ -44,10 +44,11 @@ simple_scene::simple_scene(std::shared_ptr<mesh> mesh_ptr)
 	}
 	std::copy(index_data, index_data + mesh_ptr->get_index_count(), indices_.begin());
 
-	bounds_.push_back(b);
+	mesh_desc md = {b, 0, indices_.size()};
+	meshes_.push_back(md);
 }
 
-std::vector<bbox> const& simple_scene::bounds() const
+std::vector<simple_scene::mesh_desc> const& simple_scene::meshes() const
 {
-	return bounds_;
+	return meshes_;
 }

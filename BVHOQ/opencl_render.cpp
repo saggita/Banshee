@@ -206,7 +206,7 @@ void opencl_render::init(unsigned width, unsigned height)
 	bounds_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(box) * MAX_BOUNDS, nullptr, &status);
 	CHECK_ERROR(status);
 
-	cull_result_ = clCreateBuffer(context_, CL_MEM_WRITE_ONLY, sizeof(draw_command) * MAX_BOUNDS, nullptr, &status);
+	offsets_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(offset) * MAX_BOUNDS, nullptr, &status);
 	CHECK_ERROR(status);
 
 	atomic_counter_ =  clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_int), nullptr, &status);
@@ -234,6 +234,16 @@ void opencl_render::init(unsigned width, unsigned height)
 	CHECK_ERROR(status);
 	
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glGenBuffers(1, &gl_buffer_);
+
+	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, gl_buffer_);
+	glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(draw_command) * MAX_BOUNDS, nullptr, GL_STATIC_READ);
+	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+
+	//cull_result_ = clCreateBuffer(context_, CL_MEM_WRITE_ONLY, sizeof(draw_command) * MAX_BOUNDS, nullptr, &status);
+	cull_result_ = clCreateFromGLBuffer(context_, CL_MEM_WRITE_ONLY, gl_buffer_, &status);
+	CHECK_ERROR(status);
 }
 
 void opencl_render::commit()
@@ -279,6 +289,9 @@ void opencl_render::commit()
 opencl_render::~opencl_render()
 {
 	/// TODO: implement RAII for CL objects
+	glDeleteTextures(1, &gl_tex_);
+	glDeleteBuffers(1, &gl_buffer_);
+	clReleaseMemObject(offsets_);
 	clReleaseMemObject(atomic_counter_);
 	clReleaseMemObject(bounds_);
 	clReleaseMemObject(cull_result_);
@@ -294,13 +307,15 @@ opencl_render::~opencl_render()
 	clReleaseKernel(cull_kernel_);
 }
 
-void opencl_render::render()
+void opencl_render::render_and_cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc> const& meshes)
 {
 	cl_event kernel_execution_event;
 	
 	glFinish();
-	
-	CHECK_ERROR(clEnqueueAcquireGLObjects(command_queue_, 1, &output_, 0,0,0));
+
+	cl_mem gl_objects[] = {output_, cull_result_};
+
+	CHECK_ERROR(clEnqueueAcquireGLObjects(command_queue_, 2, gl_objects, 0,0,0));
 	
 	size_t local_work_size[2];
 	
@@ -332,8 +347,10 @@ void opencl_render::render()
 	
 	cl_int status = clEnqueueNDRangeKernel(command_queue_, rt_kernel_, 2, nullptr, global_work_size, local_work_size, 0, nullptr, &kernel_execution_event);
 	CHECK_ERROR(status);
+
+	cull(mvp, meshes);
 	
-	CHECK_ERROR(clEnqueueReleaseGLObjects(command_queue_, 1, &output_, 0,0,0));
+	CHECK_ERROR(clEnqueueReleaseGLObjects(command_queue_, 2, gl_objects, 0,0,0));
 	CHECK_ERROR(clFinish(command_queue_));
 	
 	CHECK_ERROR(clWaitForEvents(1, &kernel_execution_event));
@@ -349,30 +366,37 @@ void opencl_render::render()
 }
 
 
-void opencl_render::cull(matrix4x4 const& mvp, std::vector<bbox> const& bounds)
+void opencl_render::cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc> const& meshes)
 {
 	size_t local_work_size[1];
 
-	cl_uint num_bounds = bounds.size();
+	cl_uint num_meshes = meshes.size();
 
 	assert(num_bounds < MAX_BOUNDS);
 
-	std::vector<box> temp(bounds.size());;
-	std::transform(bounds.begin(), bounds.end(), temp.begin(), [&](bbox const& b)
+	std::vector<box> temp;
+	std::vector<offset> temp1;
+	std::for_each(meshes.begin(), meshes.end(), [&](scene_base::mesh_desc const& md)
 	{
 		box bb;
-		bb.pmin.s[0] = b.min().x();
-		bb.pmin.s[1] = b.min().y();
-		bb.pmin.s[2] = b.min().z();
+		bb.pmin.s[0] = md.box.min().x();
+		bb.pmin.s[1] = md.box.min().y();
+		bb.pmin.s[2] = md.box.min().z();
 
-		bb.pmax.s[0] = b.max().x();
-		bb.pmax.s[1] = b.max().y();
-		bb.pmax.s[2] = b.max().z();
+		bb.pmax.s[0] = md.box.max().x();
+		bb.pmax.s[1] = md.box.max().y();
+		bb.pmax.s[2] = md.box.max().z();
 
-		return bb;
+		temp.push_back(bb);
+
+		offset o;
+		o.start_idx = md.start_idx;
+		o.num_idx   = md.num_idx;
+		temp1.push_back(o);
 	});
 
 	CHECK_ERROR(clEnqueueWriteBuffer(command_queue_, bounds_, CL_FALSE, 0, sizeof(box) * temp.size(), &temp[0], 0, nullptr, nullptr));
+	CHECK_ERROR(clEnqueueWriteBuffer(command_queue_, offsets_, CL_FALSE, 0, sizeof(offset) * temp1.size(), &temp1[0], 0, nullptr, nullptr));
 
 	cl_int zero = 0;
 	CHECK_ERROR(clEnqueueFillBuffer(command_queue_, atomic_counter_, &zero, sizeof(cl_int), 0, sizeof(cl_int) , 0, nullptr, nullptr));
@@ -387,26 +411,36 @@ void opencl_render::cull(matrix4x4 const& mvp, std::vector<bbox> const& bounds)
 	}
 	
 	size_t global_work_size[1] = {
-		(num_bounds + local_work_size[0] - 1)/(local_work_size[0]) * local_work_size[0]
+		(num_meshes + local_work_size[0] - 1)/(local_work_size[0]) * local_work_size[0]
 	};
 
 	const cl_float16* mat = (const cl_float16*)&mvp;
 	CHECK_ERROR(clSetKernelArg(cull_kernel_, 0, sizeof(cl_float16), mat))
-	CHECK_ERROR(clSetKernelArg(cull_kernel_, 1, sizeof(cl_uint), &num_bounds));;
+	CHECK_ERROR(clSetKernelArg(cull_kernel_, 1, sizeof(cl_uint), &num_meshes));;
 	CHECK_ERROR(clSetKernelArg(cull_kernel_, 2, sizeof(cl_mem), &bounds_));
-	CHECK_ERROR(clSetKernelArg(cull_kernel_, 3, sizeof(cl_mem), &output_));
-	CHECK_ERROR(clSetKernelArg(cull_kernel_, 4, sizeof(cl_mem), &cull_result_));
-	CHECK_ERROR(clSetKernelArg(cull_kernel_, 5, sizeof(cl_mem), &atomic_counter_));
+	CHECK_ERROR(clSetKernelArg(cull_kernel_, 3, sizeof(cl_mem), &offsets_));
+	CHECK_ERROR(clSetKernelArg(cull_kernel_, 4, sizeof(cl_mem), &output_));
+	CHECK_ERROR(clSetKernelArg(cull_kernel_, 5, sizeof(cl_mem), &cull_result_));
+	CHECK_ERROR(clSetKernelArg(cull_kernel_, 6, sizeof(cl_mem), &atomic_counter_));
 
 	cl_int status = clEnqueueNDRangeKernel(command_queue_, cull_kernel_, 1, nullptr, global_work_size, local_work_size, 0, nullptr, nullptr);
 	CHECK_ERROR(status);
 
-	std::vector<draw_command> test(num_bounds);
-	CHECK_ERROR(clEnqueueReadBuffer(command_queue_, cull_result_, CL_TRUE, 0, sizeof(draw_command) * test.size(), &test[0], 0, nullptr, nullptr));
+	//std::vector<draw_command> test(num_meshes);
+	//CHECK_ERROR(clEnqueueReadBuffer(command_queue_, cull_result_, CL_TRUE, 0, sizeof(draw_command) * test.size(), &test[0], 0, nullptr, nullptr));
 	
-	int num_objects = 0;
-	CHECK_ERROR(clEnqueueReadBuffer(command_queue_, atomic_counter_, CL_TRUE, 0, sizeof(int), &num_objects, 0, nullptr, nullptr));
+	CHECK_ERROR(clEnqueueReadBuffer(command_queue_, atomic_counter_, CL_TRUE, 0, sizeof(int), &num_objects_, 0, nullptr, nullptr));
 
-	std::cout << num_objects << " objects in frustum\n";
+	std::cout << num_objects_ << " objects in frustum\n";
+}
+
+GLuint opencl_render::draw_command_buffer() const
+{
+	return gl_buffer_;
+}
+
+unsigned opencl_render::draw_command_count() const
+{
+	return num_objects_;
 }
 

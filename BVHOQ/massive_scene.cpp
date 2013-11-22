@@ -13,6 +13,7 @@ massive_scene::massive_scene(std::shared_ptr<mesh> mesh_ptr)
 				vector3 offset(2*i,2*j,2*k);
 
 				unsigned base_idx = vertices_.size();
+				unsigned start_idx = indices_.size();
 
 				for (int v = 0; v < mesh_ptr->get_vertex_count(); ++v)
 				{
@@ -28,7 +29,8 @@ massive_scene::massive_scene(std::shared_ptr<mesh> mesh_ptr)
 				b.min() += offset;
 				b.max() += offset;
 
-				bboxes_.push_back(b);
+				mesh_desc md = {b, start_idx, mesh_ptr->get_index_count()};
+				meshes_.push_back(md);
 			}
 }
 
@@ -47,9 +49,9 @@ std::vector<unsigned int> const& massive_scene::indices() const
 	return indices_;
 }
 
-std::vector<bbox> const& massive_scene::bounds() const
+std::vector<massive_scene::mesh_desc> const& massive_scene::meshes() const
 {
-	return bboxes_;
+	return meshes_;
 }
 
 std::shared_ptr<massive_scene> massive_scene::create_from_obj(std::string const& file_name)

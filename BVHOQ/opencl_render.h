@@ -51,14 +51,16 @@ public:
 	~opencl_render();
 	
 	void init(unsigned width, unsigned height);
-	void render();
+	void render_and_cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc> const& meshes);
 	void commit();
 
-	void cull(matrix4x4 const& mvp, std::vector<bbox> const& bounds);
-
 	GLuint output_texture() const;
+	GLuint draw_command_buffer() const;
+	unsigned draw_command_count() const;
 	
 private:
+	void cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc> const& meshes);
+
 	struct config
 	{
 		cl_float3 camera_dir;
@@ -101,7 +103,13 @@ private:
 		cl_uint  baseVertex;
 		cl_uint  baseInstance;
 	};
-	
+
+	struct  __declspec(align(1)) offset
+	{
+		cl_uint  start_idx;
+		cl_uint  num_idx;
+	};
+
 	cl_platform_id platform_;
 	cl_device_id   device_;
 	cl_device_type device_type_;
@@ -117,11 +125,14 @@ private:
 	cl_mem		config_;
 	cl_mem		output_;
 	cl_mem		bounds_;
+	cl_mem		offsets_;
 	cl_mem		cull_result_;
 	cl_mem		atomic_counter_;
 	
 	GLuint gl_tex_;
+	GLuint gl_buffer_;
 	cl_uint2 output_size_;
+	cl_uint num_objects_;
 	
 	config config_data_;
 

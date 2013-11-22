@@ -28,13 +28,12 @@ public:
 	
 	std::vector<vector3> const& vertices() const;
 	std::vector<unsigned int> const& indices() const;
-	std::vector<bbox> const& bounds() const;
-	
+	std::vector<mesh_desc> const& meshes() const;
 	
 private:
 	std::vector<vector3> vertices_;
 	std::vector<unsigned int> indices_;
-	std::vector<bbox> bboxes_;
+	std::vector<mesh_desc> meshes_;
 };
 
 

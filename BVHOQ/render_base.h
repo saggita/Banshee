@@ -11,6 +11,7 @@
 
 #include <memory>
 #include "common_types.h"
+#include "scene_base.h"
 
 class scene_base;
 class camera_base;
@@ -28,7 +29,7 @@ public:
 	
 	virtual void init(unsigned width, unsigned height) = 0;
 	virtual void commit() = 0;
-	virtual void render() = 0;
+	virtual void render_and_cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc> const& meshes) = 0;
 	virtual unsigned output_texture() const = 0;
 
 private:

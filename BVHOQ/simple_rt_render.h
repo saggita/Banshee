@@ -28,7 +28,7 @@ public:
 	
 	void init(unsigned width, unsigned height);
 	void commit(){}
-	void render();
+	void render_and_cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc> const& meshes);
 	
 	GLuint output_texture() const;
 	

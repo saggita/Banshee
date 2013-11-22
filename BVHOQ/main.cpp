@@ -88,7 +88,13 @@ void display()
 
 			glUniformMatrix4fv(glGetUniformLocation(program, "g_mWorldViewProj"), 1, false, &(worldViewProj(0,0)));
 
-			glDrawElements(GL_TRIANGLES, g_scene_index_count, GL_UNSIGNED_INT, nullptr);
+			unsigned num_objects = g_render->draw_command_count();
+			GLuint draw_buffer = g_render->draw_command_buffer();
+
+			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, draw_buffer);
+			glMultiDrawElementsIndirectAMD(GL_TRIANGLES, GL_UNSIGNED_INT, (GLvoid*)0, num_objects, 0);
+			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+
 			glDisable(GL_DEPTH_TEST);
 		}
 
@@ -127,8 +133,6 @@ void display()
 			glUseProgram(0);
 		}
 #endif
-
-
 		glutSwapBuffers();
 	}
 	catch (std::runtime_error& e)
@@ -170,11 +174,9 @@ void update()
 		g_camera->move_forward(-(float)time_delta.count() * MOVEMENT_SPEED);
 	}
 
-	g_render->commit();
-	g_render->render();
-
 	matrix4x4 worldViewProj = g_camera->proj_matrix() * g_camera->view_matrix();
-	g_render->cull(worldViewProj, g_scene->bounds());
+	g_render->commit();
+	g_render->render_and_cull(worldViewProj, g_scene->meshes());
 
 	glutPostRedisplay();
 }
@@ -182,7 +184,6 @@ void update()
 void reshape(GLint w, GLint h)
 {
 }
-
 
 
 void init_graphics()
@@ -331,17 +332,10 @@ int main(int argc, const char * argv[])
 		// Register callbacks:
 		glutDisplayFunc (display);
 		glutReshapeFunc (reshape);
-
 		glutSpecialFunc(on_key);
 		glutSpecialUpFunc(on_key_up);
 		glutPassiveMotionFunc(on_mouse_move);
-		//glutMotionFunc(on_mouse_move);
-
 		glutIdleFunc (update);
-
-		// Create our popup menu
-		// BuildPopupMenu ();
-		// glutAttachMenu (GLUT_RIGHT_BUTTON);
 		glutMainLoop ();
 
 	}

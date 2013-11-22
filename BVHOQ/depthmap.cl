@@ -8,6 +8,12 @@ typedef struct _bbox
     float3 pmax;
 } bbox;
 
+typedef struct _offset
+{
+	uint start_idx;
+	uint num_idx;
+} offset;
+
 typedef struct _bvh_node
 {
     bbox box;
@@ -435,7 +441,7 @@ bool frustum_check(float3 p)
 		p.z >= -1 && p.z <= 1;
 }
 
-__kernel void bbox_cull(float16 mvp, uint num_bounds, __global bbox* bounds, __read_only image2d_t depthmap, __global DrawElementsIndirectCommand* commands, __global int* counter)
+__kernel void bbox_cull(float16 mvp, uint num_bounds, __global bbox* bounds, __global offset* offsets,  __read_only image2d_t depthmap, __global DrawElementsIndirectCommand* commands, __global int* counter)
 {
 	uint global_id = get_global_id(0);
 
@@ -471,10 +477,10 @@ __kernel void bbox_cull(float16 mvp, uint num_bounds, __global bbox* bounds, __r
 		{
 			int idx = atom_inc(counter);
 			__global DrawElementsIndirectCommand* cmd = commands + idx;
-			cmd->count = 1;//
+			cmd->count = offsets[global_id].num_idx;
 			cmd->instanceCount = 1;
-			cmd->firstIndex= 1; //
-			cmd->baseVertex = 0; //
+			cmd->firstIndex= offsets[global_id].start_idx;
+			cmd->baseVertex = 0;
 			cmd->baseInstance = 0;
 		}
 	}

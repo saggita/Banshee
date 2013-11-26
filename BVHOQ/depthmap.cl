@@ -425,6 +425,14 @@ float4 make_float4(float x, float y, float z, float w)
 	return res;
 }
 
+float2 make_float2(float x, float y)
+{
+	float2 res;
+	res.x = x;
+	res.y = y;
+	return res;
+}
+
 float4 transform_point(float16 mvp, float4 p)
 {
 	float4 res;
@@ -441,6 +449,14 @@ bool frustum_check(float4 p)
 	return p.x * invw >= -1 && p.x * invw <= 1 && p.y * invw >= -1 && p.y * invw <= 1 &&
 		p.z * invw >= -1 && p.z * invw <= 1;
 }
+
+
+float4 find_min_z(float4 v1, float4 v2)
+{
+	return (v1.z < v2.z) ? (v1) : (v2);
+}
+
+
 
 __kernel void bbox_cull(float16 mvp, 
 						uint num_bounds, 
@@ -480,7 +496,20 @@ __kernel void bbox_cull(float16 mvp,
 			|| frustum_check(p1) || frustum_check(p2) || frustum_check(p3) 
 			|| frustum_check(p4) || frustum_check(p5);
 
-		if (inside)
+		float4 p6 = find_min_z(pmin,pmax);
+		float4 p7 = find_min_z(p0,p1);
+		float4 p8 = find_min_z(p2,p3);
+		float4 p9 = find_min_z(p4,p5);
+		float4 p10 = find_min_z(p6,p7);
+		float4 p11 = find_min_z(p8,p9);
+		float4 p12 = find_min_z(p10,p11);
+
+		int2 tex_coord;
+		tex_coord.x = (int)(p12.x / p12.w * get_image_width(depthmap));
+		tex_coord.y = (int)((1.0 - p12.y / p12.w) * get_image_height(depthmap));
+		float depth = read_imagef(depthmap, tex_coord).x;
+
+		if (inside && depth <= p12.w)
 		{
 			int idx = atom_inc(counter);
 

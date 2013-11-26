@@ -75,7 +75,7 @@ private:
 		cl_uint output_height;
 	};
 	
-	struct __declspec(align(16)) bvh_node
+	struct __declspec(align(1)) bvh_node
 	{
 		struct
 		{

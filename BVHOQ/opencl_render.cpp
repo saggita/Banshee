@@ -428,8 +428,6 @@ void opencl_render::cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc
 	//CHECK_ERROR(clEnqueueReadBuffer(command_queue_, cull_result_, CL_TRUE, 0, sizeof(draw_command) * test.size(), &test[0], 0, nullptr, nullptr));
 	
 	CHECK_ERROR(clEnqueueReadBuffer(command_queue_, atomic_counter_, CL_TRUE, 0, sizeof(int), &num_objects_, 0, nullptr, nullptr));
-
-	std::cout << num_objects_ << " objects in frustum\n";
 }
 
 GLuint opencl_render::draw_command_buffer() const

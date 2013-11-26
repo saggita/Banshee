@@ -164,10 +164,13 @@ void display()
 			unsigned num_objects = g_render->draw_command_count();
 			GLuint draw_buffer = g_render->draw_command_buffer();
 
+			std::cout << num_objects << " objects in frustum\n";
+
 			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, draw_buffer);
 			glMultiDrawElementsIndirectAMD(GL_TRIANGLES, GL_UNSIGNED_INT, (GLvoid*)0, num_objects, 0);
 			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
 
+			//glDrawElements(GL_TRIANGLES, g_scene->indices().size(), GL_UNSIGNED_INT, nullptr); 
 			glDisable(GL_DEPTH_TEST);
 			glDisableVertexAttribArray(glGetAttribLocation(program, "inPosition"));
 			glDisableVertexAttribArray(glGetAttribLocation(program, "inTexcoord"));

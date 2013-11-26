@@ -117,7 +117,8 @@ private:
 	cl_command_queue command_queue_;
 	cl_program	 rt_program_;
 	cl_kernel	  rt_kernel_;
-	cl_kernel	  cull_kernel_;
+	cl_kernel	  visibility_check_kernel_;
+	cl_kernel	  command_list_kernel_;
 	
 	cl_mem		vertices_;
 	cl_mem		indices_;
@@ -128,6 +129,7 @@ private:
 	cl_mem		offsets_;
 	cl_mem		cull_result_;
 	cl_mem		atomic_counter_;
+	cl_mem		visibility_buffer_;
 	
 	GLuint gl_tex_;
 	GLuint gl_buffer_;

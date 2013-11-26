@@ -1,5 +1,9 @@
 /// Extensions
 #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
+#pragma OPENCL EXTENSION cl_khr_global_int32_extended_atomics : enable
+#pragma OPENCL EXTENSION cl_khr_local_int32_base_atomics : enable
+#pragma OPENCL EXTENSION cl_khr_local_int32_extended_atomics : enable
+ 
 
 /// Type definitions
 typedef struct _bbox
@@ -60,6 +64,56 @@ typedef  struct {
 
 
 /// Helper functions
+
+float4 make_float4(float x, float y, float z, float w)
+{
+	float4 res;
+	res.x = x;
+	res.y = y;
+	res.z = z;
+	res.w = w;
+	return res;
+}
+
+float2 make_float2(float x, float y)
+{
+	float2 res;
+	res.x = x;
+	res.y = y;
+	return res;
+}
+
+int2 make_int2(int x, int y)
+{
+	int2 res;
+	res.x = x;
+	res.y = y;
+	return res;
+}
+
+float4 transform_point(float16 mvp, float4 p)
+{
+	float4 res;
+	res.w = mvp.sc * p.x + mvp.sd * p.y + mvp.se * p.z + mvp.sf * p.w;
+	res.x = mvp.s0 * p.x + mvp.s1 * p.y + mvp.s2 * p.z + mvp.s3 * p.w;
+	res.y = mvp.s4 * p.x + mvp.s5 * p.y + mvp.s6 * p.z + mvp.s7 * p.w;
+	res.z = mvp.s8 * p.x + mvp.s9 * p.y + mvp.sa * p.z + mvp.sb * p.w;
+	return res;
+}
+
+bool frustum_check(float4 p)
+{
+	float invw = 1.0 / p.w;
+	return p.x * invw >= -1 && p.x * invw <= 1 && p.y * invw >= -1 && p.y * invw <= 1 &&
+		p.z * invw >= -1 && p.z * invw <= 1;
+}
+
+
+float4 find_min_z(float4 v1, float4 v2)
+{
+	return (v1.z < v2.z) ? (v1) : (v2);
+}
+
 // substract float3 vectors
 float3 sub(float3 v1, float3 v2)
 {
@@ -374,11 +428,13 @@ bool traverse_bvh_stackless(__global bvh_node* nodes, __global float4* vertices,
 
 
 /// Raytrace depth kernel
-__kernel void k(__global bvh_node* bvh,
+__kernel void trace_primary_depth(
+				__global bvh_node* bvh,
 				__global float4* vertices,
 				__global uint4* indices,
 				__global config* params,
-				__write_only image2d_t output)
+				__write_only image2d_t output
+				)
 {
 	int2 global_id;
 	global_id.x = get_global_id(0);
@@ -407,7 +463,6 @@ __kernel void k(__global bvh_node* bvh,
 
 		if (traverse_bvh_stackless(bvh, vertices, indices, rr, &depth))
 		{
-			depth /= 25.0;
 			res = depth;
 		}
 
@@ -415,63 +470,16 @@ __kernel void k(__global bvh_node* bvh,
 	}
 }
 
-float4 make_float4(float x, float y, float z, float w)
+
+
+
+#define TILE_SIZE_X 16
+#define TILE_SIZE_Y 16
+
+bool test_bbox(__global bbox* bounds, int idx, float16 mvp, int2 tile_idx, int2 tile_dim, float2 minmax)
 {
-	float4 res;
-	res.x = x;
-	res.y = y;
-	res.z = z;
-	res.w = w;
-	return res;
-}
-
-float2 make_float2(float x, float y)
-{
-	float2 res;
-	res.x = x;
-	res.y = y;
-	return res;
-}
-
-float4 transform_point(float16 mvp, float4 p)
-{
-	float4 res;
-	res.w = mvp.sc * p.x + mvp.sd * p.y + mvp.se * p.z + mvp.sf * p.w;
-	res.x = mvp.s0 * p.x + mvp.s1 * p.y + mvp.s2 * p.z + mvp.s3 * p.w;
-	res.y = mvp.s4 * p.x + mvp.s5 * p.y + mvp.s6 * p.z + mvp.s7 * p.w;
-	res.z = mvp.s8 * p.x + mvp.s9 * p.y + mvp.sa * p.z + mvp.sb * p.w;
-	return res;
-}
-
-bool frustum_check(float4 p)
-{
-	float invw = 1.0 / p.w;
-	return p.x * invw >= -1 && p.x * invw <= 1 && p.y * invw >= -1 && p.y * invw <= 1 &&
-		p.z * invw >= -1 && p.z * invw <= 1;
-}
-
-
-float4 find_min_z(float4 v1, float4 v2)
-{
-	return (v1.z < v2.z) ? (v1) : (v2);
-}
-
-
-
-__kernel void bbox_cull(float16 mvp, 
-						uint num_bounds, 
-						__global bbox* bounds, 
-						__global offset* offsets,  
-						__read_only image2d_t depthmap, 
-						__global DrawElementsIndirectCommand* commands, 
-						__global int* counter)
-{
-	uint global_id = get_global_id(0);
-
-	if (global_id < num_bounds)
-	{
-		float4 pmin = make_float4(bounds[global_id].pmin.x, bounds[global_id].pmin.y, bounds[global_id].pmin.z, 1);
-		float4 pmax = make_float4(bounds[global_id].pmax.x, bounds[global_id].pmax.y, bounds[global_id].pmax.z, 1);
+		float4 pmin = make_float4(bounds[idx].pmin.x, bounds[idx].pmin.y, bounds[idx].pmin.z, 1);
+		float4 pmax = make_float4(bounds[idx].pmax.x, bounds[idx].pmax.y, bounds[idx].pmax.z, 1);
 
 		float4 p0 = make_float4(pmin.x, pmin.y, pmax.z, 1);
 		float4 p1 = make_float4(pmin.x, pmax.y, pmax.z, 1);
@@ -496,20 +504,79 @@ __kernel void bbox_cull(float16 mvp,
 			|| frustum_check(p1) || frustum_check(p2) || frustum_check(p3) 
 			|| frustum_check(p4) || frustum_check(p5);
 
-		float4 p6 = find_min_z(pmin,pmax);
-		float4 p7 = find_min_z(p0,p1);
-		float4 p8 = find_min_z(p2,p3);
-		float4 p9 = find_min_z(p4,p5);
-		float4 p10 = find_min_z(p6,p7);
-		float4 p11 = find_min_z(p8,p9);
-		float4 p12 = find_min_z(p10,p11);
+		//		float4 p6 = find_min_z(pmin,pmax);
+		//float4 p7 = find_min_z(p0,p1);
+		//float4 p8 = find_min_z(p2,p3);
+		//float4 p9 = find_min_z(p4,p5);
+		//float4 p10 = find_min_z(p6,p7);
+		//float4 p11 = find_min_z(p8,p9);
+		//float4 p12 = find_min_z(p10,p11);
 
-		int2 tex_coord;
-		tex_coord.x = (int)(p12.x / p12.w * get_image_width(depthmap));
-		tex_coord.y = (int)((1.0 - p12.y / p12.w) * get_image_height(depthmap));
+		//int2 tex_coord;
+		//tex_coord.x = (int)((p12.x / p12.w * 0.5 + 0.5) * 800);
+		//tex_coord.y = (int)((- p12.y / p12.w * 0.5 + 0.5) * 600);
+		//float depth = read_imagef(depthmap, tex_coord).x;
+
+		return inside;
+}
+
+__kernel void check_visibility(
+						float16 mvp, 
+						uint num_bounds,
+						__global bbox* bounds,
+						__read_only image2d_t depthmap,
+						__global uint* visiblity
+						)
+{
+	__local uint l_min;
+	__local uint l_max;
+
+	int2 local_id = make_int2(get_global_id(0), get_global_id(1));
+	int2 group_id = make_int2(get_group_id(0), get_group_id(1));
+	int2 group_dim = make_int2(get_local_size(0), get_local_size(1));
+
+	int flat_local_id = local_id.y * group_dim.x + local_id.x;
+
+	if (local_id.x == 0 && local_id.y == 0)
+	{
+		l_min = 10000.0;
+		l_max = 0.0;
+	}
+
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+	int2 tex_coord = make_int2(group_id.x * TILE_SIZE_X + local_id.x, group_id.y * TILE_SIZE_Y + local_id.y);
+
+	if (tex_coord.x < get_image_width(depthmap) && tex_coord.y < get_image_height(depthmap))
+	{
 		float depth = read_imagef(depthmap, tex_coord).x;
+		atom_min(&l_min, as_uint(depth));
+		atom_max(&l_max, as_uint(depth));
+	}
 
-		if (inside && depth <= p12.w)
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+	for (int i = flat_local_id; i < num_bounds; i += group_dim.x * group_dim.y)
+	{
+		if (test_bbox(bounds, i, mvp, group_id, make_int2(TILE_SIZE_X, TILE_SIZE_Y), make_float2(as_float(l_min), as_float(l_max))))
+		{
+			atom_max(&visiblity[i], 1);
+		}
+	}
+}
+
+/// replace with scan further
+__kernel void build_command_list( uint num_bounds, 
+						__global offset* offsets,  
+						__global DrawElementsIndirectCommand* commands, 
+						__global int* counter,
+						__global uint* visibility)
+{
+	uint global_id = get_global_id(0);
+
+	if (global_id < num_bounds)
+	{
+		if (visibility[global_id])
 		{
 			int idx = atom_inc(counter);
 
@@ -523,3 +590,5 @@ __kernel void bbox_cull(float16 mvp,
 		}
 	}
 }
+
+

@@ -12,6 +12,7 @@
 #include <chrono>
 #include <iostream>
 #include <string>
+#include <sstream>
 
 #include "render_base.h"
 #include "camera_base.h"
@@ -19,7 +20,7 @@
 #include "utils.h"
 #include "bbox.h"
 
-#define CHECK_ERROR(x) if((x) != CL_SUCCESS) throw std::runtime_error("OpenCL error occured");
+#define CHECK_ERROR(x,m) if((x) != CL_SUCCESS) { std::ostringstream o; o << m <<" error " <<x <<"\n";  throw std::runtime_error(o.str()); }
 
 #define MAX_BOUNDS 1000
 
@@ -45,7 +46,7 @@ void opencl_render::init(unsigned width, unsigned height)
 #endif
 
 	cl_int status = CL_SUCCESS;
-	CHECK_ERROR(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_ALL, 1, &device_, nullptr));
+	CHECK_ERROR(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_ALL, 1, &device_, nullptr), "GetDeviceIDs failed");
 
 	char device_name[2048];
 	clGetDeviceInfo(device_, CL_DEVICE_NAME, 2048, device_name, nullptr);
@@ -93,11 +94,11 @@ void opencl_render::init(unsigned width, unsigned height)
 	
 	context_ = clCreateContext(props, 1, &device_, nullptr, nullptr, &status);
 	
-	CHECK_ERROR(status);
+	CHECK_ERROR(status, "Cannot create OpenCL context");
 	
 	command_queue_ = clCreateCommandQueue(context_, device_, CL_QUEUE_PROFILING_ENABLE, &status);
 	
-	CHECK_ERROR(status);
+	CHECK_ERROR(status, "Cannot create command queue");
 	
 	std::vector<char> source_code;
 	load_file_contents("depthmap.cl", source_code);
@@ -106,7 +107,7 @@ void opencl_render::init(unsigned width, unsigned height)
 	size_t program_size = source_code.size();
 	
 	rt_program_ = clCreateProgramWithSource(context_, 1, (const char**)&program_source, &program_size, &status);
-	CHECK_ERROR(status);
+	CHECK_ERROR(status, "Cannnot create program from depthmap.cl");
 	
 	if (clBuildProgram(rt_program_, 1, &device_, nullptr, nullptr, nullptr) < 0)
 	{
@@ -120,11 +121,14 @@ void opencl_render::init(unsigned width, unsigned height)
 		throw std::runtime_error(&build_log[0]);
 	};
 	
-	rt_kernel_ = clCreateKernel(rt_program_, "k", &status);
-	CHECK_ERROR(status);
+	rt_kernel_ = clCreateKernel(rt_program_, "trace_primary_depth", &status);
+	CHECK_ERROR(status, "Cannot create k kernel");
 
-	cull_kernel_ = clCreateKernel(rt_program_, "bbox_cull", &status);
-	CHECK_ERROR(status);
+	visibility_check_kernel_ = clCreateKernel(rt_program_, "check_visibility", &status);
+	CHECK_ERROR(status, "Cannot create check_visibility kernel");
+
+	command_list_kernel_ = clCreateKernel(rt_program_, "build_command_list", &status);
+	CHECK_ERROR(status, "Cannot create build_command_list kernel");
 	
 	accel_ = bvh_accel::create_from_scene(*scene());
 
@@ -146,7 +150,7 @@ void opencl_render::init(unsigned width, unsigned height)
 	
 	
 	vertices_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float4) * vertices.size(), (void*)&vertices[0], &status);
-	CHECK_ERROR(status);
+	CHECK_ERROR(status, "Cannot create vertex buffer");
 	
 	std::vector<cl_uint4> triangles;
 	
@@ -166,7 +170,7 @@ void opencl_render::init(unsigned width, unsigned height)
 				  });
 	
 	indices_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint4) * triangles.size(), (void*)&triangles[0], &status);
-	CHECK_ERROR(status);
+	CHECK_ERROR(status, "Cannot create index buffer");
 	
 	std::vector<bvh_node> nodes(accel_->nodes().size());
 	std::transform(accel_->nodes().begin(), accel_->nodes().end(), nodes.begin(),
@@ -198,19 +202,22 @@ void opencl_render::init(unsigned width, unsigned height)
 				   );
 	
 	bvh_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR , nodes.size() * sizeof(bvh_node), (void*)&nodes[0], &status);
-	CHECK_ERROR(status);
+	CHECK_ERROR(status, "Cannot create BVH node buffer");
 	
 	config_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(config_data_), nullptr, &status);
-	CHECK_ERROR(status);
+	CHECK_ERROR(status, "Cannot create parameter buffer");
 
 	bounds_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(box) * MAX_BOUNDS, nullptr, &status);
-	CHECK_ERROR(status);
+	CHECK_ERROR(status, "Cannot create bbox buffer");
 
 	offsets_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(offset) * MAX_BOUNDS, nullptr, &status);
-	CHECK_ERROR(status);
+	CHECK_ERROR(status, "Cannot create offsets buffer");
+
+	visibility_buffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_uint) * MAX_BOUNDS, nullptr, &status);
+	CHECK_ERROR(status, "Cannot create visibility buffer");
 
 	atomic_counter_ =  clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_int), nullptr, &status);
-	CHECK_ERROR(status);
+	CHECK_ERROR(status, "Cannot create atomic counter buffer");
 	
 	glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &gl_tex_);
@@ -230,7 +237,7 @@ void opencl_render::init(unsigned width, unsigned height)
 		0, GL_RGBA, GL_FLOAT, nullptr);
 
 	output_ = clCreateFromGLTexture(context_, CL_MEM_READ_WRITE, GL_TEXTURE_2D, 0, gl_tex_, &status);
-	CHECK_ERROR(status);
+	CHECK_ERROR(status, "Cannot create interop texture");
 	
 	glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -241,7 +248,7 @@ void opencl_render::init(unsigned width, unsigned height)
 	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
 
 	cull_result_ = clCreateFromGLBuffer(context_, CL_MEM_WRITE_ONLY, gl_buffer_, &status);
-	CHECK_ERROR(status);
+	CHECK_ERROR(status, "Cannot create interop buffer");
 }
 
 void opencl_render::commit()
@@ -281,7 +288,7 @@ void opencl_render::commit()
 	config_data_.camera_near_z = camera()->near_z();
 	config_data_.camera_pixel_size = camera()->pixel_size();
 	
-	CHECK_ERROR(clEnqueueWriteBuffer(command_queue_, config_, CL_FALSE, 0, sizeof(config_data_), &config_data_, 0, nullptr, nullptr));
+	CHECK_ERROR(clEnqueueWriteBuffer(command_queue_, config_, CL_FALSE, 0, sizeof(config_data_), &config_data_, 0, nullptr, nullptr), "Cannot update param buffer");
 }
 
 opencl_render::~opencl_render()
@@ -289,6 +296,7 @@ opencl_render::~opencl_render()
 	/// TODO: implement RAII for CL objects
 	glDeleteTextures(1, &gl_tex_);
 	glDeleteBuffers(1, &gl_buffer_);
+	clReleaseMemObject(visibility_buffer_);
 	clReleaseMemObject(offsets_);
 	clReleaseMemObject(atomic_counter_);
 	clReleaseMemObject(bounds_);
@@ -302,7 +310,8 @@ opencl_render::~opencl_render()
 	clReleaseProgram(rt_program_);
 	clReleaseCommandQueue(command_queue_);
 	clReleaseKernel(rt_kernel_);
-	clReleaseKernel(cull_kernel_);
+	clReleaseKernel(visibility_check_kernel_);
+	clReleaseKernel(command_list_kernel_);
 }
 
 void opencl_render::render_and_cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc> const& meshes)
@@ -313,7 +322,7 @@ void opencl_render::render_and_cull(matrix4x4 const& mvp, std::vector<scene_base
 
 	cl_mem gl_objects[] = {output_, cull_result_};
 
-	CHECK_ERROR(clEnqueueAcquireGLObjects(command_queue_, 2, gl_objects, 0,0,0));
+	CHECK_ERROR(clEnqueueAcquireGLObjects(command_queue_, 2, gl_objects, 0,0,0), "Cannot acquire OpenGL objects");
 	
 	size_t local_work_size[2];
 	
@@ -327,31 +336,25 @@ void opencl_render::render_and_cull(matrix4x4 const& mvp, std::vector<scene_base
 	}
 	
 	size_t global_work_size[2] = {
-#ifndef WIN32
-		(output_size_.x + local_work_size[0] - 1)/(local_work_size[0]) * local_work_size[0], 
-		(output_size_.y + local_work_size[1] - 1)/(local_work_size[1]) * local_work_size[1]
-#else
 		(output_size_.s[0] + local_work_size[0] - 1)/(local_work_size[0]) * local_work_size[0] , 
 		(output_size_.s[1] + local_work_size[1] - 1)/(local_work_size[1]) * local_work_size[1]
-#endif
-};
+	};
 
-	CHECK_ERROR(clSetKernelArg(rt_kernel_, 0, sizeof(cl_mem), &bvh_));
-	CHECK_ERROR(clSetKernelArg(rt_kernel_, 1, sizeof(cl_mem), &vertices_));
-	CHECK_ERROR(clSetKernelArg(rt_kernel_, 2, sizeof(cl_mem), &indices_));
-	CHECK_ERROR(clSetKernelArg(rt_kernel_, 3, sizeof(cl_mem), &config_));
-	CHECK_ERROR(clSetKernelArg(rt_kernel_, 4, sizeof(cl_mem), &output_));
-	//CHECK_ERROR(clSetKernelArg(rt_kernel_, 5, sizeof(cl_int) * local_work_size[0] * local_work_size[1] * 64 , nullptr));
+	CHECK_ERROR(clSetKernelArg(rt_kernel_, 0, sizeof(cl_mem), &bvh_), "SetKernelArg failed");
+	CHECK_ERROR(clSetKernelArg(rt_kernel_, 1, sizeof(cl_mem), &vertices_), "SetKernelArg failed");
+	CHECK_ERROR(clSetKernelArg(rt_kernel_, 2, sizeof(cl_mem), &indices_), "SetKernelArg failed");
+	CHECK_ERROR(clSetKernelArg(rt_kernel_, 3, sizeof(cl_mem), &config_), "SetKernelArg failed");
+	CHECK_ERROR(clSetKernelArg(rt_kernel_, 4, sizeof(cl_mem), &output_), "SetKernelArg failed");
 	
 	cl_int status = clEnqueueNDRangeKernel(command_queue_, rt_kernel_, 2, nullptr, global_work_size, local_work_size, 0, nullptr, &kernel_execution_event);
-	CHECK_ERROR(status);
+	CHECK_ERROR(status, "Raytracing kernel launch failed");
 
 	cull(mvp, meshes);
 	
-	CHECK_ERROR(clEnqueueReleaseGLObjects(command_queue_, 2, gl_objects, 0,0,0));
-	CHECK_ERROR(clFinish(command_queue_));
+	CHECK_ERROR(clEnqueueReleaseGLObjects(command_queue_, 2, gl_objects, 0,0,0), "Cannot release OpenGL objects");
+	CHECK_ERROR(clFinish(command_queue_), "Cannot flush command queue");
 	
-	CHECK_ERROR(clWaitForEvents(1, &kernel_execution_event));
+	CHECK_ERROR(clWaitForEvents(1, &kernel_execution_event), "Wait for events failed");
 	
 	cl_ulong time_start, time_end;
 	double total_time;
@@ -363,10 +366,11 @@ void opencl_render::render_and_cull(matrix4x4 const& mvp, std::vector<scene_base
 	std::cout << "Ray tracing time " << total_time << " msec\n";
 }
 
+#define TILE_SIZE 16
 
 void opencl_render::cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc> const& meshes)
 {
-	size_t local_work_size[1];
+	cl_event kernel_execution_event[2];
 
 	cl_uint num_meshes = meshes.size();
 
@@ -393,41 +397,65 @@ void opencl_render::cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc
 		temp1.push_back(o);
 	});
 
-	CHECK_ERROR(clEnqueueWriteBuffer(command_queue_, bounds_, CL_FALSE, 0, sizeof(box) * temp.size(), &temp[0], 0, nullptr, nullptr));
-	CHECK_ERROR(clEnqueueWriteBuffer(command_queue_, offsets_, CL_FALSE, 0, sizeof(offset) * temp1.size(), &temp1[0], 0, nullptr, nullptr));
-
+	CHECK_ERROR(clEnqueueWriteBuffer(command_queue_, bounds_, CL_FALSE, 0, sizeof(box) * temp.size(), &temp[0], 0, nullptr, nullptr), "Cannot update bbox buffer");
+	CHECK_ERROR(clEnqueueWriteBuffer(command_queue_, offsets_, CL_FALSE, 0, sizeof(offset) * temp1.size(), &temp1[0], 0, nullptr, nullptr), "Cannot update offsets buffer");
+	
 	cl_int zero = 0;
-	CHECK_ERROR(clEnqueueFillBuffer(command_queue_, atomic_counter_, &zero, sizeof(cl_int), 0, sizeof(cl_int) , 0, nullptr, nullptr));
+	CHECK_ERROR(clEnqueueFillBuffer(command_queue_, visibility_buffer_, &zero, sizeof(cl_int), 0, sizeof(cl_int) * MAX_BOUNDS, 0, nullptr, nullptr), "Cannot clear visibility buffer");
 
-	if (device_type_ == CL_DEVICE_TYPE_CPU)
 	{
-		local_work_size[0] = 1;
+		size_t local_work_size[2] = {TILE_SIZE, TILE_SIZE};
+		size_t global_work_size[2] = {
+			(config_data_.output_width + local_work_size[0] - 1)/(local_work_size[0]) * local_work_size[0],
+			(config_data_.output_height + local_work_size[1] - 1)/(local_work_size[1]) * local_work_size[1]
+		};
+
+		const cl_float16* mat = (const cl_float16*)&mvp;
+		CHECK_ERROR(clSetKernelArg(visibility_check_kernel_, 0, sizeof(cl_float16), mat), "SetKernelArg failed")
+		CHECK_ERROR(clSetKernelArg(visibility_check_kernel_, 1, sizeof(cl_uint), &num_meshes), "SetKernelArg failed");
+		CHECK_ERROR(clSetKernelArg(visibility_check_kernel_, 2, sizeof(cl_mem), &bounds_), "SetKernelArg failed");
+		CHECK_ERROR(clSetKernelArg(visibility_check_kernel_, 3, sizeof(cl_mem), &output_), "SetKernelArg failed");
+		CHECK_ERROR(clSetKernelArg(visibility_check_kernel_, 4, sizeof(cl_mem), &visibility_buffer_), "SetKernelArg failed");
+
+		cl_int status = clEnqueueNDRangeKernel(command_queue_, visibility_check_kernel_, 2, nullptr, global_work_size, local_work_size, 0, nullptr, &kernel_execution_event[0]);
+		CHECK_ERROR(status, "Visibility check kernel launch failed");
 	}
-	else
+
+	CHECK_ERROR(clEnqueueFillBuffer(command_queue_, atomic_counter_, &zero, sizeof(cl_int), 0, sizeof(cl_int) , 0, nullptr, nullptr), "Cannot clear atomic counter");
+
 	{
-		local_work_size[0] = 8;
+		size_t local_work_size[1] = {8};
+		size_t global_work_size[1] = {
+		(num_meshes + local_work_size[0] - 1)/(local_work_size[0]) * local_work_size[0]};
+
+		CHECK_ERROR(clSetKernelArg(command_list_kernel_, 0, sizeof(cl_uint), &num_meshes), "SetKernelArg failed");
+		CHECK_ERROR(clSetKernelArg(command_list_kernel_, 1, sizeof(cl_mem), &offsets_), "SetKernelArg failed");
+		CHECK_ERROR(clSetKernelArg(command_list_kernel_, 2, sizeof(cl_mem), &cull_result_), "SetKernelArg failed");
+		CHECK_ERROR(clSetKernelArg(command_list_kernel_, 3, sizeof(cl_mem), &atomic_counter_), "SetKernelArg failed");
+		CHECK_ERROR(clSetKernelArg(command_list_kernel_, 4, sizeof(cl_mem), &visibility_buffer_), "SetKernelArg failed");
+
+		cl_int status = clEnqueueNDRangeKernel(command_queue_, command_list_kernel_, 1, nullptr, global_work_size, local_work_size, 0, nullptr, &kernel_execution_event[1]);
+		CHECK_ERROR(status, "Command list kernel launch failed");
 	}
+
+	CHECK_ERROR(clEnqueueReadBuffer(command_queue_, atomic_counter_, CL_TRUE, 0, sizeof(int), &num_objects_, 0, nullptr, nullptr), "Cannot read back atomic counter");
+
+	CHECK_ERROR(clWaitForEvents(2, kernel_execution_event), "Wait for events failed");
+
+	cl_ulong time_start, time_end;
+	double total_time;
 	
-	size_t global_work_size[1] = {
-		(num_meshes + local_work_size[0] - 1)/(local_work_size[0]) * local_work_size[0]
-	};
-
-	const cl_float16* mat = (const cl_float16*)&mvp;
-	CHECK_ERROR(clSetKernelArg(cull_kernel_, 0, sizeof(cl_float16), mat))
-	CHECK_ERROR(clSetKernelArg(cull_kernel_, 1, sizeof(cl_uint), &num_meshes));;
-	CHECK_ERROR(clSetKernelArg(cull_kernel_, 2, sizeof(cl_mem), &bounds_));
-	CHECK_ERROR(clSetKernelArg(cull_kernel_, 3, sizeof(cl_mem), &offsets_));
-	CHECK_ERROR(clSetKernelArg(cull_kernel_, 4, sizeof(cl_mem), &output_));
-	CHECK_ERROR(clSetKernelArg(cull_kernel_, 5, sizeof(cl_mem), &cull_result_));
-	CHECK_ERROR(clSetKernelArg(cull_kernel_, 6, sizeof(cl_mem), &atomic_counter_));
-
-	cl_int status = clEnqueueNDRangeKernel(command_queue_, cull_kernel_, 1, nullptr, global_work_size, local_work_size, 0, nullptr, nullptr);
-	CHECK_ERROR(status);
-
-	//std::vector<draw_command> test(num_meshes);
-	//CHECK_ERROR(clEnqueueReadBuffer(command_queue_, cull_result_, CL_TRUE, 0, sizeof(draw_command) * test.size(), &test[0], 0, nullptr, nullptr));
+	clGetEventProfilingInfo(kernel_execution_event[0], CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, nullptr);
+	clGetEventProfilingInfo(kernel_execution_event[0], CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, nullptr);
+	total_time = (double)(time_end - time_start)/1000000.0;
 	
-	CHECK_ERROR(clEnqueueReadBuffer(command_queue_, atomic_counter_, CL_TRUE, 0, sizeof(int), &num_objects_, 0, nullptr, nullptr));
+	std::cout << "Visibility check " << total_time << " msec\n";
+
+	clGetEventProfilingInfo(kernel_execution_event[1], CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, nullptr);
+	clGetEventProfilingInfo(kernel_execution_event[1], CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, nullptr);
+	total_time = (double)(time_end - time_start)/1000000.0;
+	
+	std::cout << "Command list building " << total_time << " msec\n";
 }
 
 GLuint opencl_render::draw_command_buffer() const

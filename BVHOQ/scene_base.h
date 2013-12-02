@@ -17,9 +17,17 @@
 class scene_base
 {
 public:
+
+	struct sphere
+	{
+		vector3 center;
+		float   radius;
+	};
+
 	struct mesh_desc 
 	{
 		bbox box;
+		sphere bsphere;
 		unsigned start_idx;
 		unsigned num_idx;
 	};

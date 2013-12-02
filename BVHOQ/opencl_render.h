@@ -56,8 +56,8 @@ public:
 
 	GLuint output_texture() const;
 	GLuint draw_command_buffer() const;
-	unsigned draw_command_count() const;
-	
+	GLuint draw_command_count() const;
+
 private:
 	void cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc> const& meshes);
 
@@ -119,7 +119,7 @@ private:
 	cl_kernel	  rt_kernel_;
 	cl_kernel	  visibility_check_kernel_;
 	cl_kernel	  command_list_kernel_;
-	
+
 	cl_mem		vertices_;
 	cl_mem		indices_;
 	cl_mem		bvh_;
@@ -133,6 +133,11 @@ private:
 	
 	GLuint gl_tex_;
 	GLuint gl_buffer_;
+
+#ifdef INDIRECT_PARAMS
+	GLuint gl_atomic_counter_;
+#endif
+
 	cl_uint2 output_size_;
 	cl_uint num_objects_;
 	

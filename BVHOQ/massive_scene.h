@@ -31,6 +31,9 @@ public:
 	std::vector<mesh_desc> const& meshes() const;
 	
 private:
+
+	void calc_mesh_bsphere(mesh_desc& md); 
+
 	std::vector<mesh::vertex> vertices_;
 	std::vector<unsigned int> indices_;
 	std::vector<mesh_desc> meshes_;

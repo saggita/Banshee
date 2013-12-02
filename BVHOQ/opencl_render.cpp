@@ -23,6 +23,7 @@
 #define CHECK_ERROR(x,m) if((x) != CL_SUCCESS) { std::ostringstream o; o << m <<" error " <<x <<"\n";  throw std::runtime_error(o.str()); }
 
 #define MAX_BOUNDS 1000
+#define TILE_SIZE 16
 
 GLuint opencl_render::output_texture() const
 {
@@ -37,13 +38,8 @@ opencl_render::opencl_render(cl_platform_id platform)
 
 void opencl_render::init(unsigned width, unsigned height)
 {
-#ifndef WIN32
-	output_size_.x = width;
-	output_size_.y = height;
-#else
 	output_size_.s[0] = width;
 	output_size_.s[1] = height;
-#endif
 
 	cl_int status = CL_SUCCESS;
 	CHECK_ERROR(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_ALL, 1, &device_, nullptr), "GetDeviceIDs failed");
@@ -136,15 +132,11 @@ void opencl_render::init(unsigned width, unsigned height)
 	std::for_each(accel_->vertices().cbegin(), accel_->vertices().cend(), [&vertices](vector3 const& v)
 				  {
 					  cl_float4 val;
-#ifndef WIN32
-					  val.x = v.x();
-					  val.y = v.y();
-					  val.z = v.z();
-#else
+
 					  val.s[0] = v.x();
 					  val.s[1] = v.y();
 					  val.s[2] = v.z();
-#endif
+
 					  vertices.push_back(val);
 				  });
 	
@@ -157,15 +149,11 @@ void opencl_render::init(unsigned width, unsigned height)
 	std::for_each(accel_->primitives().cbegin(), accel_->primitives().cend(), [&triangles](bvh_accel::triangle const& t)
 				  {
 					  cl_uint4 val;
-#ifndef WIN32
-					  val.x = t.i1;
-					  val.y = t.i2;
-					  val.z = t.i3;
-#else
+
 					  val.s[0] = t.i1;
 					  val.s[1] = t.i2;
 					  val.s[2] = t.i3;
-#endif
+
 					  triangles.push_back(val);
 				  });
 	
@@ -177,21 +165,14 @@ void opencl_render::init(unsigned width, unsigned height)
 				   [](bvh_accel::node const& n)->bvh_node
 				   {
 					   bvh_node nn;
-#ifndef WIN32
-					   nn.box.pmin.x = n.box.min().x();
-					   nn.box.pmin.y = n.box.min().y();
-					   nn.box.pmin.z = n.box.min().z();
-					   nn.box.pmax.x = n.box.max().x();
-					   nn.box.pmax.y = n.box.max().y();
-					   nn.box.pmax.z = n.box.max().z();
-#else
+
 					   nn.box.pmin.s[0] = n.box.min().x();
 					   nn.box.pmin.s[1] = n.box.min().y();
 					   nn.box.pmin.s[2] = n.box.min().z();
 					   nn.box.pmax.s[0] = n.box.max().x();
 					   nn.box.pmax.s[1] = n.box.max().y();
 					   nn.box.pmax.s[2] = n.box.max().z();
-#endif
+
 					   nn.right = n.right;
 					   nn.prim_start = n.prim_start_index;
 					   nn.parent = n.parent;
@@ -200,15 +181,15 @@ void opencl_render::init(unsigned width, unsigned height)
 					   return nn;
 				   }
 				   );
-	
+
 	bvh_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR , nodes.size() * sizeof(bvh_node), (void*)&nodes[0], &status);
 	CHECK_ERROR(status, "Cannot create BVH node buffer");
 	
 	config_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(config_data_), nullptr, &status);
 	CHECK_ERROR(status, "Cannot create parameter buffer");
 
-	bounds_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(box) * MAX_BOUNDS, nullptr, &status);
-	CHECK_ERROR(status, "Cannot create bbox buffer");
+	bounds_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(cl_float4) * MAX_BOUNDS, nullptr, &status);
+	CHECK_ERROR(status, "Cannot create bounds buffer");
 
 	offsets_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(offset) * MAX_BOUNDS, nullptr, &status);
 	CHECK_ERROR(status, "Cannot create offsets buffer");
@@ -216,25 +197,16 @@ void opencl_render::init(unsigned width, unsigned height)
 	visibility_buffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_uint) * MAX_BOUNDS, nullptr, &status);
 	CHECK_ERROR(status, "Cannot create visibility buffer");
 
-	atomic_counter_ =  clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_int), nullptr, &status);
-	CHECK_ERROR(status, "Cannot create atomic counter buffer");
-	
 	glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &gl_tex_);
-	
+
 	glBindTexture(GL_TEXTURE_2D, gl_tex_);
 	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F_ARB, 
-#ifndef WIN32
-		output_size_.x, output_size_.y,
-#else
-		output_size_.s[0], output_size_.s[1],
-#endif
-		0, GL_RGBA, GL_FLOAT, nullptr);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F_ARB, output_size_.s[0], output_size_.s[1], 0, GL_RGBA, GL_FLOAT, nullptr);
 
 	output_ = clCreateFromGLTexture(context_, CL_MEM_READ_WRITE, GL_TEXTURE_2D, 0, gl_tex_, &status);
 	CHECK_ERROR(status, "Cannot create interop texture");
@@ -249,27 +221,25 @@ void opencl_render::init(unsigned width, unsigned height)
 
 	cull_result_ = clCreateFromGLBuffer(context_, CL_MEM_WRITE_ONLY, gl_buffer_, &status);
 	CHECK_ERROR(status, "Cannot create interop buffer");
+
+#ifdef INDIRECT_PARAMS
+	glGenBuffers(1, &gl_atomic_counter_);
+
+	glBindBuffer(GL_PARAMETER_BUFFER_ARB, gl_atomic_counter_);
+	glBufferData(GL_PARAMETER_BUFFER_ARB, sizeof(cl_uint), nullptr, GL_STATIC_READ);
+	glBindBuffer(GL_PARAMETER_BUFFER_ARB, 0);
+
+
+	atomic_counter_ = clCreateFromGLBuffer(context_, CL_MEM_WRITE_ONLY, gl_atomic_counter_, &status);
+	CHECK_ERROR(status, "Cannot create atomic counter interop buffer");
+#else
+	atomic_counter_ =  clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_int), nullptr, &status);
+	CHECK_ERROR(status, "Cannot create atomic counter buffer");
+#endif
 }
 
 void opencl_render::commit()
 {
-#ifndef WIN32
-	config_data_.output_width = output_size_.x;
-	config_data_.output_height = output_size_.y;
-	config_data_.camera_pos.x = camera()->position().x();
-	config_data_.camera_pos.y = camera()->position().y();
-	config_data_.camera_pos.z = camera()->position().z();
-	config_data_.camera_dir.x = camera()->direction().x();
-	config_data_.camera_dir.y = camera()->direction().y();
-	config_data_.camera_dir.z = camera()->direction().z();
-	config_data_.camera_right.x = camera()->right().x();
-	config_data_.camera_right.y = camera()->right().y();
-	config_data_.camera_right.z = camera()->right().z();
-	config_data_.camera_up.x = camera()->up().x();
-	config_data_.camera_up.y = camera()->up().y();
-	config_data_.camera_up.z = camera()->up().z();
-	config_data_.camera_near_z = camera()->near_z();
-#else
 	config_data_.output_width = output_size_.s[0];
 	config_data_.output_height = output_size_.s[1];
 	config_data_.camera_pos.s[0] = camera()->position().x();
@@ -284,10 +254,9 @@ void opencl_render::commit()
 	config_data_.camera_up.s[0] = camera()->up().x();
 	config_data_.camera_up.s[1] = camera()->up().y();
 	config_data_.camera_up.s[2] = camera()->up().z();
-#endif
 	config_data_.camera_near_z = camera()->near_z();
 	config_data_.camera_pixel_size = camera()->pixel_size();
-	
+
 	CHECK_ERROR(clEnqueueWriteBuffer(command_queue_, config_, CL_FALSE, 0, sizeof(config_data_), &config_data_, 0, nullptr, nullptr), "Cannot update param buffer");
 }
 
@@ -295,6 +264,11 @@ opencl_render::~opencl_render()
 {
 	/// TODO: implement RAII for CL objects
 	glDeleteTextures(1, &gl_tex_);
+
+#ifdef INDIRECT_PARAMS
+	glDeleteBuffers(1, &gl_atomic_counter_);
+#endif
+
 	glDeleteBuffers(1, &gl_buffer_);
 	clReleaseMemObject(visibility_buffer_);
 	clReleaseMemObject(offsets_);
@@ -317,15 +291,15 @@ opencl_render::~opencl_render()
 void opencl_render::render_and_cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc> const& meshes)
 {
 	cl_event kernel_execution_event;
-	
+
 	glFinish();
 
-	cl_mem gl_objects[] = {output_, cull_result_};
+	cl_mem gl_objects[] = {output_, cull_result_, atomic_counter_};
 
 	CHECK_ERROR(clEnqueueAcquireGLObjects(command_queue_, 2, gl_objects, 0,0,0), "Cannot acquire OpenGL objects");
-	
+
 	size_t local_work_size[2];
-	
+
 	if (device_type_ == CL_DEVICE_TYPE_CPU)
 	{
 		local_work_size[0] = local_work_size[1] = 1;
@@ -334,7 +308,7 @@ void opencl_render::render_and_cull(matrix4x4 const& mvp, std::vector<scene_base
 	{
 		local_work_size[0] = local_work_size[1] = 8;
 	}
-	
+
 	size_t global_work_size[2] = {
 		(output_size_.s[0] + local_work_size[0] - 1)/(local_work_size[0]) * local_work_size[0] , 
 		(output_size_.s[1] + local_work_size[1] - 1)/(local_work_size[1]) * local_work_size[1]
@@ -345,28 +319,27 @@ void opencl_render::render_and_cull(matrix4x4 const& mvp, std::vector<scene_base
 	CHECK_ERROR(clSetKernelArg(rt_kernel_, 2, sizeof(cl_mem), &indices_), "SetKernelArg failed");
 	CHECK_ERROR(clSetKernelArg(rt_kernel_, 3, sizeof(cl_mem), &config_), "SetKernelArg failed");
 	CHECK_ERROR(clSetKernelArg(rt_kernel_, 4, sizeof(cl_mem), &output_), "SetKernelArg failed");
-	
+	//CHECK_ERROR(clSetKernelArg(rt_kernel_, 5, sizeof(cl_int) * local_work_size[0] * local_work_size[1] * 64, nullptr), "SetKernelArg failed");
+
 	cl_int status = clEnqueueNDRangeKernel(command_queue_, rt_kernel_, 2, nullptr, global_work_size, local_work_size, 0, nullptr, &kernel_execution_event);
 	CHECK_ERROR(status, "Raytracing kernel launch failed");
 
 	cull(mvp, meshes);
-	
+
 	CHECK_ERROR(clEnqueueReleaseGLObjects(command_queue_, 2, gl_objects, 0,0,0), "Cannot release OpenGL objects");
 	CHECK_ERROR(clFinish(command_queue_), "Cannot flush command queue");
-	
+
 	CHECK_ERROR(clWaitForEvents(1, &kernel_execution_event), "Wait for events failed");
-	
+
 	cl_ulong time_start, time_end;
 	double total_time;
-	
+
 	clGetEventProfilingInfo(kernel_execution_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, nullptr);
 	clGetEventProfilingInfo(kernel_execution_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, nullptr);
 	total_time = (double)(time_end - time_start)/1000000.0;
-	
+
 	std::cout << "Ray tracing time " << total_time << " msec\n";
 }
-
-#define TILE_SIZE 16
 
 void opencl_render::cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc> const& meshes)
 {
@@ -374,22 +347,19 @@ void opencl_render::cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc
 
 	cl_uint num_meshes = meshes.size();
 
-	assert(num_bounds < MAX_BOUNDS);
+	assert(num_meshes < MAX_BOUNDS);
 
-	std::vector<box> temp;
+	std::vector<cl_float4> temp;
 	std::vector<offset> temp1;
 	std::for_each(meshes.begin(), meshes.end(), [&](scene_base::mesh_desc const& md)
 	{
-		box bb;
-		bb.pmin.s[0] = md.box.min().x();
-		bb.pmin.s[1] = md.box.min().y();
-		bb.pmin.s[2] = md.box.min().z();
+		cl_float4 sphere;
+		sphere.s[0] = md.bsphere.center.x();
+		sphere.s[1] = md.bsphere.center.y();
+		sphere.s[2] = md.bsphere.center.z();
+		sphere.s[3] = md.bsphere.radius;
 
-		bb.pmax.s[0] = md.box.max().x();
-		bb.pmax.s[1] = md.box.max().y();
-		bb.pmax.s[2] = md.box.max().z();
-
-		temp.push_back(bb);
+		temp.push_back(sphere);
 
 		offset o;
 		o.start_idx = md.start_idx;
@@ -397,7 +367,7 @@ void opencl_render::cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc
 		temp1.push_back(o);
 	});
 
-	CHECK_ERROR(clEnqueueWriteBuffer(command_queue_, bounds_, CL_FALSE, 0, sizeof(box) * temp.size(), &temp[0], 0, nullptr, nullptr), "Cannot update bbox buffer");
+	CHECK_ERROR(clEnqueueWriteBuffer(command_queue_, bounds_, CL_FALSE, 0, sizeof(cl_float4) * temp.size(), &temp[0], 0, nullptr, nullptr), "Cannot update bounds buffer");
 	CHECK_ERROR(clEnqueueWriteBuffer(command_queue_, offsets_, CL_FALSE, 0, sizeof(offset) * temp1.size(), &temp1[0], 0, nullptr, nullptr), "Cannot update offsets buffer");
 	
 	cl_int zero = 0;
@@ -444,17 +414,17 @@ void opencl_render::cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc
 
 	cl_ulong time_start, time_end;
 	double total_time;
-	
+
 	clGetEventProfilingInfo(kernel_execution_event[0], CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, nullptr);
 	clGetEventProfilingInfo(kernel_execution_event[0], CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, nullptr);
 	total_time = (double)(time_end - time_start)/1000000.0;
-	
+
 	std::cout << "Visibility check " << total_time << " msec\n";
 
 	clGetEventProfilingInfo(kernel_execution_event[1], CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, nullptr);
 	clGetEventProfilingInfo(kernel_execution_event[1], CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, nullptr);
 	total_time = (double)(time_end - time_start)/1000000.0;
-	
+
 	std::cout << "Command list building " << total_time << " msec\n";
 }
 
@@ -463,8 +433,12 @@ GLuint opencl_render::draw_command_buffer() const
 	return gl_buffer_;
 }
 
-unsigned opencl_render::draw_command_count() const
+GLuint opencl_render::draw_command_count() const
 {
+#ifdef INDIRECT_PARAMS
+	return gl_atomic_counter_;
+#else
 	return num_objects_;
+#endif
 }
 

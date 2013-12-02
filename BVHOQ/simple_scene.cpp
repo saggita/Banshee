@@ -44,7 +44,7 @@ simple_scene::simple_scene(std::shared_ptr<mesh> mesh_ptr)
 	}
 	std::copy(index_data, index_data + mesh_ptr->get_index_count(), indices_.begin());
 
-	mesh_desc md = {b, 0, indices_.size()};
+	mesh_desc md = {b, sphere(), 0, indices_.size()};
 	meshes_.push_back(md);
 }
 

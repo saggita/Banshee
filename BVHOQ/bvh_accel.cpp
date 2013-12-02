@@ -108,7 +108,7 @@ bbox bvh_accel::triangle_bbox(triangle const& t)
 
 std::shared_ptr<bvh_accel> bvh_accel::create_from_scene(scene_base const& scene)
 {
-	return std::make_shared<bvh_accel>(scene.vertices(), scene.indices(), 5);
+	return std::make_shared<bvh_accel>(scene.vertices(), scene.indices(), 255);
 }
 
 template <typename T> bvh_accel::bvh_accel(std::vector<T> const& vertices, std::vector<unsigned> const& indices, unsigned max_node_prims)
@@ -204,7 +204,7 @@ unsigned bvh_accel::build_hierarchy(unsigned begin, unsigned end, std::vector<bu
 	// Decide whether to split or to create new leaf
 	if (num_prims > max_node_prims_ || (sah_val > num_prims && num_prims > 1))
 	{
-		build_node n = {b, 0xffffffff, 0, 0, 0};
+		build_node n = {b, axis, 0, 0, 0};
 	
 		//unsigned mid = find_best_split(begin, end, b, centroids_bbox);
 		n.left = build_hierarchy(begin, mid, build_nodes);
@@ -288,7 +288,7 @@ unsigned   bvh_accel::find_best_split(unsigned begin, unsigned end, bbox const& 
 			half1_count += bins[j].count;
 		}
 		
-		sah_cost[i] = 100.0f + (half1_count * half1_box.surface_area() + half2_count * half2_box.surface_area())/box.surface_area();
+		sah_cost[i] = 500.0f + (half1_count * half1_box.surface_area() + half2_count * half2_box.surface_area())/box.surface_area();
 	}
 	
 	float min_sah_cost = sah_cost[0];

@@ -89,6 +89,7 @@ void display()
 #else
 		{
 			glEnable(GL_DEPTH_TEST);
+			//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 			glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -107,9 +108,11 @@ void display()
 			glEnableVertexAttribArray(glGetAttribLocation(program, "inTexcoord"));
 			glEnableVertexAttribArray(glGetAttribLocation(program, "inNormal"));
 
-			matrix4x4 worldViewProj = g_camera->proj_matrix() * g_camera->view_matrix();
+			vector3 eye_pos = g_camera->position();
+			matrix4x4 wvp = g_camera->proj_matrix() * g_camera->view_matrix();
 
-			glUniformMatrix4fv(glGetUniformLocation(program, "g_mWorldViewProj"), 1, false, &(worldViewProj(0,0)));
+			glUniformMatrix4fv(glGetUniformLocation(program, "g_mWorldViewProj"), 1, false, &(wvp(0,0)));
+			glUniform3fv(glGetUniformLocation(program, "g_vEyePos"), 1, (GLfloat*)&eye_pos[0]);
 
 			// Point lights
 			for (int i = 0; i < g_point_lights.size(); ++i)
@@ -161,24 +164,34 @@ void display()
 				glUniform4fv(location, 1, &g_spot_lights[i].angle[0]);
 			}
 
-			unsigned num_objects = g_render->draw_command_count();
+			GLuint draw_command_count = g_render->draw_command_count();
 			GLuint draw_buffer = g_render->draw_command_buffer();
 
-			std::cout << num_objects << " objects in frustum\n";
+			//std::cout << num_objects << " objects in frustum\n";
+
 
 			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, draw_buffer);
-			glMultiDrawElementsIndirectAMD(GL_TRIANGLES, GL_UNSIGNED_INT, (GLvoid*)0, num_objects, 0);
+
+#ifdef INDIRECT_PARAMS
+			glBindBuffer(GL_PARAMETER_BUFFER_ARB, draw_command_count);
+			glMultiDrawElementsIndirectCountARB(GL_TRIANGLES, GL_UNSIGNED_INT, (GLvoid*)0, (GLintptr)0, 1000, 0);
+			glBindBuffer(GL_PARAMETER_BUFFER_ARB, 0);
+#else
+			glMultiDrawElementsIndirectAMD(GL_TRIANGLES, GL_UNSIGNED_INT, (GLvoid*)0, draw_command_count, 0);
+#endif
+
 			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
 
 			//glDrawElements(GL_TRIANGLES, g_scene->indices().size(), GL_UNSIGNED_INT, nullptr); 
 			glDisable(GL_DEPTH_TEST);
+			//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 			glDisableVertexAttribArray(glGetAttribLocation(program, "inPosition"));
 			glDisableVertexAttribArray(glGetAttribLocation(program, "inTexcoord"));
 			glDisableVertexAttribArray(glGetAttribLocation(program, "inNormal"));
 		}
 
 		{
-			glViewport(10, 10, 160, 120);
+			glViewport(10, 10, 2*160, 2*120);
 
 			glBindBuffer(GL_ARRAY_BUFFER, g_vertex_buffer_id);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_index_buffer_id);
@@ -308,6 +321,9 @@ void init_graphics()
 	memset(&g_point_lights[0], 0, sizeof(PointLightData)*4);
 	memset(&g_spot_lights[0], 0, sizeof(SpotLightData)*4);
 
+	g_point_lights[0].pos = vector4(0,-2,0,1);
+	g_point_lights[0].pos = vector4(0.2,0.2,0.2,1);
+
 	g_spot_lights[0].pos = vector4(0,0,-3,1);
 	g_spot_lights[0].dir = vector4(0.5,0.5, 1,1);
 	g_spot_lights[0].color = vector4(0.5,0,0,1);
@@ -317,12 +333,11 @@ void init_graphics()
 	g_spot_lights[1].dir = vector4(-0.5,-0.5, 1,1);
 	g_spot_lights[1].color = vector4(0,0.5,0,1);
 	g_spot_lights[1].angle = vector4(0.707, 0.5, 0, 0);
-
 }
 
 void init_data()
 {
-	g_scene = massive_scene::create_from_obj("monkey.objm");
+	g_scene = simple_scene::create_from_obj("sibenik.objm");
 	g_camera = quaternion_camera::look_at(CAMERA_POSITION, CAMERA_AT, CAMERA_UP);
 
 	g_camera->set_near_z(CAMERA_NEAR_PLANE);

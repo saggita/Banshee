@@ -5,6 +5,8 @@
 #pragma OPENCL EXTENSION cl_khr_local_int32_extended_atomics : enable
  
 
+//#define TRAVERSAL_STACKLESS
+
 /// Type definitions
 typedef struct _bbox
 {
@@ -47,6 +49,8 @@ typedef struct _ray
 {
 	float3 o;
 	float3 d;
+	float  mint;
+	float  maxt;
 } ray;
 
 typedef  struct {
@@ -75,6 +79,15 @@ float4 make_float4(float x, float y, float z, float w)
 	return res;
 }
 
+float3 make_float3(float x, float y, float z)
+{
+	float3 res;
+	res.x = x;
+	res.y = y;
+	res.z = z;
+	return res;
+}
+
 float2 make_float2(float x, float y)
 {
 	float2 res;
@@ -89,6 +102,19 @@ int2 make_int2(int x, int y)
 	res.x = x;
 	res.y = y;
 	return res;
+}
+
+
+float component(float3 v, int comp)
+{
+	float3 component_mask_3[3] = 
+	{
+		{1.0, 0.0, 0.0},
+		{0.0, 1.0, 0.0},
+		{0.0, 0.0, 1.0}
+	};
+
+	return dot(v, component_mask_3[comp]);
 }
 
 float4 transform_point(float16 mvp, float4 p)
@@ -125,34 +151,34 @@ float3 sub(float3 v1, float3 v2)
 }
 
 // intersect ray against triangle
-bool intersect_triangle(ray r, float3 v1, float3 v2, float3 v3, float* t)
+bool intersect_triangle(ray* r, float3 v1, float3 v2, float3 v3)
 {
 	float3 e1 = sub(v2, v1);
 	float3 e2 = sub(v3, v1);
 
-	float3 s1 = cross(r.d, e2);
+	float3 s1 = cross(r->d, e2);
 	float inv_div = 1.0/dot(s1, e1);
 
 	//if (div == 0.f)
 	//return false;
 
-	float3 d = r.o - v1;
+	float3 d = r->o - v1;
 	float b1 = dot(d,s1) * inv_div;
 
 	if (b1 < 0 || b1 > 1)
 		return false;
 
 	float3 s2 = cross(d, e1);
-	float b2 = dot(r.d, s2) * inv_div;
+	float b2 = dot(r->d, s2) * inv_div;
 
 	if (b2 < 0 || b1 + b2 > 1)
 		return false;
 
 	float temp = dot(e2, s2) * inv_div;
 
-	if (t && temp >= 0)
+	if (temp > 0 && temp < r->maxt)
 	{
-		*t = temp;
+		r->maxt = temp;
 		return true;
 	}
 
@@ -160,63 +186,41 @@ bool intersect_triangle(ray r, float3 v1, float3 v2, float3 v3, float* t)
 }
 
 // intersect ray with the axis-aligned box
-bool intersect_box(ray r, bbox box, float* t)
+bool intersect_box(ray* r, bbox box)
 {
-	float tmin, tmax, tymin, tymax, tzmin, tzmax;
-	float3 bounds[2];
-	bounds[0] = box.pmin;
-	bounds[1] = box.pmax;
+	float3 ray_dir  = make_float3(1.0/r->d.x, 1.0/r->d.y, 1.0/r->d.z);
+	float lo = ray_dir.x*(box.pmin.x - r->o.x);
+	float hi = ray_dir.x*(box.pmax.x - r->o.x);
 
-	if (r.d.x >= 0) {
-		tmin = (bounds[0].x - r.o.x) / r.d.x;
-		tmax = (bounds[1].x - r.o.x) / r.d.x;
-	} else {
-		tmin = (bounds[1].x - r.o.x) / r.d.x;
-		tmax = (bounds[0].x - r.o.x) / r.d.x;
-	}
-	if (r.d.y >= 0) {
-		tymin = (bounds[0].y - r.o.y) / r.d.y;
-		tymax = (bounds[1].y - r.o.y) / r.d.y;
-	} else {
-		tymin = (bounds[1].y - r.o.y) / r.d.y;
-		tymax = (bounds[0].y - r.o.y) / r.d.y;
-	}
-	if ( (tmin > tymax) || (tymin > tmax) )
-		return false;
+	float tmin = fmin(lo, hi);
+	float tmax = fmax(lo, hi);
 
-	if (tymin > tmin)
-		tmin = tymin;
-	if (tymax < tmax)
-		tmax = tymax;
-	if (r.d.z >= 0) {
-		tzmin = (bounds[0].z - r.o.z) / r.d.z;
-		tzmax = (bounds[1].z - r.o.z) / r.d.z;
-	} else {
-		tzmin = (bounds[1].z - r.o.z) / r.d.z;
-		tzmax = (bounds[0].z - r.o.z) / r.d.z;
-	}
-	if ( (tmin > tzmax) || (tzmin > tmax) )
-		return false;
+	float lo1 = ray_dir.y*(box.pmin.y - r->o.y);
+	float hi1 = ray_dir.y*(box.pmax.y - r->o.y);
 
-	if (tzmin > tmin)
-		tmin = tzmin;
-	if (tzmax < tmax)
-		tmax = tzmax;
+	tmin = fmax(tmin, fmin(lo1, hi1));
+	tmax = fmin(tmax, fmax(lo1, hi1));
 
-	if (tmin < 0 && tmax < 0)
-		return false;
+	float lo2 = ray_dir.z*(box.pmin.z - r->o.z);
+	float hi2 = ray_dir.z*(box.pmax.z - r->o.z);
 
-	if (t)
+	tmin = fmax(tmin, fmin(lo2, hi2));
+	tmax = fmin(tmax, fmax(lo2, hi2));
+
+	bool hit = (tmin <= tmax) && (tmax > 0.0);
+	float t = tmin >=0 ? tmin : tmax;
+
+	if (hit && t < r->maxt)
 	{
-		*t = tmin >=0 ? tmin : tmax;
+		return true;
 	}
 
-	return true;
+	return false;
 }
 
 /// BVH related functions
 //  intersect a ray with BVH leaf
-bool intersect_leaf(__global float4* vertices, __global uint4* indices, uint idx, int num_prims, ray r, float* t)
+bool intersect_leaf(__global float4* vertices, __global uint4* indices, uint idx, int num_prims, ray* r)
 {
 	bool hit = false;
 	float depth = DEFAULT_DEPTH;
@@ -228,90 +232,74 @@ bool intersect_leaf(__global float4* vertices, __global uint4* indices, uint idx
 		float4 v2 = vertices[triangle.y];
 		float4 v3 = vertices[triangle.z];
 
-		float tt = DEFAULT_DEPTH;
-		if (intersect_triangle(r, v1.xyz, v2.xyz, v3.xyz, &tt))
-		{
-			hit = true;
-			depth = min(depth, tt);
-		}
-	}
-
-	if (hit && t)
-	{
-		*t = depth;
+		hit |= intersect_triangle(r, v1.xyz, v2.xyz, v3.xyz);
 	}
 
 	return hit;
 }
 
 #define NODE_STACK_SIZE 64
-#define NODE_STACK_INIT(size) \
-	int stack[size]; \
-	int* stack_ptr = stack; \
-	*stack_ptr++ = -1
+#define NODE_STACK_INIT(stack) \
+    __local int* stack_ptr = stack; \
+    *stack_ptr++ = -1
 #define NODE_STACK_PUSH(val) *stack_ptr++ = (val)
 #define NODE_STACK_POP *--stack_ptr
 #define NODE_STACK_GUARD -1
 
 // intersect ray against the whole BVH structure
-bool traverse_bvh_stacked(__global bvh_node* nodes, __global float4* vertices, __global uint4* indices, ray r, float* t)
+bool traverse_bvh_stacked(__local int* stack, __global bvh_node* nodes, __global float4* vertices, __global uint4* indices, ray* r)
 {
-	// init node stack
-	NODE_STACK_INIT(NODE_STACK_SIZE);
-
-	float depth = DEFAULT_DEPTH;
-	bool hit = false;
-
-	// start from the root
-	uint idx = 0;
-	do
-	{
-		float tt = DEFAULT_DEPTH;
-
-		// load current node
-		bbox box = nodes[idx].box;
-		uint prim_start_index = nodes[idx].prim_start_index;
-		uint  left  = idx + 1;
-		uint  right = nodes[idx].right;
-		uint  num_prims = nodes[idx].num_prims;
-
-		// try intersecting against current node's bounding box
-		if (intersect_box(r, box, &tt))
-		{
-			// if this is the leaf try to intersect against contained triangle
-			if (prim_start_index != 0xffffffff)
-			{
-#ifndef TRACE_INTERNAL_ONLY
-				if (intersect_leaf(vertices, indices, prim_start_index, num_prims, r, &tt))
+    // init node stack
+    NODE_STACK_INIT(stack);
+    
+    float depth = DEFAULT_DEPTH;
+    bool hit = false;
+    
+    // start from the root
+    uint idx = 0;
+    do
+    {
+        float tt = DEFAULT_DEPTH;
+        
+        // load current node
+        bbox box = nodes[idx].box;
+        uint prim_start_index = nodes[idx].prim_start_index;
+        uint  left  = idx + 1;
+        uint  right = nodes[idx].right;
+        uint  num_prims = nodes[idx].num_prims;
+        
+        // try intersecting against current node's bounding box
+        if (intersect_box(r, box))
+        {
+            // if this is the leaf try to intersect against contained triangle
+            if (num_prims != 0)
+            {
+                hit |= intersect_leaf(vertices, indices, prim_start_index, num_prims, r);
+            }
+            // traverse child nodes otherwise
+            else
+            {
+				int axis = prim_start_index;
+				if (component(r->d, axis) > 0)
 				{
-#endif
-					depth = min(depth, tt);
-					hit = true;
-#ifndef TRACE_INTERNAL_ONLY
+					NODE_STACK_PUSH(right);
+					idx = left;
 				}
-#endif
-			}
-			// traverse child nodes otherwise
-			else
-			{
-				NODE_STACK_PUSH(right);
-				idx = left;
+				else
+				{
+					NODE_STACK_PUSH(left);
+					idx = right;
+				}
 				continue;
-			}
-		}
+            }
+        }
+        
+        // pop next item from the stack
+        idx = NODE_STACK_POP;
+    }
+    while (idx != NODE_STACK_GUARD);
 
-		// pop next item from the stack
-		idx = NODE_STACK_POP;
-	}
-	while (idx != NODE_STACK_GUARD);
-
-	// return depth
-	if (t && hit)
-	{
-		*t = depth;
-	}
-
-	return hit;
+    return hit;
 }
 
 #define FROM_PARENT  1
@@ -322,15 +310,14 @@ bool traverse_bvh_stacked(__global bvh_node* nodes, __global float4* vertices, _
 #define LEFT_CHILD(x) ((x)+1)
 #define RIGHT_CHILD(x) (nodes[(x)].right)
 
-#define IS_LEAF(x) (nodes[(x)].prim_start_index != 0xffffffff)
+#define IS_LEAF(x) (nodes[(x)].num_prims != 0)
 
-bool traverse_bvh_stackless(__global bvh_node* nodes, __global float4* vertices, __global uint4* indices, ray r, float* t)
+bool traverse_bvh_stackless(__global bvh_node* nodes, __global float4* vertices, __global uint4* indices, ray* r)
 {
 	uint current = 1;
 	int  state   = FROM_PARENT;
 
 	bool hit = false;
-	float depth = DEFAULT_DEPTH;
 
 	while (true)
 	{
@@ -340,11 +327,6 @@ bool traverse_bvh_stackless(__global bvh_node* nodes, __global float4* vertices,
 			{
 				if (current == 0)
 				{
-					if (hit && t)
-					{
-						*t = depth;
-					}
-
 					return hit;
 				}
 
@@ -363,21 +345,15 @@ bool traverse_bvh_stackless(__global bvh_node* nodes, __global float4* vertices,
 
 		case FROM_SIBLING:
 			{
-				float tt = DEFAULT_DEPTH;
 				bbox box = nodes[current].box;
-				if (!intersect_box(r, box, &tt))
+				if (!intersect_box(r, box))
 				{
 					current = PARENT(current);
 					state = FROM_CHILD;
 				}
 				else if (IS_LEAF(current))
 				{
-					if (intersect_leaf(vertices, indices, nodes[current].prim_start_index, nodes[current].num_prims, r, &tt))
-					{
-						depth = min(depth, tt);
-						hit = true;
-					}
-
+					hit |= intersect_leaf(vertices, indices, nodes[current].prim_start_index, nodes[current].num_prims, r);
 					current = PARENT(current);
 					state = FROM_CHILD;
 				}
@@ -392,21 +368,15 @@ bool traverse_bvh_stackless(__global bvh_node* nodes, __global float4* vertices,
 
 		case FROM_PARENT:
 			{
-				float tt = DEFAULT_DEPTH;
 				bbox box = nodes[current].box;
-				if (!intersect_box(r, box, &tt))
+				if (!intersect_box(r, box))
 				{
 					current = RIGHT_CHILD(PARENT(current));
 					state = FROM_SIBLING;
 				}
 				else if (IS_LEAF(current))
 				{
-					if (intersect_leaf(vertices, indices, nodes[current].prim_start_index, nodes[current].num_prims, r, &tt))
-					{
-						depth = min(depth, tt);
-						hit = true;
-					}
-
+					hit |= intersect_leaf(vertices, indices, nodes[current].prim_start_index, nodes[current].num_prims, r);
 					current = RIGHT_CHILD(PARENT(current));
 					state = FROM_SIBLING;
 				}
@@ -436,9 +406,19 @@ __kernel void trace_primary_depth(
 				__write_only image2d_t output
 				)
 {
+#ifndef TRAVERSAL_STACKLESS
+	__local int stack[64 * 64];
+#endif
+
 	int2 global_id;
 	global_id.x = get_global_id(0);
 	global_id.y = get_global_id(1);
+
+	int2 local_id;
+	local_id.x = get_local_id(0);
+	local_id.y = get_local_id(1);
+
+	int flat_local_id = local_id.y * get_local_size(0) + local_id.x;
 
 	if (global_id.x < params->output_width && global_id.y < params->output_height)
 	{
@@ -458,12 +438,20 @@ __kernel void trace_primary_depth(
 
 		rr.d = normalize(rr.d);
 
-		float res = DEFAULT_DEPTH;
-		float depth = DEFAULT_DEPTH;
+		rr.mint = 0.f;
+		rr.maxt = DEFAULT_DEPTH;
 
-		if (traverse_bvh_stackless(bvh, vertices, indices, rr, &depth))
+		float res = DEFAULT_DEPTH;
+
+#ifdef TRAVERSAL_STACKLESS
+		bool hit  = traverse_bvh_stackless(bvh, vertices, indices, &rr);
+#else
+		__local int* this_thread_stack = stack + 64 * flat_local_id;
+		bool hit  = traverse_bvh_stacked(this_thread_stack, bvh, vertices, indices, &rr);
+#endif
+		if (hit)
 		{
-			res = depth;
+			res = rr.maxt;
 		}
 
 		write_imagef(output, global_id, res);
@@ -476,33 +464,33 @@ __kernel void trace_primary_depth(
 #define TILE_SIZE_X 16
 #define TILE_SIZE_Y 16
 
-bool test_bbox(__global bbox* bounds, int idx, float16 mvp, int2 tile_idx, int2 tile_dim, float2 minmax)
+bool test_bsphere(__global float4* bounds, int idx, float16 mvp, int2 tile_idx, int2 tile_dim, float2 minmax)
 {
-		float4 pmin = make_float4(bounds[idx].pmin.x, bounds[idx].pmin.y, bounds[idx].pmin.z, 1);
-		float4 pmax = make_float4(bounds[idx].pmax.x, bounds[idx].pmax.y, bounds[idx].pmax.z, 1);
+		//float4 pmin = make_float4(bounds[idx].pmin.x, bounds[idx].pmin.y, bounds[idx].pmin.z, 1);
+		//float4 pmax = make_float4(bounds[idx].pmax.x, bounds[idx].pmax.y, bounds[idx].pmax.z, 1);
 
-		float4 p0 = make_float4(pmin.x, pmin.y, pmax.z, 1);
-		float4 p1 = make_float4(pmin.x, pmax.y, pmax.z, 1);
+		//float4 p0 = make_float4(pmin.x, pmin.y, pmax.z, 1);
+		//float4 p1 = make_float4(pmin.x, pmax.y, pmax.z, 1);
 
-		float4 p2 = make_float4(pmax.x, pmin.y, pmax.z, 1);
-		float4 p3 = make_float4(pmin.x, pmax.y, pmin.z, 1);
+		//float4 p2 = make_float4(pmax.x, pmin.y, pmax.z, 1);
+		//float4 p3 = make_float4(pmin.x, pmax.y, pmin.z, 1);
 
-		float4 p4 = make_float4(pmax.x, pmin.y, pmin.z, 1);
-		float4 p5 = make_float4(pmax.x, pmax.y, pmin.z, 1);
+		//float4 p4 = make_float4(pmax.x, pmin.y, pmin.z, 1);
+		//float4 p5 = make_float4(pmax.x, pmax.y, pmin.z, 1);
 
-		pmin = transform_point(mvp, pmin);
-		pmax = transform_point(mvp, pmax);
+		//pmin = transform_point(mvp, pmin);
+		//pmax = transform_point(mvp, pmax);
 
-		p0 = transform_point(mvp, p0);
-		p1 = transform_point(mvp, p1);
-		p2 = transform_point(mvp, p2);
-		p3 = transform_point(mvp, p3);
-		p4 = transform_point(mvp, p4);
-		p5 = transform_point(mvp, p5);
+		//p0 = transform_point(mvp, p0);
+		//p1 = transform_point(mvp, p1);
+		//p2 = transform_point(mvp, p2);
+		//p3 = transform_point(mvp, p3);
+		//p4 = transform_point(mvp, p4);
+		//p5 = transform_point(mvp, p5);
 
-		bool inside = frustum_check(pmin) || frustum_check(pmax) || frustum_check(p0)
-			|| frustum_check(p1) || frustum_check(p2) || frustum_check(p3) 
-			|| frustum_check(p4) || frustum_check(p5);
+		//bool inside = frustum_check(pmin) || frustum_check(pmax) || frustum_check(p0)
+		//	|| frustum_check(p1) || frustum_check(p2) || frustum_check(p3) 
+		//	|| frustum_check(p4) || frustum_check(p5);
 
 		//		float4 p6 = find_min_z(pmin,pmax);
 		//float4 p7 = find_min_z(p0,p1);
@@ -517,13 +505,13 @@ bool test_bbox(__global bbox* bounds, int idx, float16 mvp, int2 tile_idx, int2 
 		//tex_coord.y = (int)((- p12.y / p12.w * 0.5 + 0.5) * 600);
 		//float depth = read_imagef(depthmap, tex_coord).x;
 
-		return inside;
+		return true;
 }
 
 __kernel void check_visibility(
 						float16 mvp, 
 						uint num_bounds,
-						__global bbox* bounds,
+						__global float4* bounds,
 						__read_only image2d_t depthmap,
 						__global uint* visiblity
 						)
@@ -558,7 +546,7 @@ __kernel void check_visibility(
 
 	for (int i = flat_local_id; i < num_bounds; i += group_dim.x * group_dim.y)
 	{
-		if (test_bbox(bounds, i, mvp, group_id, make_int2(TILE_SIZE_X, TILE_SIZE_Y), make_float2(as_float(l_min), as_float(l_max))))
+		if (test_bsphere(bounds, i, mvp, group_id, make_int2(TILE_SIZE_X, TILE_SIZE_Y), make_float2(as_float(l_min), as_float(l_max))))
 		{
 			atom_max(&visiblity[i], 1);
 		}

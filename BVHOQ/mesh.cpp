@@ -46,7 +46,8 @@ void mesh::load_from_file(std::string const& file_name)
 											 file_name,
 											 aiProcess_Triangulate			|
 											 aiProcess_JoinIdenticalVertices  |
-											 aiProcess_SortByPType
+											 aiProcess_SortByPType | 
+											 aiProcess_GenNormals
 											 );
 	
 	if( !scene)

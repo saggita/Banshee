@@ -130,6 +130,7 @@ private:
 	cl_mem		cull_result_;
 	cl_mem		atomic_counter_;
 	cl_mem		visibility_buffer_;
+	cl_mem		bvh_texture_;
 	
 	GLuint gl_tex_;
 	GLuint gl_buffer_;

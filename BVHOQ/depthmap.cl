@@ -6,7 +6,11 @@
  
 
 //#define TRAVERSAL_STACKLESS
-
+//#define TRAVERSAL_STACKED
+#define TRAVERSAL_PACKET
+#define LOCAL_STACK
+#define NODE_STACK_SIZE 16
+#define NODE_SHARED_STACK_SIZE 128
 /// Type definitions
 typedef struct _bbox
 {
@@ -176,7 +180,7 @@ bool intersect_triangle(ray* r, float3 v1, float3 v2, float3 v3)
 
 	float temp = dot(e2, s2) * inv_div;
 
-	if (temp > 0 && temp < r->maxt)
+	if (temp > 0 && temp <= r->maxt)
 	{
 		r->maxt = temp;
 		return true;
@@ -210,7 +214,7 @@ bool intersect_box(ray* r, bbox box)
 	bool hit = (tmin <= tmax) && (tmax > 0.0);
 	float t = tmin >=0 ? tmin : tmax;
 
-	if (hit && t < r->maxt)
+	if (hit && tmin < r->maxt)
 	{
 		return true;
 	}
@@ -223,7 +227,6 @@ bool intersect_box(ray* r, bbox box)
 bool intersect_leaf(__global float4* vertices, __global uint4* indices, uint idx, int num_prims, ray* r)
 {
 	bool hit = false;
-	float depth = DEFAULT_DEPTH;
 	for (int i = 0; i < num_prims; ++i)
 	{
 		uint4 triangle = indices[idx + i];
@@ -238,68 +241,166 @@ bool intersect_leaf(__global float4* vertices, __global uint4* indices, uint idx
 	return hit;
 }
 
-#define NODE_STACK_SIZE 64
-#define NODE_STACK_INIT(stack) \
-    __local int* stack_ptr = stack; \
-    *stack_ptr++ = -1
+
 #define NODE_STACK_PUSH(val) *stack_ptr++ = (val)
 #define NODE_STACK_POP *--stack_ptr
+#define NODE_STACK_VAL *stack_ptr
 #define NODE_STACK_GUARD -1
 
+#ifdef LOCAL_STACK
+#define NODE_STACK_INIT(size) \
+    __local int* stack_ptr = stack; \
+    *stack_ptr++ = -1
+#else
+#define NODE_STACK_INIT(size) \
+	int stack[size]; \
+	int* stack_ptr = stack;\
+	*stack_ptr++ = -1
+#endif
+
+
 // intersect ray against the whole BVH structure
-bool traverse_bvh_stacked(__local int* stack, __global bvh_node* nodes, __global float4* vertices, __global uint4* indices, ray* r)
+bool traverse_bvh_stacked(
+#ifdef LOCAL_STACK
+	__local int* stack, 
+#endif
+	__global bvh_node* nodes, __global float4* vertices, __global uint4* indices, ray* r)
 {
-    // init node stack
-    NODE_STACK_INIT(stack);
-    
-    float depth = DEFAULT_DEPTH;
-    bool hit = false;
-    
-    // start from the root
-    uint idx = 0;
-    do
-    {
-        float tt = DEFAULT_DEPTH;
-        
-        // load current node
-        bbox box = nodes[idx].box;
-        uint prim_start_index = nodes[idx].prim_start_index;
-        uint  left  = idx + 1;
-        uint  right = nodes[idx].right;
-        uint  num_prims = nodes[idx].num_prims;
-        
-        // try intersecting against current node's bounding box
-        if (intersect_box(r, box))
-        {
-            // if this is the leaf try to intersect against contained triangle
-            if (num_prims != 0)
-            {
-                hit |= intersect_leaf(vertices, indices, prim_start_index, num_prims, r);
-            }
-            // traverse child nodes otherwise
-            else
-            {
+	// init node stack
+	NODE_STACK_INIT(NODE_STACK_SIZE);
+
+	bool hit = false;
+
+	// start from the root
+	uint idx = 0;
+	do
+	{
+		float tt = DEFAULT_DEPTH;
+
+		// load current node
+		bbox box = nodes[idx].box;
+		uint  left  = idx + 1;
+		uint  right = nodes[idx].right;
+		uint prim_start_index = nodes[idx].prim_start_index;
+		uint  num_prims = nodes[idx].num_prims;
+
+		// try intersecting against current node's bounding box
+		// if this is the leaf try to intersect against contained triangle
+		if (num_prims != 0)
+		{
+			hit |= intersect_leaf(vertices, indices, prim_start_index, num_prims, r);
+		}
+		// traverse child nodes otherwise
+		else
+		{
+			bool radd = intersect_box(r, nodes[right].box);
+			bool ladd = intersect_box(r, nodes[left].box);
+
+			if (radd && ladd)
+			{
 				int axis = prim_start_index;
 				if (component(r->d, axis) > 0)
 				{
 					NODE_STACK_PUSH(right);
 					idx = left;
-				}
+				} 
 				else
 				{
 					NODE_STACK_PUSH(left);
 					idx = right;
 				}
-				continue;
-            }
-        }
-        
-        // pop next item from the stack
-        idx = NODE_STACK_POP;
-    }
-    while (idx != NODE_STACK_GUARD);
+			}
+			else if (radd)
+			{
+				idx = right;
+			}
+			else if (ladd)
+			{
+				idx = left;
+			}
+			else
+			{
+				idx = NODE_STACK_POP;
+			}
+				
+			continue;
+		}
 
-    return hit;
+		// pop next item from the stack
+		idx = NODE_STACK_POP;
+	}
+	while (idx != NODE_STACK_GUARD);
+
+	return hit;
+}
+
+bool anythreads(__local int* flag, int val)
+{
+	if (get_local_id(0) == 0 && get_local_id(1) == 0)
+	*flag = 0;
+	barrier(CLK_LOCAL_MEM_FENCE);
+	atom_max(flag, val);
+	barrier(CLK_LOCAL_MEM_FENCE);
+	return *flag > 0;
+}
+
+// intersect ray against the whole BVH structure
+bool traverse_bvh_packet(
+#ifdef LOCAL_STACK
+	__local int* stack, 
+#endif
+	__local int* flag,
+	__global bvh_node* nodes, __global float4* vertices, __global uint4* indices, ray* r)
+{
+	// init node stack
+	NODE_STACK_INIT(NODE_SHARED_STACK_SIZE);
+
+	bool hit = false;
+
+	// start from the root
+	uint idx = 0;
+	do
+	{
+		// load current node
+		bbox box = nodes[idx].box;
+		uint  left  = idx + 1;
+		uint  right = nodes[idx].right;
+		uint prim_start_index = nodes[idx].prim_start_index;
+		uint  num_prims = nodes[idx].num_prims;
+		int radd = 0;
+		int ladd = 0;
+
+		// try intersecting against current node's bounding box
+		// if this is the leaf try to intersect against contained triangle
+		if (num_prims != 0)
+		{
+			hit |= intersect_leaf(vertices, indices, prim_start_index, num_prims, r);
+		}
+		// traverse child nodes otherwise
+		else
+		{
+			radd = intersect_box(r, nodes[right].box) ? 1 : 0;
+			ladd = intersect_box(r, nodes[left].box) ? 1 : 0;
+		}
+
+		bool rany = anythreads(flag, radd);
+		bool lany = anythreads(flag, ladd);
+
+		if (get_local_id(0) == 0 && get_local_id(1) == 0)
+		{
+			if (lany) NODE_STACK_PUSH(left);
+			if (rany) NODE_STACK_PUSH(right);
+			*flag = NODE_STACK_POP;
+		}
+
+		barrier(CLK_LOCAL_MEM_FENCE);
+
+		// pop next item from the stack
+		idx = *flag;
+	}
+	while (idx != NODE_STACK_GUARD);
+
+	return hit;
 }
 
 #define FROM_PARENT  1
@@ -406,8 +507,12 @@ __kernel void trace_primary_depth(
 				__write_only image2d_t output
 				)
 {
-#ifndef TRAVERSAL_STACKLESS
-	__local int stack[64 * 64];
+#if defined (TRAVERSAL_PACKET)
+	__local int stack[NODE_SHARED_STACK_SIZE];
+	__local int flag;
+#elif defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
+	__local int stack[NODE_STACK_SIZE * 64];
+#else
 #endif
 
 	int2 global_id;
@@ -443,11 +548,17 @@ __kernel void trace_primary_depth(
 
 		float res = DEFAULT_DEPTH;
 
-#ifdef TRAVERSAL_STACKLESS
+#if defined(TRAVERSAL_STACKLESS)
 		bool hit  = traverse_bvh_stackless(bvh, vertices, indices, &rr);
-#else
-		__local int* this_thread_stack = stack + 64 * flat_local_id;
+#elif defined(TRAVERSAL_STACKED)
+	#if defined(LOCAL_STACK)
+		__local int* this_thread_stack = stack + NODE_STACK_SIZE * flat_local_id;
 		bool hit  = traverse_bvh_stacked(this_thread_stack, bvh, vertices, indices, &rr);
+	#else
+		bool hit  = traverse_bvh_stacked(bvh, vertices, indices, &rr);
+	#endif
+#elif defined(TRAVERSAL_PACKET)
+		bool hit  = traverse_bvh_packet(stack, &flag, bvh, vertices, indices, &rr);
 #endif
 		if (hit)
 		{

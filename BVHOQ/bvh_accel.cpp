@@ -108,7 +108,7 @@ bbox bvh_accel::triangle_bbox(triangle const& t)
 
 std::shared_ptr<bvh_accel> bvh_accel::create_from_scene(scene_base const& scene)
 {
-	return std::make_shared<bvh_accel>(scene.vertices(), scene.indices(), 255);
+	return std::make_shared<bvh_accel>(scene.vertices(), scene.indices(), 8);
 }
 
 template <typename T> bvh_accel::bvh_accel(std::vector<T> const& vertices, std::vector<unsigned> const& indices, unsigned max_node_prims)

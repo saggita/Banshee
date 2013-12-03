@@ -236,6 +236,19 @@ void opencl_render::init(unsigned width, unsigned height)
 	atomic_counter_ =  clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_int), nullptr, &status);
 	CHECK_ERROR(status, "Cannot create atomic counter buffer");
 #endif
+
+	//cl_image_format fmt = {CL_R, CL_UNSIGNED_INT32};
+	//cl_image_desc desc;
+	//desc.image_type = CL_MEM_OBJECT_IMAGE1D;
+	//desc.image_width = 10 * nodes.size();
+	//desc.image_height = 1;
+	//desc.image_depth = 1;
+	//desc.image_array_size = 1;
+	//desc.image_row_pitch = desc.image_slice_pitch = 0;
+	//desc.num_mip_levels = 1;
+	//desc.num_samples = 1;
+	//bvh_texture_ = clCreateImage(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &fmt, &desc, &nodes[0], &status);
+	//CHECK_ERROR(status, "Cannot create BVH texture");
 }
 
 void opencl_render::commit()
@@ -270,6 +283,7 @@ opencl_render::~opencl_render()
 #endif
 
 	glDeleteBuffers(1, &gl_buffer_);
+	//clReleaseMemObject(bvh_texture_);
 	clReleaseMemObject(visibility_buffer_);
 	clReleaseMemObject(offsets_);
 	clReleaseMemObject(atomic_counter_);

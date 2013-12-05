@@ -61,8 +61,11 @@ public:
 private:
 	void cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc> const& meshes);
 
-	struct config
+	struct __declspec(align(1)) config
 	{
+		cl_float16 mProjInv;
+		cl_float16 mView;
+
 		cl_float3 camera_dir;
 		cl_float3 camera_right;
 		cl_float3 camera_up;

@@ -253,6 +253,19 @@ void opencl_render::init(unsigned width, unsigned height)
 
 void opencl_render::commit()
 {
+	matrix4x4 mView = camera()->view_matrix();
+	matrix4x4 mProj = camera()->proj_matrix();
+	matrix4x4 mProjInv = inverse(mProj);
+
+#define INVERSE_TEST
+#ifdef INVERSE_TEST
+	matrix4x4 res = mProj * mProjInv;
+	res;
+#endif
+	
+	memcpy(&config_data_.mView, &mView(0,0), 4*4*sizeof(float));
+	memcpy(&config_data_.mProjInv, &mProjInv(0,0), 4*4*sizeof(float));
+
 	config_data_.output_width = output_size_.s[0];
 	config_data_.output_height = output_size_.s[1];
 	config_data_.camera_pos.s[0] = camera()->position().x();
@@ -394,8 +407,8 @@ void opencl_render::cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc
 			(config_data_.output_height + local_work_size[1] - 1)/(local_work_size[1]) * local_work_size[1]
 		};
 
-		const cl_float16* mat = (const cl_float16*)&mvp;
-		CHECK_ERROR(clSetKernelArg(visibility_check_kernel_, 0, sizeof(cl_float16), mat), "SetKernelArg failed")
+		//const cl_float16* mat = (const cl_float16*)&mvp;
+		CHECK_ERROR(clSetKernelArg(visibility_check_kernel_, 0, sizeof(cl_mem), &config_), "SetKernelArg failed")
 		CHECK_ERROR(clSetKernelArg(visibility_check_kernel_, 1, sizeof(cl_uint), &num_meshes), "SetKernelArg failed");
 		CHECK_ERROR(clSetKernelArg(visibility_check_kernel_, 2, sizeof(cl_mem), &bounds_), "SetKernelArg failed");
 		CHECK_ERROR(clSetKernelArg(visibility_check_kernel_, 3, sizeof(cl_mem), &output_), "SetKernelArg failed");

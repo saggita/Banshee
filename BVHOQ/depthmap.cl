@@ -6,11 +6,12 @@
  
 
 //#define TRAVERSAL_STACKLESS
-//#define TRAVERSAL_STACKED
-#define TRAVERSAL_PACKET
+#define TRAVERSAL_STACKED
+//#define TRAVERSAL_PACKET
 #define LOCAL_STACK
 #define NODE_STACK_SIZE 16
 #define NODE_SHARED_STACK_SIZE 128
+
 /// Type definitions
 typedef struct _bbox
 {
@@ -36,6 +37,9 @@ typedef struct _bvh_node
 
 typedef struct _config
 {
+	float16 mProjInv;
+	float16 mView;
+
 	float3 camera_dir;
 	float3 camera_right;
 	float3 camera_up;
@@ -575,53 +579,111 @@ __kernel void trace_primary_depth(
 #define TILE_SIZE_X 16
 #define TILE_SIZE_Y 16
 
-bool test_bsphere(__global float4* bounds, int idx, float16 mvp, int2 tile_idx, int2 tile_dim, float2 minmax)
+float4 create_plane( float4 b, float4 c )
 {
-		//float4 pmin = make_float4(bounds[idx].pmin.x, bounds[idx].pmin.y, bounds[idx].pmin.z, 1);
-		//float4 pmax = make_float4(bounds[idx].pmax.x, bounds[idx].pmax.y, bounds[idx].pmax.z, 1);
+    float4 n;
 
-		//float4 p0 = make_float4(pmin.x, pmin.y, pmax.z, 1);
-		//float4 p1 = make_float4(pmin.x, pmax.y, pmax.z, 1);
+    // normalize(cross( b.xyz-a.xyz, c.xyz-a.xyz )), except we know "a" is the origin
+    n.xyz = normalize(cross( b.xyz, c.xyz ));
 
-		//float4 p2 = make_float4(pmax.x, pmin.y, pmax.z, 1);
-		//float4 p3 = make_float4(pmin.x, pmax.y, pmin.z, 1);
+    // -(n dot a), except we know "a" is the origin
+    n.w = 0;
 
-		//float4 p4 = make_float4(pmax.x, pmin.y, pmin.z, 1);
-		//float4 p5 = make_float4(pmax.x, pmax.y, pmin.z, 1);
+    return n;
+}
 
-		//pmin = transform_point(mvp, pmin);
-		//pmax = transform_point(mvp, pmax);
+// point-plane distance, simplified for the case where 
+// the plane passes through the origin
+float sdist( float3 p, float4 eqn )
+{
+    // dot( eqn.xyz, p.xyz ) + eqn.w, , except we know eqn.w is zero 
+    // (see CreatePlaneEquation above)
+    return dot( eqn.xyz, p.xyz );
+}
 
-		//p0 = transform_point(mvp, p0);
-		//p1 = transform_point(mvp, p1);
-		//p2 = transform_point(mvp, p2);
-		//p3 = transform_point(mvp, p3);
-		//p4 = transform_point(mvp, p4);
-		//p5 = transform_point(mvp, p5);
+float4 transform_point_hdiv( float16 pi, float4 p )
+{
+    p = transform_point(pi, p);
+    p /= p.w;
+    return p;
+}
 
-		//bool inside = frustum_check(pmin) || frustum_check(pmax) || frustum_check(p0)
-		//	|| frustum_check(p1) || frustum_check(p2) || frustum_check(p3) 
-		//	|| frustum_check(p4) || frustum_check(p5);
+bool test_bsphere(__global config* cfg, 
+				  float4 bsphere, 
+				  int2 tile_idx, 
+				  int2 tile_dim, 
+				  int2 num_tiles, 
+				  float2 minmax)
+{
+	float4 frustumEqn[4];
+    {   // construct frustum for this tile
+        uint pxm = tile_dim.x*tile_idx.x;
+        uint pym = tile_dim.y*tile_idx.y;
+        uint pxp = tile_dim.x*(tile_idx.x+1);
+        uint pyp = tile_dim.y*(tile_idx.y+1);
 
-		//		float4 p6 = find_min_z(pmin,pmax);
-		//float4 p7 = find_min_z(p0,p1);
-		//float4 p8 = find_min_z(p2,p3);
-		//float4 p9 = find_min_z(p4,p5);
-		//float4 p10 = find_min_z(p6,p7);
-		//float4 p11 = find_min_z(p8,p9);
-		//float4 p12 = find_min_z(p10,p11);
+		uint uWindowWidthEvenlyDivisibleByTileRes = tile_dim.x*num_tiles.x;
+        uint uWindowHeightEvenlyDivisibleByTileRes = tile_dim.y*num_tiles.y;
 
-		//int2 tex_coord;
-		//tex_coord.x = (int)((p12.x / p12.w * 0.5 + 0.5) * 800);
-		//tex_coord.y = (int)((- p12.y / p12.w * 0.5 + 0.5) * 600);
-		//float depth = read_imagef(depthmap, tex_coord).x;
+        // four corners of the tile, clockwise from top-left
+        float4 frustum[4];
+        /*frustum[0] = transform_point_hdiv( cfg->mProjInv, make_float4( pxm/(float)uWindowWidthEvenlyDivisibleByTileRes*2.f-1.f, (uWindowHeightEvenlyDivisibleByTileRes-pym)/(float)uWindowHeightEvenlyDivisibleByTileRes*2.f-1.f,1.f,1.f) );
+        frustum[1] = transform_point_hdiv( cfg->mProjInv, make_float4( pxp/(float)uWindowWidthEvenlyDivisibleByTileRes*2.f-1.f, (uWindowHeightEvenlyDivisibleByTileRes-pym)/(float)uWindowHeightEvenlyDivisibleByTileRes*2.f-1.f,1.f,1.f) );
+        frustum[2] = transform_point_hdiv( cfg->mProjInv, make_float4( pxp/(float)uWindowWidthEvenlyDivisibleByTileRes*2.f-1.f, (uWindowHeightEvenlyDivisibleByTileRes-pyp)/(float)uWindowHeightEvenlyDivisibleByTileRes*2.f-1.f,1.f,1.f) );
+        frustum[3] = transform_point_hdiv( cfg->mProjInv, make_float4( pxm/(float)uWindowWidthEvenlyDivisibleByTileRes*2.f-1.f, (uWindowHeightEvenlyDivisibleByTileRes-pyp)/(float)uWindowHeightEvenlyDivisibleByTileRes*2.f-1.f,1.f,1.f) );*/
 
-		return true;
+		float l = 2.0 *((float)tile_idx.x / num_tiles.x) - 1.0;
+		float r = 2.0 * ((float)(tile_idx.x + 1) / num_tiles.x) - 1.0;
+		float t = 2.0 * ((float)(tile_idx.y + 1) / num_tiles.y) - 1.0;
+		float b = 2.0 * ((float)tile_idx.y / num_tiles.y) - 1.0;
+
+		frustum[0] = transform_point_hdiv( cfg->mProjInv, make_float4( l, b,  1.f,  1.f ) );
+        frustum[1] = transform_point_hdiv( cfg->mProjInv, make_float4( l, t,  1.f,  1.f ) );
+        frustum[2] = transform_point_hdiv( cfg->mProjInv, make_float4( r, t,  1.f,  1.f ) );
+        frustum[3] = transform_point_hdiv( cfg->mProjInv, make_float4( r, b,  1.f,  1.f ) );
+
+
+        // create plane equations for the four sides of the frustum, 
+        // with the positive half-space outside the frustum (and remember, 
+        // view space is left handed, so use the left-hand rule to determine 
+        // cross product direction)
+        for(uint i=0; i<4; i++)
+            frustumEqn[i] = create_plane( frustum[i], frustum[(i+1)&3] );
+    }
+
+	//	//int2 tex_coord;
+	//	//tex_coord.x = (int)((p12.x / p12.w * 0.5 + 0.5) * 800);
+	//	//tex_coord.y = (int)((- p12.y / p12.w * 0.5 + 0.5) * 600);
+	//	//float depth = read_imagef(depthmap, tex_coord).x;
+	float halfZ = 0.5 * (minmax.x + minmax.y);
+	float r = bsphere.w;
+	float4 center = bsphere;
+	center.w = 1;
+	center = transform_point_hdiv(cfg->mView, center); 
+	if( ( sdist( center.xyz, frustumEqn[0] ) < r ) &&
+            ( sdist( center.xyz, frustumEqn[1] ) < r ) &&
+            ( sdist( center.xyz, frustumEqn[2] ) < r ) &&
+            ( sdist( center.xyz, frustumEqn[3] ) < r ) )
+        {
+           // if( center.z + minmax.x < r && center.z - halfZ < r )
+            //{
+                // do a thread-safe increment of the list counter 
+                // and put the index of this light into the list
+				return true;
+            //}
+
+            //if( -center.z + halfZ < r && center.z - minmax.y < r )
+            //{
+				//return true;
+            //}
+       }
+
+		return false;
 }
 
 __kernel void check_visibility(
-						float16 mvp, 
-						uint num_bounds,
+						__global config* cfg,
+						 uint num_bounds,
 						__global float4* bounds,
 						__read_only image2d_t depthmap,
 						__global uint* visiblity
@@ -657,7 +719,8 @@ __kernel void check_visibility(
 
 	for (int i = flat_local_id; i < num_bounds; i += group_dim.x * group_dim.y)
 	{
-		if (test_bsphere(bounds, i, mvp, group_id, make_int2(TILE_SIZE_X, TILE_SIZE_Y), make_float2(as_float(l_min), as_float(l_max))))
+		int2 num_tiles = make_int2(cfg->output_width / TILE_SIZE_X, cfg->output_height / TILE_SIZE_Y); 
+		if (test_bsphere(cfg, bounds[i], group_id, make_int2(TILE_SIZE_X, TILE_SIZE_Y), num_tiles, make_float2(as_float(l_min), as_float(l_max))))
 		{
 			atom_max(&visiblity[i], 1);
 		}

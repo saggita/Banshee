@@ -247,4 +247,70 @@ public:
 	}
 };
 
+template<typename T> matrix<T,4,4> inverse(matrix<T,4,4> const& m)
+{
+    int indxc[4], indxr[4];
+    int ipiv[4] = { 0, 0, 0, 0 };
+    float minv[4][4];
+	matrix<T,4,4> temp = m;  
+    memcpy(minv,  &temp(0,0), 4*4*sizeof(float));
+    for (int i = 0; i < 4; i++) {
+        int irow = -1, icol = -1;
+        float big = 0.;
+        // Choose pivot
+        for (int j = 0; j < 4; j++) {
+            if (ipiv[j] != 1) {
+                for (int k = 0; k < 4; k++) {
+                    if (ipiv[k] == 0) {
+                        if (fabsf(minv[j][k]) >= big) {
+                            big = float(fabsf(minv[j][k]));
+                            irow = j;
+                            icol = k;
+                        }
+                    }
+                    else if (ipiv[k] > 1)
+                        return matrix<T,4,4>();
+                }
+            }
+        }
+        ++ipiv[icol];
+        // Swap rows _irow_ and _icol_ for pivot
+        if (irow != icol) {
+            for (int k = 0; k < 4; ++k)
+                std::swap(minv[irow][k], minv[icol][k]);
+        }
+        indxr[i] = irow;
+        indxc[i] = icol;
+        if (minv[icol][icol] == 0.)
+				return matrix<T,4,4>();
+
+        // Set $m[icol][icol]$ to one by scaling row _icol_ appropriately
+        float pivinv = 1.f / minv[icol][icol];
+        minv[icol][icol] = 1.f;
+        for (int j = 0; j < 4; j++)
+            minv[icol][j] *= pivinv;
+
+        // Subtract this row from others to zero out their columns
+        for (int j = 0; j < 4; j++) {
+            if (j != icol) {
+                float save = minv[j][icol];
+                minv[j][icol] = 0;
+                for (int k = 0; k < 4; k++)
+                    minv[j][k] -= minv[icol][k]*save;
+            }
+        }
+    }
+    // Swap columns to reflect permutation
+    for (int j = 3; j >= 0; j--) {
+        if (indxr[j] != indxc[j]) {
+            for (int k = 0; k < 4; k++)
+                std::swap(minv[k][indxr[j]], minv[k][indxc[j]]);
+        }
+    }
+    
+	matrix<T,4,4> result;
+	memcpy(&result(0,0), minv, 4*4*sizeof(float));
+	return result;
+}
+
 #endif

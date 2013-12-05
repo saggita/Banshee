@@ -167,7 +167,7 @@ void display()
 			GLuint draw_command_count = g_render->draw_command_count();
 			GLuint draw_buffer = g_render->draw_command_buffer();
 
-			//std::cout << num_objects << " objects in frustum\n";
+			std::cout << draw_command_count << " objects in frustum\n";
 
 
 			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, draw_buffer);
@@ -177,12 +177,12 @@ void display()
 			glMultiDrawElementsIndirectCountARB(GL_TRIANGLES, GL_UNSIGNED_INT, (GLvoid*)0, (GLintptr)0, 1000, 0);
 			glBindBuffer(GL_PARAMETER_BUFFER_ARB, 0);
 #else
-			glMultiDrawElementsIndirectAMD(GL_TRIANGLES, GL_UNSIGNED_INT, (GLvoid*)0, draw_command_count, 0);
+			//glMultiDrawElementsIndirectAMD(GL_TRIANGLES, GL_UNSIGNED_INT, (GLvoid*)0, 1000, 0);
 #endif
 
 			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
 
-			//glDrawElements(GL_TRIANGLES, g_scene->indices().size(), GL_UNSIGNED_INT, nullptr); 
+			glDrawElements(GL_TRIANGLES, g_scene->indices().size(), GL_UNSIGNED_INT, nullptr); 
 			glDisable(GL_DEPTH_TEST);
 			//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 			glDisableVertexAttribArray(glGetAttribLocation(program, "inPosition"));
@@ -337,7 +337,7 @@ void init_graphics()
 
 void init_data()
 {
-	g_scene = simple_scene::create_from_obj("sibenik.objm");
+	g_scene = massive_scene::create_from_obj("monkey.objm");
 	g_camera = quaternion_camera::look_at(CAMERA_POSITION, CAMERA_AT, CAMERA_UP);
 
 	g_camera->set_near_z(CAMERA_NEAR_PLANE);

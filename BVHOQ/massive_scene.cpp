@@ -8,11 +8,11 @@ massive_scene::massive_scene(std::shared_ptr<mesh> mesh_ptr)
 	mesh::vertex const* vertex_data = mesh_ptr->get_vertex_array_pointer();
 	unsigned const* index_data = mesh_ptr->get_index_array_pointer();
 
-	for (int i=-5; i < 5; i+=1)
-		for (int j=-5; j < 5; j+=1)
-			for (int k=0; k < 3; k+=1)
+	for (int i=-3; i < 3; i+=1)
+		for (int j=-3; j < 3; j+=1)
+			for (int k=0; k < 1; k+=1)
 			{
-				vector3 offset(2*i,2*j,2*k);
+				vector3 offset(4*i,4*j,4*k);
 
 				unsigned base_idx = vertices_.size();
 				unsigned start_idx = indices_.size();

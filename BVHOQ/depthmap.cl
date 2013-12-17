@@ -8,9 +8,14 @@
 //#define TRAVERSAL_STACKLESS
 #define TRAVERSAL_STACKED
 //#define TRAVERSAL_PACKET
-#define LOCAL_STACK
-#define NODE_STACK_SIZE 16
+//#define LOCAL_STACK
+#define NODE_STACK_SIZE 32
 #define NODE_SHARED_STACK_SIZE 128
+
+//#define atom_xchg(x,y) 0
+//#define atom_max(x,y) 0
+//#define atom_min(x,y) 0
+//#define atom_inc(x) 0
 
 /// Type definitions
 typedef struct _bbox
@@ -576,8 +581,8 @@ __kernel void trace_primary_depth(
 
 
 
-#define TILE_SIZE_X 16
-#define TILE_SIZE_Y 16
+#define TILE_SIZE_X 8
+#define TILE_SIZE_Y 8
 
 float4 create_plane( float4 b, float4 c )
 {
@@ -609,76 +614,62 @@ float4 transform_point_hdiv( float16 pi, float4 p )
 }
 
 bool test_bsphere(__global config* cfg, 
-				  float4 bsphere, 
-				  int2 tile_idx, 
-				  int2 tile_dim, 
-				  int2 num_tiles, 
+				  float4 bsphere,
 				  float2 minmax)
 {
-	float4 frustumEqn[4];
-    {   // construct frustum for this tile
-        uint pxm = tile_dim.x*tile_idx.x;
-        uint pym = tile_dim.y*tile_idx.y;
-        uint pxp = tile_dim.x*(tile_idx.x+1);
-        uint pyp = tile_dim.y*(tile_idx.y+1);
+	    int gx = get_group_id(0);
+		int gy = get_group_id(1);
 
-		uint uWindowWidthEvenlyDivisibleByTileRes = tile_dim.x*num_tiles.x;
-        uint uWindowHeightEvenlyDivisibleByTileRes = tile_dim.y*num_tiles.y;
+		int tx = get_local_size(0);
+		int ty = get_local_size(1);
 
-        // four corners of the tile, clockwise from top-left
-        float4 frustum[4];
-        /*frustum[0] = transform_point_hdiv( cfg->mProjInv, make_float4( pxm/(float)uWindowWidthEvenlyDivisibleByTileRes*2.f-1.f, (uWindowHeightEvenlyDivisibleByTileRes-pym)/(float)uWindowHeightEvenlyDivisibleByTileRes*2.f-1.f,1.f,1.f) );
-        frustum[1] = transform_point_hdiv( cfg->mProjInv, make_float4( pxp/(float)uWindowWidthEvenlyDivisibleByTileRes*2.f-1.f, (uWindowHeightEvenlyDivisibleByTileRes-pym)/(float)uWindowHeightEvenlyDivisibleByTileRes*2.f-1.f,1.f,1.f) );
-        frustum[2] = transform_point_hdiv( cfg->mProjInv, make_float4( pxp/(float)uWindowWidthEvenlyDivisibleByTileRes*2.f-1.f, (uWindowHeightEvenlyDivisibleByTileRes-pyp)/(float)uWindowHeightEvenlyDivisibleByTileRes*2.f-1.f,1.f,1.f) );
-        frustum[3] = transform_point_hdiv( cfg->mProjInv, make_float4( pxm/(float)uWindowWidthEvenlyDivisibleByTileRes*2.f-1.f, (uWindowHeightEvenlyDivisibleByTileRes-pyp)/(float)uWindowHeightEvenlyDivisibleByTileRes*2.f-1.f,1.f,1.f) );*/
-
-		float l = 2.0 *((float)tile_idx.x / num_tiles.x) - 1.0;
-		float r = 2.0 * ((float)(tile_idx.x + 1) / num_tiles.x) - 1.0;
-		float t = 2.0 * ((float)(tile_idx.y + 1) / num_tiles.y) - 1.0;
-		float b = 2.0 * ((float)tile_idx.y / num_tiles.y) - 1.0;
-
-		frustum[0] = transform_point_hdiv( cfg->mProjInv, make_float4( l, b,  1.f,  1.f ) );
-        frustum[1] = transform_point_hdiv( cfg->mProjInv, make_float4( l, t,  1.f,  1.f ) );
-        frustum[2] = transform_point_hdiv( cfg->mProjInv, make_float4( r, t,  1.f,  1.f ) );
-        frustum[3] = transform_point_hdiv( cfg->mProjInv, make_float4( r, b,  1.f,  1.f ) );
+		int nx = get_global_size(0) / tx;
+		int ny = get_global_size(1) / ty;
 
 
-        // create plane equations for the four sides of the frustum, 
-        // with the positive half-space outside the frustum (and remember, 
-        // view space is left handed, so use the left-hand rule to determine 
-        // cross product direction)
-        for(uint i=0; i<4; i++)
-            frustumEqn[i] = create_plane( frustum[i], frustum[(i+1)&3] );
-    }
+		float tsx = 2.0 / nx;
+		float tsy = 2.0 / ny;
 
-	//	//int2 tex_coord;
-	//	//tex_coord.x = (int)((p12.x / p12.w * 0.5 + 0.5) * 800);
-	//	//tex_coord.y = (int)((- p12.y / p12.w * 0.5 + 0.5) * 600);
-	//	//float depth = read_imagef(depthmap, tex_coord).x;
-	float halfZ = 0.5 * (minmax.x + minmax.y);
-	float r = bsphere.w;
-	float4 center = bsphere;
-	center.w = 1;
-	center = transform_point_hdiv(cfg->mView, center); 
-	if( ( sdist( center.xyz, frustumEqn[0] ) < r ) &&
-            ( sdist( center.xyz, frustumEqn[1] ) < r ) &&
-            ( sdist( center.xyz, frustumEqn[2] ) < r ) &&
-            ( sdist( center.xyz, frustumEqn[3] ) < r ) )
-        {
-           // if( center.z + minmax.x < r && center.z - halfZ < r )
-            //{
-                // do a thread-safe increment of the list counter 
-                // and put the index of this light into the list
-				return true;
-            //}
+		float l = (tsx * gx) - 1.0;
+		float r = l + tsx;
+		float b = (tsy * gy) - 1.0;
+		float t = b + tsy;
 
-            //if( -center.z + halfZ < r && center.z - minmax.y < r )
-            //{
-				//return true;
-            //}
-       }
+		float4 v0 = transform_point_hdiv( cfg->mProjInv, make_float4( l, b, 0.1f, 1.f ) );
+		float4 v1 = transform_point_hdiv( cfg->mProjInv, make_float4( r, b, 0.1f, 1.f ) );
+		float4 v2 = transform_point_hdiv( cfg->mProjInv, make_float4( r, t, 0.1f, 1.f ) );
+		float4 v3 = transform_point_hdiv( cfg->mProjInv, make_float4( l, t, 0.1f, 1.f ) );
 
-		return false;
+       float4 eq0;
+	   eq0.xyz = normalize(cross(v0.xyz, v1.xyz)); eq0.w = 0;
+
+	   float4 eq1;
+	   eq1.xyz = normalize(cross(v2.xyz, v3.xyz)); eq1.w = 0;
+
+	   float4 eq2;
+	   eq2.xyz = normalize(cross(v1.xyz, v2.xyz)); eq2.w = 0;
+
+	   float4 eq3;
+	   eq3.xyz = normalize(cross(v3.xyz, v0.xyz)); eq3.w = 0;
+
+		float halfZ = 0.5 * (minmax.x + minmax.y);
+		float rr = bsphere.w;
+		float4 center = bsphere;
+		center.w = 1;
+		center = transform_point_hdiv(cfg->mView, center); 
+
+	if( dot(eq0.xyz, center.xyz) >= -rr &&
+		dot(eq1.xyz, center.xyz) >= -rr &&
+		dot(eq2.xyz, center.xyz) >= -rr &&
+		dot(eq3.xyz, center.xyz) >= -rr )
+	{
+		if( center.z - rr <= minmax.y && center.z >= -rr )
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 __kernel void check_visibility(
@@ -692,7 +683,7 @@ __kernel void check_visibility(
 	__local uint l_min;
 	__local uint l_max;
 
-	int2 local_id = make_int2(get_global_id(0), get_global_id(1));
+	int2 local_id = make_int2(get_local_id(0), get_local_id(1));
 	int2 group_id = make_int2(get_group_id(0), get_group_id(1));
 	int2 group_dim = make_int2(get_local_size(0), get_local_size(1));
 
@@ -720,9 +711,10 @@ __kernel void check_visibility(
 	for (int i = flat_local_id; i < num_bounds; i += group_dim.x * group_dim.y)
 	{
 		int2 num_tiles = make_int2(cfg->output_width / TILE_SIZE_X, cfg->output_height / TILE_SIZE_Y); 
-		if (test_bsphere(cfg, bounds[i], group_id, make_int2(TILE_SIZE_X, TILE_SIZE_Y), num_tiles, make_float2(as_float(l_min), as_float(l_max))))
+
+		if (test_bsphere(cfg, bounds[i], make_float2(as_float(l_min), as_float(l_max))))
 		{
-			atom_max(&visiblity[i], 1);
+			atom_or(&visiblity[i], 1);
 		}
 	}
 }

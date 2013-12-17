@@ -23,7 +23,7 @@
 #define CHECK_ERROR(x,m) if((x) != CL_SUCCESS) { std::ostringstream o; o << m <<" error " <<x <<"\n";  throw std::runtime_error(o.str()); }
 
 #define MAX_BOUNDS 1000
-#define TILE_SIZE 16
+#define TILE_SIZE 8
 
 GLuint opencl_render::output_texture() const
 {
@@ -32,6 +32,7 @@ GLuint opencl_render::output_texture() const
 
 opencl_render::opencl_render(cl_platform_id platform)
 	:platform_(platform)
+	, num_objects_(0)
 {
 	
 }
@@ -42,7 +43,7 @@ void opencl_render::init(unsigned width, unsigned height)
 	output_size_.s[1] = height;
 
 	cl_int status = CL_SUCCESS;
-	CHECK_ERROR(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_ALL, 1, &device_, nullptr), "GetDeviceIDs failed");
+	CHECK_ERROR(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_GPU, 1, &device_, nullptr), "GetDeviceIDs failed");
 
 	char device_name[2048];
 	clGetDeviceInfo(device_, CL_DEVICE_NAME, 2048, device_name, nullptr);
@@ -393,6 +394,30 @@ void opencl_render::cull(matrix4x4 const& mvp, std::vector<scene_base::mesh_desc
 		o.num_idx   = md.num_idx;
 		temp1.push_back(o);
 	});
+
+
+//#define CPU_CULL_TEST
+//#ifdef CPU_CULL_TEST
+//
+//	matrix4x4 mView = camera()->view_matrix();
+//	matrix4x4 mProj = camera()->proj_matrix();
+//	matrix4x4 mProjInv = inverse(mProj);
+//
+//	vector4 v0(-1,-1,0.5,1);
+//	vector4 v1(-1, 1,0.5,1);
+//	vector4 v2( 1, 1,0.5,1);
+//	vector4 v3( 1,-1,0.5,1);
+//
+//	vector4 vs0 = mProjInv * v0;
+//	vector4 vs1 = mProjInv * v1;
+//	vector4 vs2 = mProjInv * v2;
+//	vector4 vs3 = mProjInv * v3;
+//
+//
+//
+//#endif
+
+
 
 	CHECK_ERROR(clEnqueueWriteBuffer(command_queue_, bounds_, CL_FALSE, 0, sizeof(cl_float4) * temp.size(), &temp[0], 0, nullptr, nullptr), "Cannot update bounds buffer");
 	CHECK_ERROR(clEnqueueWriteBuffer(command_queue_, offsets_, CL_FALSE, 0, sizeof(offset) * temp1.size(), &temp1[0], 0, nullptr, nullptr), "Cannot update offsets buffer");

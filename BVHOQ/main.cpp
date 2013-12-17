@@ -58,8 +58,8 @@ GLuint g_scene_index_count;
 #define CAMERA_POSITION vector3(0,0,0)
 #define CAMERA_AT vector3(-1,0,0)
 #define CAMERA_UP vector3(0,1,0)
-#define CAMERA_NEAR_PLANE 0.1f
-#define CAMERA_PIXEL_SIZE 0.00025f
+#define CAMERA_NEAR_PLANE 0.01f
+#define CAMERA_PIXEL_SIZE 0.000025f
 
 
 struct PointLightData
@@ -169,7 +169,6 @@ void display()
 
 			std::cout << draw_command_count << " objects in frustum\n";
 
-
 			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, draw_buffer);
 
 #ifdef INDIRECT_PARAMS
@@ -177,12 +176,10 @@ void display()
 			glMultiDrawElementsIndirectCountARB(GL_TRIANGLES, GL_UNSIGNED_INT, (GLvoid*)0, (GLintptr)0, 1000, 0);
 			glBindBuffer(GL_PARAMETER_BUFFER_ARB, 0);
 #else
-			//glMultiDrawElementsIndirectAMD(GL_TRIANGLES, GL_UNSIGNED_INT, (GLvoid*)0, 1000, 0);
+			glMultiDrawElementsIndirectAMD(GL_TRIANGLES, GL_UNSIGNED_INT, (GLvoid*)0, draw_command_count, 0);
 #endif
 
 			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
-
-			glDrawElements(GL_TRIANGLES, g_scene->indices().size(), GL_UNSIGNED_INT, nullptr); 
 			glDisable(GL_DEPTH_TEST);
 			//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 			glDisableVertexAttribArray(glGetAttribLocation(program, "inPosition"));

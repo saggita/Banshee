@@ -3,7 +3,7 @@
 #pragma OPENCL EXTENSION cl_khr_global_int32_extended_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_local_int32_base_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_local_int32_extended_atomics : enable
- 
+
 
 //#define TRAVERSAL_STACKLESS
 #define TRAVERSAL_STACKED
@@ -262,8 +262,8 @@ bool IntersectLeaf(__global float4* vertices, __global uint4* indices, uint idx,
 
 #ifdef LOCAL_STACK
 #define NODE_STACK_INIT(size) \
-    __local int* stack_ptr = stack; \
-    *stack_ptr++ = -1
+	__local int* stack_ptr = stack; \
+	*stack_ptr++ = -1
 #else
 #define NODE_STACK_INIT(size) \
 	int stack[size]; \
@@ -335,7 +335,7 @@ bool TraverseBVHStacked(
 			{
 				idx = NODE_STACK_POP;
 			}
-				
+
 			continue;
 		}
 
@@ -350,7 +350,7 @@ bool TraverseBVHStacked(
 bool anythreads(__local int* flag, int val)
 {
 	if (get_local_id(0) == 0 && get_local_id(1) == 0)
-	*flag = 0;
+		*flag = 0;
 	barrier(CLK_LOCAL_MEM_FENCE);
 	atom_max(flag, val);
 	barrier(CLK_LOCAL_MEM_FENCE);
@@ -513,12 +513,12 @@ bool TraverseBVHStackless(__global BVHNode* nodes, __global float4* vertices, __
 
 /// Raytrace depth kernel
 __kernel void TraceDepth(
-				__global BVHNode* bvh,
-				__global float4* vertices,
-				__global uint4* indices,
-				__global Config* params,
-				__write_only image2d_t output
-				)
+	__global BVHNode* bvh,
+	__global float4* vertices,
+	__global uint4* indices,
+	__global Config* params,
+	__write_only image2d_t output
+	)
 {
 #if defined (TRAVERSAL_PACKET)
 	__local int stack[NODE_SHARED_STACK_SIZE];
@@ -564,12 +564,12 @@ __kernel void TraceDepth(
 #if defined(TRAVERSAL_STACKLESS)
 		bool hit  = TraverseBVHStackless(bvh, vertices, indices, &rr);
 #elif defined(TRAVERSAL_STACKED)
-	#if defined(LOCAL_STACK)
+#if defined(LOCAL_STACK)
 		__local int* this_thread_stack = stack + NODE_STACK_SIZE * flatLocalId;
 		bool hit  = TraverseBVHStacked(this_thread_stack, bvh, vertices, indices, &rr);
-	#else
+#else
 		bool hit  = TraverseBVHStacked(bvh, vertices, indices, &rr);
-	#endif
+#endif
 #elif defined(TRAVERSAL_PACKET)
 		bool hit  = TraverseBVHPacket(stack, &flag, bvh, vertices, indices, &rr);
 #endif
@@ -585,53 +585,53 @@ __kernel void TraceDepth(
 
 float4 TransformPointHdiv( float16 pi, float4 p )
 {
-    p = TransformPoint(pi, p);
-    p /= p.w;
-    return p;
+	p = TransformPoint(pi, p);
+	p /= p.w;
+	return p;
 }
 
 bool TestBSphere(__global Config* cfg, 
-				  float4 bsphere,
-				  float2 minmax)
+				 float4 bsphere,
+				 float2 minmax)
 {
-	    int gx = get_group_id(0);
-		int gy = get_group_id(1);
+	int gx = get_group_id(0);
+	int gy = get_group_id(1);
 
-		int tx = get_local_size(0);
-		int ty = get_local_size(1);
+	int tx = get_local_size(0);
+	int ty = get_local_size(1);
 
-		int nx = get_global_size(0) / tx;
-		int ny = get_global_size(1) / ty;
+	int nx = get_global_size(0) / tx;
+	int ny = get_global_size(1) / ty;
 
 
-		float tsx = 2.0 / nx;
-		float tsy = 2.0 / ny;
+	float tsx = 2.0 / nx;
+	float tsy = 2.0 / ny;
 
-		float l = (tsx * gx) - 1.0;
-		float r = l + tsx;
-		float b = (tsy * gy) - 1.0;
-		float t = b + tsy;
+	float l = (tsx * gx) - 1.0;
+	float r = l + tsx;
+	float b = (tsy * gy) - 1.0;
+	float t = b + tsy;
 
-		float4 v0 = TransformPointHdiv( cfg->mProjInv, make_float4( l, b, 0.1f, 1.f ) );
-		float4 v1 = TransformPointHdiv( cfg->mProjInv, make_float4( r, b, 0.1f, 1.f ) );
-		float4 v2 = TransformPointHdiv( cfg->mProjInv, make_float4( r, t, 0.1f, 1.f ) );
-		float4 v3 = TransformPointHdiv( cfg->mProjInv, make_float4( l, t, 0.1f, 1.f ) );
+	float4 v0 = TransformPointHdiv( cfg->mProjInv, make_float4( l, b, 0.1f, 1.f ) );
+	float4 v1 = TransformPointHdiv( cfg->mProjInv, make_float4( r, b, 0.1f, 1.f ) );
+	float4 v2 = TransformPointHdiv( cfg->mProjInv, make_float4( r, t, 0.1f, 1.f ) );
+	float4 v3 = TransformPointHdiv( cfg->mProjInv, make_float4( l, t, 0.1f, 1.f ) );
 
-       float4 eq0;
-	   eq0.xyz = normalize(cross(v0.xyz, v1.xyz)); eq0.w = 0;
+	float4 eq0;
+	eq0.xyz = normalize(cross(v0.xyz, v1.xyz)); eq0.w = 0;
 
-	   float4 eq1;
-	   eq1.xyz = normalize(cross(v2.xyz, v3.xyz)); eq1.w = 0;
+	float4 eq1;
+	eq1.xyz = normalize(cross(v2.xyz, v3.xyz)); eq1.w = 0;
 
-	   float4 eq2;
-	   eq2.xyz = normalize(cross(v1.xyz, v2.xyz)); eq2.w = 0;
+	float4 eq2;
+	eq2.xyz = normalize(cross(v1.xyz, v2.xyz)); eq2.w = 0;
 
-	   float4 eq3;
-	   eq3.xyz = normalize(cross(v3.xyz, v0.xyz)); eq3.w = 0;
+	float4 eq3;
+	eq3.xyz = normalize(cross(v3.xyz, v0.xyz)); eq3.w = 0;
 
-		float zHalf = 0.5 * (minmax.x + minmax.y);
-		float4 center = bsphere; center.w = 1;
-		center = TransformPointHdiv(cfg->mView, center); 
+	float zHalf = 0.5 * (minmax.x + minmax.y);
+	float4 center = bsphere; center.w = 1;
+	center = TransformPointHdiv(cfg->mView, center); 
 
 	if( dot(eq0.xyz, center.xyz) >= -bsphere.w &&
 		dot(eq1.xyz, center.xyz) >= -bsphere.w &&
@@ -648,12 +648,12 @@ bool TestBSphere(__global Config* cfg,
 }
 
 __kernel void CheckVisibility(
-						__global Config* cfg,
-						 uint numBounds,
-						__global float4* bounds,
-						__read_only image2d_t depthmap,
-						__global uint* visiblity
-						)
+	__global Config* cfg,
+	uint numBounds,
+	__global float4* bounds,
+	__read_only image2d_t depthmap,
+	__global uint* visiblity
+	)
 {
 	__local uint lMin;
 	__local uint lMax;
@@ -696,10 +696,10 @@ __kernel void CheckVisibility(
 
 /// replace with scan further
 __kernel void BuildCmdList( uint numBounds, 
-						__global Offset* offsets,  
-						__global DrawElementsIndirectCommand* commands, 
-						__global int* counter,
-						__global uint* visibility)
+						   __global Offset* offsets,  
+						   __global DrawElementsIndirectCommand* commands, 
+						   __global int* counter,
+						   __global uint* visibility)
 {
 	uint globalId = get_global_id(0);
 

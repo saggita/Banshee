@@ -542,17 +542,17 @@ __kernel void TraceDepth(
 	{
 		unsigned width = params->uOutputWidth;
 		unsigned height = params->uOutputHeight;
-		float pixel_size = params->fCameraPixelSize;
-		float near_z = params->fCameraNearZ;
+		float pixelSize = params->fCameraPixelSize;
+		float nearZ = params->fCameraNearZ;
 
 		int xc = globalId.x - (width >> 1);
 		int yc = globalId.y - (height >> 1);
 
 		Ray rr;
 		rr.o = params->vCameraPos;
-		rr.d.x = params->vCameraDir.x * near_z + params->vCameraUp.x * (yc + 0.5f) * pixel_size + params->vCameraRight.x * (xc + 0.5f) * pixel_size;
-		rr.d.y = params->vCameraDir.y * near_z + params->vCameraUp.y * (yc + 0.5f) * pixel_size + params->vCameraRight.y * (xc + 0.5f) * pixel_size;
-		rr.d.z = params->vCameraDir.z * near_z + params->vCameraUp.z * (yc + 0.5f) * pixel_size + params->vCameraRight.z * (xc + 0.5f) * pixel_size;
+		rr.d.x = params->vCameraDir.x * nearZ + params->vCameraUp.x * (yc + 0.5f) * pixelSize + params->vCameraRight.x * (xc + 0.5f) * pixelSize;
+		rr.d.y = params->vCameraDir.y * nearZ + params->vCameraUp.y * (yc + 0.5f) * pixelSize + params->vCameraRight.y * (xc + 0.5f) * pixelSize;
+		rr.d.z = params->vCameraDir.z * nearZ + params->vCameraUp.z * (yc + 0.5f) * pixelSize + params->vCameraRight.z * (xc + 0.5f) * pixelSize;
 
 		rr.d = normalize(rr.d);
 

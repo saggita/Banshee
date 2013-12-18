@@ -330,6 +330,7 @@ void InitGraphics()
 
 void InitData()
 {
+	//gScene = SimpleScene::CreateFromObj("sibenik.objm");
 	gScene = MassiveScene::CreateFromObj("monkey.objm");
 	gCamera = QuatCamera::LookAt(CAMERA_POSITION, CAMERA_AT, CAMERA_UP);
 

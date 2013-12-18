@@ -7,7 +7,7 @@
 #ifndef utils_H
 #define utils_H
 
-#include "common_types.h"
+#include "CommonTypes.h"
 #include <time.h>
 #include <stdlib.h>
 #include <string>
@@ -93,6 +93,6 @@ quat	rotation_quat(vector3 const& axis, real const& angle);
 vector3 rotate_vector( vector3 const& v, quat const& q );
 quat	rotate_quat( quat const& v, quat const& q );
 
-void load_file_contents(std::string const& name, std::vector<char>& contents, bool binary = false);
+void LoadFileContents(std::string const& name, std::vector<char>& contents, bool binary = false);
 
 #endif

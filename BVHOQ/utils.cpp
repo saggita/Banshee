@@ -149,7 +149,7 @@ quat	rotate_quat( quat const& v, quat const& q )
 	return q * v * q.inverse();
 }
 
-void load_file_contents(std::string const& name, std::vector<char>& contents, bool binary)
+void LoadFileContents(std::string const& name, std::vector<char>& contents, bool binary)
 {
 	std::ifstream in(name, std::ios::in | (binary?std::ios::binary : 0));
 

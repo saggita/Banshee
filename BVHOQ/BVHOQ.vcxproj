@@ -82,38 +82,35 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="bbox.h" />
-    <ClInclude Include="bvh_accel.h" />
-    <ClInclude Include="camera_base.h" />
-    <ClInclude Include="common_types.h" />
-    <ClInclude Include="eig3.h" />
-    <ClInclude Include="massive_scene.h" />
+    <ClInclude Include="BBox.h" />
+    <ClInclude Include="BVHAccelerator.h" />
+    <ClInclude Include="CameraBase.h" />
+    <ClInclude Include="CommonTypes.h" />
+    <ClInclude Include="Eig3.h" />
+    <ClInclude Include="MassiveScene.h" />
     <ClInclude Include="matrix.h" />
-    <ClInclude Include="mesh.h" />
-    <ClInclude Include="opencl_render.h" />
+    <ClInclude Include="Mesh.h" />
+    <ClInclude Include="OCLRender.h" />
     <ClInclude Include="quaternion.h" />
-    <ClInclude Include="quaternion_camera.h" />
-    <ClInclude Include="render_base.h" />
-    <ClInclude Include="scene_base.h" />
-    <ClInclude Include="shader_manager.h" />
-    <ClInclude Include="simple_rt_render.h" />
-    <ClInclude Include="simple_scene.h" />
-    <ClInclude Include="thread_pool.h" />
+    <ClInclude Include="QuatCamera.h" />
+    <ClInclude Include="RenderBase.h" />
+    <ClInclude Include="SceneBase.h" />
+    <ClInclude Include="ShaderManager.h" />
+    <ClInclude Include="SimpleScene.h" />
     <ClInclude Include="utils.h" />
     <ClInclude Include="vector.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="bbox.cpp" />
-    <ClCompile Include="bvh_accel.cpp" />
-    <ClCompile Include="eig3.cpp" />
+    <ClCompile Include="BBox.cpp" />
+    <ClCompile Include="BVHAccelerator.cpp" />
+    <ClCompile Include="Eig3.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="massive_scene.cpp" />
-    <ClCompile Include="mesh.cpp" />
-    <ClCompile Include="opencl_render.cpp" />
-    <ClCompile Include="quaternion_camera.cpp" />
-    <ClCompile Include="shader_manager.cpp" />
-    <ClCompile Include="simple_rt_render.cpp" />
-    <ClCompile Include="simple_scene.cpp" />
+    <ClCompile Include="MassiveScene.cpp" />
+    <ClCompile Include="Mesh.cpp" />
+    <ClCompile Include="OCLRender.cpp" />
+    <ClCompile Include="QuatCamera.cpp" />
+    <ClCompile Include="ShaderManager.cpp" />
+    <ClCompile Include="SimpleScene.cpp" />
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>

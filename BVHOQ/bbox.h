@@ -1,5 +1,5 @@
 //
-//  bbox.h
+//  BBox.h
 //  BVHOQ
 //
 //  Created by dmitryk on 07.10.13.
@@ -11,51 +11,51 @@
 
 #include <iostream>
 #include <algorithm>
-#include "common_types.h"
+#include "CommonTypes.h"
 
-class bbox
+class BBox
 {
 public:
-	bbox(vector3 const& p = vector3());
-	bbox(vector3 const& pmin, vector3 const& pmax);
+	BBox(vector3 const& p = vector3());
+	BBox(vector3 const& pmin, vector3 const& pmax);
 	
-	vector3& max();
-	vector3& min();
+	vector3& GetMaxPoint();
+	vector3& GetMinPoint();
 	
-	vector3 const& max() const;
-	vector3 const& min() const;
+	vector3 const& GetMaxPoint() const;
+	vector3 const& GetMinPoint() const;
 	
-	vector3 center() const;
-	vector3 extents() const;
+	vector3 GetCenter() const;
+	vector3 GetExtents() const;
 	
-	bool contains(vector3 const& p) const;
+	bool Contains(vector3 const& p) const;
 	
-	int max_extent() const;
-	float surface_area() const;
+	int GetMaxDim() const;
+	float GetSurfaceArea() const;
 	
 private:
-	vector3 pmin_;
-	vector3 pmax_;
+	vector3 minPoint_;
+	vector3 maxPoint_;
 };
 
-inline bbox bbox_union(bbox const& box1, bbox const& box2)
+inline BBox BBoxUnion(BBox const& box1, BBox const& box2)
 {
-	vector3 pmin(std::min(box1.min().x(), box2.min().x()), std::min(box1.min().y(), box2.min().y()), std::min(box1.min().z(), box2.min().z()));
-	vector3 pmax(std::max(box1.max().x(), box2.max().x()), std::max(box1.max().y(), box2.max().y()), std::max(box1.max().z(), box2.max().z()));
+	vector3 pmin(std::min(box1.GetMinPoint().x(), box2.GetMinPoint().x()), std::min(box1.GetMinPoint().y(), box2.GetMinPoint().y()), std::min(box1.GetMinPoint().z(), box2.GetMinPoint().z()));
+	vector3 pmax(std::max(box1.GetMaxPoint().x(), box2.GetMaxPoint().x()), std::max(box1.GetMaxPoint().y(), box2.GetMaxPoint().y()), std::max(box1.GetMaxPoint().z(), box2.GetMaxPoint().z()));
 	
-	return bbox(pmin, pmax);
+	return BBox(pmin, pmax);
 }
 
-inline bool intersects(bbox const& box1, bbox const& box2)
+inline bool Intersects(BBox const& box1, BBox const& box2)
 {
-	vector3 box1_center = box1.center();
-	vector3 box1_radius = 0.5f * box1.extents();
-	vector3 box2_center = box2.center();
-	vector3 box2_radius = 0.5f * box2.extents();
+	vector3 b1Center = box1.GetCenter();
+	vector3 b1Radius = 0.5f * box1.GetExtents();
+	vector3 b2Center = box2.GetCenter();
+	vector3 b2Radius = 0.5f * box2.GetExtents();
 	
-	return abs(box2_center.x() - box1_center.x()) < box1_radius.x() + box2_radius.x() &&
-		   abs(box2_center.y() - box1_center.y()) < box1_radius.y() + box2_radius.y() &&
-		   abs(box2_center.x() - box1_center.z()) < box1_radius.z() + box2_radius.z();
+	return abs(b2Center.x() - b1Center.x()) < b1Radius.x() + b2Radius.x() &&
+		   abs(b2Center.y() - b1Center.y()) < b1Radius.y() + b2Radius.y() &&
+		   abs(b2Center.x() - b1Center.z()) < b1Radius.z() + b2Radius.z();
 }
 
 #endif /* defined(__BVHOQ__bbox__) */

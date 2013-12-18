@@ -6,7 +6,7 @@
 //  Copyright (c) 2013 Dmitry Kozlov. All rights reserved.
 //
 
-#include "mesh.h"
+#include "Mesh.h"
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -17,7 +17,7 @@
 #include <map>
 
 #include <assimp/Importer.hpp>
-#include <assimp/mesh.h>
+#include <assimp/Mesh.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 
@@ -30,20 +30,20 @@ using namespace Assimp;
 using namespace std;
 
 
-mesh::mesh()
+Mesh::Mesh()
 {
 }
 
-mesh::~mesh()
+Mesh::~Mesh()
 {
 }
 
-void mesh::load_from_file(std::string const& file_name)
+void Mesh::LoadFromFile(std::string const& fileName)
 {
 	Importer importer;
 	
 	const aiScene* scene = importer.ReadFile(
-											 file_name,
+											 fileName,
 											 aiProcess_Triangulate			|
 											 aiProcess_JoinIdenticalVertices  |
 											 aiProcess_SortByPType | 
@@ -55,92 +55,92 @@ void mesh::load_from_file(std::string const& file_name)
 		throw runtime_error("Shit happens: check the path to your models");
 	}
 
-	unsigned int base_idx = 0;
+	unsigned int baseIdx = 0;
 	
-	bbox_ = bbox(vector3(scene->mMeshes[0]->mVertices[0].x, scene->mMeshes[0]->mVertices[0].y, scene->mMeshes[0]->mVertices[0].z));
+	bBox_ = BBox(vector3(scene->mMeshes[0]->mVertices[0].x, scene->mMeshes[0]->mVertices[0].y, scene->mMeshes[0]->mVertices[0].z));
 
 	for (int m = 0; m < scene->mNumMeshes; ++m)
 	{
-		const aiMesh* mesh = scene->mMeshes[0];
+		const aiMesh* Mesh = scene->mMeshes[0];
 	
-		for (int i = 0; i < mesh->mNumFaces; ++i)
+		for (int i = 0; i < Mesh->mNumFaces; ++i)
 		{
-			interleaved_indices_.push_back(base_idx + mesh->mFaces[i].mIndices[0]);
-			interleaved_indices_.push_back(base_idx + mesh->mFaces[i].mIndices[1]);
-			interleaved_indices_.push_back(base_idx + mesh->mFaces[i].mIndices[2]);
+			indexData_.push_back(baseIdx + Mesh->mFaces[i].mIndices[0]);
+			indexData_.push_back(baseIdx + Mesh->mFaces[i].mIndices[1]);
+			indexData_.push_back(baseIdx + Mesh->mFaces[i].mIndices[2]);
 		}
 	
-		for (int i = 0; i < mesh->mNumVertices; ++i)
+		for (int i = 0; i < Mesh->mNumVertices; ++i)
 		{
-			vertex v;
-			v.position.x() = mesh->mVertices[i].x;
-			v.position.y() = mesh->mVertices[i].y;
-			v.position.z() = mesh->mVertices[i].z;
+			Vertex v;
+			v.position.x() = Mesh->mVertices[i].x;
+			v.position.y() = Mesh->mVertices[i].y;
+			v.position.z() = Mesh->mVertices[i].z;
 		
-			if (mesh->HasNormals())
+			if (Mesh->HasNormals())
 			{
-				v.normal.x() = mesh->mNormals[i].x;
-				v.normal.y() = mesh->mNormals[i].y;
-				v.normal.z() = mesh->mNormals[i].z;
+				v.normal.x() = Mesh->mNormals[i].x;
+				v.normal.y() = Mesh->mNormals[i].y;
+				v.normal.z() = Mesh->mNormals[i].z;
 			}
 		
-			if (mesh->HasTextureCoords(0))
+			if (Mesh->HasTextureCoords(0))
 			{
-				v.texcoord.x() = mesh->mTextureCoords[0][i].x;
-				v.texcoord.y() = mesh->mTextureCoords[0][i].y;
+				v.texcoord.x() = Mesh->mTextureCoords[0][i].x;
+				v.texcoord.y() = Mesh->mTextureCoords[0][i].y;
 			}
 		
-			interleaved_data_.push_back(v);
-			bbox_ = bbox_union(bbox_, v.position);
+			vertexData_.push_back(v);
+			bBox_ = BBoxUnion(bBox_, v.position);
 		}
 		
-		base_idx = (unsigned int)interleaved_data_.size();
+		baseIdx = (unsigned int)vertexData_.size();
 	}
 
-	std::cout << "Scene " << file_name << " loaded.\n";
-	std::cout << interleaved_indices_.size()/3 << " triangles " << 
-	interleaved_data_.size() <<" vertices\n";
+	std::cout << "Scene " << fileName << " loaded.\n";
+	std::cout << indexData_.size()/3 << " triangles " << 
+	vertexData_.size() <<" vertices\n";
 }
 
-shared_ptr<mesh>  mesh::create_from_file(string const& file_name)
+shared_ptr<Mesh>  Mesh::CreateFromFile(string const& fileName)
 {
-	shared_ptr<mesh> res = make_shared<mesh>();
-	res->load_from_file(file_name);
+	shared_ptr<Mesh> res = make_shared<Mesh>();
+	res->LoadFromFile(fileName);
 	return res;
 }
 
-mesh::vertex const* mesh::get_vertex_array_pointer() const
+Mesh::Vertex const* Mesh::GetVertexArrayPtr() const
 {
-	assert(interleaved_data_.size() > 0);
-	return &interleaved_data_[0];
+	assert(vertexData_.size() > 0);
+	return &vertexData_[0];
 }
 
-unsigned const* mesh::get_index_array_pointer() const
+unsigned const* Mesh::GetIndexArrayPtr() const
 {
-	assert(interleaved_indices_.size() > 0);
-	return &interleaved_indices_[0];
+	assert(indexData_.size() > 0);
+	return &indexData_[0];
 }
 
-uint mesh::get_vertex_count() const
+uint Mesh::GetVertexCount() const
 {
-	assert(interleaved_data_.size() > 0);
-	return static_cast<unsigned>(interleaved_data_.size());
+	assert(vertexData_.size() > 0);
+	return static_cast<unsigned>(vertexData_.size());
 }
 
-uint mesh::get_index_count() const
+uint Mesh::GetIndexCount() const
 {
-	assert(interleaved_indices_.size() > 0);
-	return static_cast<unsigned>(interleaved_indices_.size());
+	assert(indexData_.size() > 0);
+	return static_cast<unsigned>(indexData_.size());
 }
 
-uint mesh::get_vertex_size_in_bytes() const
+uint Mesh::GetVertexSizeInBytes() const
 {
-	return sizeof(vertex);
+	return sizeof(Vertex);
 }
 
-bbox mesh::bounds() const
+BBox Mesh::Bounds() const
 {
-	return bbox_;
+	return bBox_;
 }
 
 

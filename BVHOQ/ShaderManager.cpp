@@ -1,12 +1,12 @@
 //
-//  shader_manager.cpp
+//  ShaderManager.cpp
 //  BVHOQ
 //
 //  Created by Dmitry Kozlov on 05.10.13.
 //  Copyright (c) 2013 Dmitry Kozlov. All rights reserved.
 //
 
-#include "shader_manager.h"
+#include "ShaderManager.h"
 #include "utils.h"
 
 #include <vector>
@@ -15,11 +15,11 @@
 #include <fstream>
 
 
-static GLuint compile_shader(std::vector<GLchar> const& shader_source, GLenum type)
+static GLuint CompileShader(std::vector<GLchar> const& shader_source, GLenum type)
 {
 	GLuint shader = glCreateShader(type);
 	
-	GLint len				 = static_cast<GLint>(shader_source.size());
+	GLint len = static_cast<GLint>(shader_source.size());
 	GLchar const* source_array = &shader_source[0];
 	
 	glShaderSource(shader, 1, &source_array, &len);
@@ -49,46 +49,46 @@ static GLuint compile_shader(std::vector<GLchar> const& shader_source, GLenum ty
 }
 
 
-shader_manager::shader_manager()
+ShaderManager::ShaderManager()
 {
 	// testing code
 	// core::uint program = GetShaderProgram("simple_ogl");
 }
 
 
-shader_manager::~shader_manager()
+ShaderManager::~ShaderManager()
 {
-	for (auto citer = shader_cache_.cbegin(); citer != shader_cache_.cend(); ++citer)
+	for (auto citer = shaderCache_.cbegin(); citer != shaderCache_.cend(); ++citer)
 	{
 		glDeleteProgram(citer->second);
 	}
 }
 
-GLuint shader_manager::compile_program(std::string const& prog_name)
+GLuint ShaderManager::CompileProgram(std::string const& progName)
 {
-	std::string vs_name = prog_name + ".vsh";
-	std::string fs_name = prog_name + ".fsh";
+	std::string vsName = progName + ".vsh";
+	std::string fsName = progName + ".fsh";
 	
 	// Need to wrap the shader program here to be exception-safe
-	std::vector<GLchar> source_code;
+	std::vector<GLchar> sourceCode;
 	
-	load_file_contents(vs_name, source_code);
-	GLuint vertex_shader = compile_shader(source_code, GL_VERTEX_SHADER);
+	LoadFileContents(vsName, sourceCode);
+	GLuint vertexShader = CompileShader(sourceCode, GL_VERTEX_SHADER);
 	
 	/// This part is not exception safe:
 	/// if the VS compilation succeeded
 	/// and PS compilation fails then VS object will leak
 	/// fix this by wrapping the shaders into a class
-	load_file_contents(fs_name, source_code);
-	GLuint fragment_shader = compile_shader(source_code, GL_FRAGMENT_SHADER);
+	LoadFileContents(fsName, sourceCode);
+	GLuint fragShader = CompileShader(sourceCode, GL_FRAGMENT_SHADER);
 	
 	GLuint program = glCreateProgram();
 	
-	glAttachShader(program, vertex_shader);
-	glAttachShader(program, fragment_shader);
+	glAttachShader(program, vertexShader);
+	glAttachShader(program, fragShader);
 	
-	glDeleteShader(vertex_shader);
-	glDeleteShader(fragment_shader);
+	glDeleteShader(vertexShader);
+	glDeleteShader(fragShader);
 	
 	glLinkProgram(program);
 	
@@ -114,18 +114,18 @@ GLuint shader_manager::compile_program(std::string const& prog_name)
 	return program;
 }
 
-GLuint shader_manager::get_shader_program(std::string const& prog_name)
+GLuint ShaderManager::GetProgram(std::string const& progName)
 {
-	auto iter = shader_cache_.find(prog_name);
+	auto iter = shaderCache_.find(progName);
 	
-	if (iter != shader_cache_.end())
+	if (iter != shaderCache_.end())
 	{
 		return iter->second;
 	}
 	else
 	{
-		GLuint program = compile_program(prog_name);
-		shader_cache_[prog_name] = program;
+		GLuint program = CompileProgram(progName);
+		shaderCache_[progName] = program;
 		return program;
 	}
 }

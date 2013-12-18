@@ -15,46 +15,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="bbox.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="bvh_accel.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="camera_base.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="common_types.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="matrix.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="mesh.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="opencl_render.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="quaternion.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="quaternion_camera.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="render_base.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="scene_base.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="shader_manager.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="simple_rt_render.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="simple_scene.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="utils.h">
@@ -63,51 +27,78 @@
     <ClInclude Include="vector.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="thread_pool.h">
+    <ClInclude Include="RenderBase.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="massive_scene.h">
+    <ClInclude Include="SceneBase.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="eig3.h">
+    <ClInclude Include="CameraBase.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BVHAccelerator.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MassiveScene.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SimpleScene.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderManager.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CommonTypes.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BBox.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="QuatCamera.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eig3.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OCLRender.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="bbox.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="bvh_accel.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="mesh.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="opencl_render.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="quaternion_camera.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="shader_manager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="simple_rt_render.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="simple_scene.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="utils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="massive_scene.cpp">
+    <ClCompile Include="BVHAccelerator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="eig3.cpp">
+    <ClCompile Include="MassiveScene.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SimpleScene.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ShaderManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Mesh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BBox.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="QuatCamera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eig3.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OCLRender.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

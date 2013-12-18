@@ -253,7 +253,7 @@ static void tql2(float V[n][n], float d[n], float e[n]) {
   }
 }
 
-void eigen_decomposition(float A[n][n], float V[n][n], float d[n]) {
+void EigenDecompose(float A[n][n], float V[n][n], float d[n]) {
   float e[n];
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < n; j++) {

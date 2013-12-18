@@ -1,66 +1,66 @@
 //
-//  bbox.cpp
+//  BBox.cpp
 //  BVHOQ
 //
 //  Created by dmitryk on 07.10.13.
 //  Copyright (c) 2013 Dmitry Kozlov. All rights reserved.
 //
 
-#include "bbox.h"
-bbox::bbox(vector3 const& p)
-: pmin_(p)
-, pmax_(p)
+#include "BBox.h"
+BBox::BBox(vector3 const& p)
+: minPoint_(p)
+, maxPoint_(p)
 {
 	
 }
 
-bbox::bbox(vector3 const& p1, vector3 const& p2)
-: pmin_(std::min(p1.x(), p2.x()), std::min(p1.y(), p2.y()), std::min(p1.z(), p2.z()))
-, pmax_(std::max(p1.x(), p2.x()), std::max(p1.y(), p2.y()), std::max(p1.z(), p2.z()))
+BBox::BBox(vector3 const& p1, vector3 const& p2)
+: minPoint_(std::min(p1.x(), p2.x()), std::min(p1.y(), p2.y()), std::min(p1.z(), p2.z()))
+, maxPoint_(std::max(p1.x(), p2.x()), std::max(p1.y(), p2.y()), std::max(p1.z(), p2.z()))
 {
 }
 
-vector3& bbox::max()
+vector3& BBox::GetMaxPoint()
 {
-	return pmax_;
+	return maxPoint_;
 }
 
-vector3& bbox::min()
+vector3& BBox::GetMinPoint()
 {
-	return pmin_;
+	return minPoint_;
 }
 
-vector3 const& bbox::max() const
+vector3 const& BBox::GetMaxPoint() const
 {
-	return pmax_;
+	return maxPoint_;
 }
 
-vector3 const& bbox::min() const
+vector3 const& BBox::GetMinPoint() const
 {
-	return pmin_;
+	return minPoint_;
 }
 
-vector3 bbox::extents() const
+vector3 BBox::GetExtents() const
 {
-	return pmax_ - pmin_;
+	return maxPoint_ - minPoint_;
 }
 
-vector3 bbox::center() const
+vector3 BBox::GetCenter() const
 {
-	return 0.5f * (pmax_ + pmin_);
+	return 0.5f * (maxPoint_ + minPoint_);
 }
 
-bool bbox::contains(vector3 const& p) const
+bool BBox::Contains(vector3 const& p) const
 {
-	vector3 radius = 0.5f * extents();
-	return abs(center().x() - p.x()) < radius.x() &&
-		   abs(center().y() - p.y()) < radius.y() &&
-		   abs(center().z() - p.z()) < radius.z();
+	vector3 radius = 0.5f * GetExtents();
+	return abs(GetCenter().x() - p.x()) < radius.x() &&
+		   abs(GetCenter().y() - p.y()) < radius.y() &&
+		   abs(GetCenter().z() - p.z()) < radius.z();
 }
 
-int bbox::max_extent() const
+int BBox::GetMaxDim() const
 {
-	vector3 ext = extents();
+	vector3 ext = GetExtents();
 	
 	if (ext.x() >= ext.y() && ext.x() >= ext.z())
 		return 0;
@@ -72,7 +72,7 @@ int bbox::max_extent() const
 	return 0;
 }
 
-float bbox::surface_area() const
+float BBox::GetSurfaceArea() const
 {
-	return 2 * (extents().x() * extents().y() + extents().x() * extents().z() + extents().y() * extents().z());
+	return 2 * (GetExtents().x() * GetExtents().y() + GetExtents().x() * GetExtents().z() + GetExtents().y() * GetExtents().z());
 }

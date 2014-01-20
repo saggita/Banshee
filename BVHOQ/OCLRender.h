@@ -51,16 +51,13 @@ public:
 	~OCLRender();
 	
 	void Init(unsigned width, unsigned height);
-	void CullMeshes(std::vector<SceneBase::MeshDesc> const& meshes);
+	void Render();
 	void Commit();
 
 	GLuint GetOutputTexture() const;
-	GLuint GetDrawCommandBuffer() const;
-	GLuint GetDrawCommandCount() const;
+    void   FlushFrame();
 
 private:
-	void Cull(std::vector<SceneBase::MeshDesc> const& meshes);
-
 	struct __declspec(align(1)) DevConfig
 	{
 		cl_float16 mProjInv;
@@ -76,6 +73,10 @@ private:
 		
 		cl_uint uOutputWidth;
 		cl_uint uOutputHeight;
+        
+        cl_uint uNumPointLights;
+        cl_uint uNumRandomNumbers;
+        cl_uint uFrameCount;
 	};
 	
 	struct __declspec(align(1)) DevBVHNode
@@ -112,37 +113,57 @@ private:
 		cl_uint  uStartIdx;
 		cl_uint  uNumIndices;
 	};
+    
+    struct __declspec(align(1)) DevVertex
+    {
+        cl_float4 vPos;
+        cl_float4 vNormal;
+        cl_float2 vTex;
+    };
+    
+    struct __declspec(align(1)) DevPointLight
+    {
+        cl_float4 vPos;
+        cl_float4 vColor;
+        cl_float4 vAttenuation;
+    };
+    
+    struct DevShadingData
+    {
+        cl_float3 vPos;
+        cl_float3 vNormal;
+        cl_float2 vTex;
+        cl_uint   uMaterialIdx;
+    };
+    
+    struct DevPathVertex
+    {
+        DevShadingData shadingData;
+        cl_float3 vIncidentDir;
+        cl_float3 vRadiance;
+    };
 
 	cl_platform_id platform_;
 	cl_device_id   device_;
 	cl_device_type deviceType_;
-	cl_context	 context_;
+	cl_context	   context_;
 	cl_command_queue commandQueue_;
-	cl_program	 program_;
-	cl_kernel	  traceDepthKernel_;
-	cl_kernel	  checkVisibilityKernel_;
-	cl_kernel	  buildCmdListKernel_;
+	cl_program       program_;
+	cl_kernel        traceDepthKernel_;
 
 	cl_mem		vertexBuffer_;
 	cl_mem		indexBuffer_;
 	cl_mem		bvhBuffer_;
 	cl_mem		configBuffer_;
 	cl_mem		outputDepthTexture_;
-	cl_mem		boundsBuffer_;
-	cl_mem		offsetsBuffer_;
-	cl_mem		drawCmdBuffer_;
-	cl_mem		visibleObjectsCounterBuffer_;
-	cl_mem		visibilityBuffer_;
+    cl_mem      pointLights_;
+    cl_mem      randomBuffer_;
+    cl_mem      pathBuffer_;
 	
-	GLuint glDepthTexture_;
-	GLuint glCmdBuffer_;
+	GLuint    glDepthTexture_;
 
-#ifdef INDIRECT_PARAMS
-	GLuint glVisibleObjectsCounterBuffer_;
-#endif
-
-	cl_uint2 outputSize_;
-	cl_uint visibleObjectsCount_;
+	cl_uint2  outputSize_;
+    cl_uint   frameCount_;
 	
 	DevConfig configData_;
 

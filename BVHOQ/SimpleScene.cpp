@@ -35,6 +35,7 @@ SimpleScene::SimpleScene(std::shared_ptr<Mesh> mesh_ptr)
 	unsigned const* indexData = mesh_ptr->GetIndexArrayPtr();
 	vertices_.resize(mesh_ptr->GetVertexCount());
 	indices_.resize(mesh_ptr->GetIndexCount());
+    materials_.resize(mesh_ptr->GetIndexCount()/3);
 	
 	BBox b = BBox(vertexData[0].position);
 	for (int i = 0; i < mesh_ptr->GetVertexCount(); ++i)
@@ -43,12 +44,10 @@ SimpleScene::SimpleScene(std::shared_ptr<Mesh> mesh_ptr)
 		b = BBoxUnion(b, vertexData[i].position);
 	}
 	std::copy(indexData, indexData + mesh_ptr->GetIndexCount(), indices_.begin());
-
-	MeshDesc md = {b, Sphere(), 0, indices_.size()};
-	meshes_.push_back(md);
+    std::fill(materials_.begin(), materials_.end(), 0);
 }
 
-std::vector<SimpleScene::MeshDesc> const& SimpleScene::GetMeshes() const
+std::vector<unsigned int> const& SimpleScene::GetMaterials() const
 {
-	return meshes_;
+    return materials_;
 }

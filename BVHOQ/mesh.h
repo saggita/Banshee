@@ -30,6 +30,8 @@ public:
 	uint GetIndexCount() const;
 	uint GetVertexSizeInBytes() const;
 	BBox Bounds() const;
+    
+    void Rescale(float factor);
 
 private:
 	void LoadFromFile(std::string const& fileName);

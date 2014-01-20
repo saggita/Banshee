@@ -24,18 +24,10 @@ public:
 		float   radius;
 	};
 
-	struct MeshDesc 
-	{
-		BBox box;
-		Sphere bSphere;
-		unsigned startIdx;
-		unsigned numIndices;
-	};
-
 	virtual ~SceneBase() = 0;
 	virtual std::vector<Mesh::Vertex> const& GetVertices() const = 0;
 	virtual std::vector<unsigned int> const& GetIndices() const = 0;
-	virtual std::vector<MeshDesc> const& GetMeshes() const = 0;
+    virtual std::vector<unsigned int> const& GetMaterials() const = 0;
 	
 private:
 	SceneBase& operator= (SceneBase const&);

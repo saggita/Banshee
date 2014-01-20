@@ -143,5 +143,23 @@ BBox Mesh::Bounds() const
 	return bBox_;
 }
 
+void Mesh::Rescale(float factor)
+{
+    vector3 c(0,0,0);
+    bBox_ = c;
+    
+    std::for_each(vertexData_.begin(), vertexData_.end(), [&c](Mesh::Vertex const& v){ c += v.position; });
+    
+    c *= 1.f / vertexData_.size();
+    
+    std::for_each(vertexData_.begin(), vertexData_.end(),
+        [this, c, factor](Mesh::Vertex& v)
+                  {
+                      vector3 c2v = factor * (v.position - c);
+                      v.position = c + c2v;
+                      bBox_ = BBoxUnion(bBox_, v.position);
+                  });
+}
+
 
 #pragma warning(pop)

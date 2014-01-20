@@ -1,73 +1,116 @@
-/// Extensions
-#pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
-#pragma OPENCL EXTENSION cl_khr_global_int32_extended_atomics : enable
-#pragma OPENCL EXTENSION cl_khr_local_int32_base_atomics : enable
-#pragma OPENCL EXTENSION cl_khr_local_int32_extended_atomics : enable
+//
+//  Depthmap.cl
+//  BVHOQ
+//
+//  Created by dmitryk on 07.10.13.
+//  Copyright (c) 2013 Dmitry Kozlov. All rights reserved.
+//
+
+/*************************************************************************
+ EXTENSIONS
+**************************************************************************/
 
 
-//#define TRAVERSAL_STACKLESS
-#define TRAVERSAL_STACKED
-//#define TRAVERSAL_PACKET
+/*************************************************************************
+ DEFINES
+ **************************************************************************/
+#define TRAVERSAL_STACKLESS
+//#define TRAVERSAL_STACKED
 //#define LOCAL_STACK
 #define NODE_STACK_SIZE 32
-#define NODE_SHARED_STACK_SIZE 128
 #define TILE_SIZE_X 8
 #define TILE_SIZE_Y 8
 
+#define RAY_EPSILON 0.01f
+#define NUM_SAMPLES 2.f
 
-//#define atom_xchg(x,y) 0
-//#define atom_max(x,y) 0
-//#define atom_min(x,y) 0
-//#define atom_inc(x) 0
+#define MATERIAL1 0
+#define MATERIAL2 1
 
-/// Type definitions
+#define BSDF_TYPE_LAMBERT  1
+#define BSDF_TYPE_SPECULAR 2
+
+#define NULL 0
+#define DEFAULT_DEPTH 10000.f;
+
+/*************************************************************************
+ TYPE DEFINITIONS
+ **************************************************************************/
+typedef int BSDF_TYPE;
+
 typedef struct _BBox
-{
-	float3 vMin;
-	float3 vMax;
-} BBox;
+    {
+        float3 vMin;
+        float3 vMax;
+    } BBox;
 
 typedef struct _Offset
-{
-	uint uStartIdx;
-	uint uNumIndices;
-} Offset;
+    {
+        uint uStartIdx;
+        uint uNumIndices;
+    } Offset;
 
 typedef struct _BVHNode
-{
-	BBox box;
-	// uPrimStartIdx == 0xffffffff for internal nodes
-	uint uPrimStartIdx;
-	uint uRight;
-	uint uParent;
-	uint uNumPrims;
-} BVHNode;
+    {
+        BBox box;
+        // uPrimStartIdx == 0xffffffff for internal nodes
+        uint uPrimStartIdx;
+        uint uRight;
+        uint uParent;
+        uint uNumPrims;
+    } BVHNode;
 
 typedef struct _Config
-{
-	float16 mProjInv;
-	float16 mView;
-
-	float3 vCameraDir;
-	float3 vCameraRight;
-	float3 vCameraUp;
-	float3 vCameraPos;
-
-	float fCameraNearZ;
-	float fCameraPixelSize;
-
-	uint uOutputWidth;
-	uint uOutputHeight;
-
-} Config;
+    {
+        float16 mProjInv;
+        float16 mView;
+        
+        float3 vCameraDir;
+        float3 vCameraRight;
+        float3 vCameraUp;
+        float3 vCameraPos;
+        
+        float fCameraNearZ;
+        float fCameraPixelSize;
+        
+        uint uOutputWidth;
+        uint uOutputHeight;
+        
+        uint uNumPointLights;
+        uint uNumRandomNumbers;
+        uint uFrameCount;
+        
+    } Config;
 
 typedef struct _Ray
-{
-	float3 o;
-	float3 d;
-	float  mint;
-	float  maxt;
-} Ray;
+    {
+        float3 o;
+        float3 d;
+        float  mint;
+        float  maxt;
+    } Ray;
+
+typedef struct _Vertex
+    {
+        float4 vPos;
+        float4 vNormal;
+        float2 vTex;
+    } Vertex;
+
+typedef struct _ShadingData
+    {
+        float3    vPos;
+        float3    vNormal;
+        float2    vTex;
+        uint      uMaterialIdx;
+    } ShadingData;
+
+typedef struct _PathVertex{
+        ShadingData sShadingData;
+        float3      vIncidentDir;
+        float4      vRadiance;
+        BSDF_TYPE   eBsdf;
+    } PathVertex;
 
 typedef  struct {
 	uint  uCount;
@@ -77,50 +120,41 @@ typedef  struct {
 	uint  uBaseInstance;
 } DrawElementsIndirectCommand;
 
-/// Macro definitions
-#define NULL 0
-#define DEFAULT_DEPTH 10000.f;
-//#define TRACE_INTERNAL_ONLY
+typedef struct {
+    float4 vPos;
+    float4 vColor;
+    float4 vAttenuation;
+} PointLight;
 
+typedef struct {
+    __global BVHNode*       sBVH;
+    __global Vertex*        sVertices;
+    __global uint4*         sIndices;
+    __global Config*        sParams;
+    __global PointLight*    sPointLights;
+} SceneData;
 
-/// Helper functions
+typedef struct {
+    __global float* fRands;
+    uint            uBufferSize;
+    
+} RandomBuffer;
 
-float4 make_float4(float x, float y, float z, float w)
+typedef struct
 {
-	float4 res;
-	res.x = x;
-	res.y = y;
-	res.z = z;
-	res.w = w;
-	return res;
-}
+    uint uVal;
+} RNG;
 
-float3 make_float3(float x, float y, float z)
-{
-	float3 res;
-	res.x = x;
-	res.y = y;
-	res.z = z;
-	return res;
-}
+const sampler_t g_sampDefault = CLK_NORMALIZED_COORDS_FALSE |
+CLK_ADDRESS_NONE        |
+CLK_FILTER_NEAREST;
 
-float2 make_float2(float x, float y)
-{
-	float2 res;
-	res.x = x;
-	res.y = y;
-	return res;
-}
 
-int2 make_int2(int x, int y)
-{
-	int2 res;
-	res.x = x;
-	res.y = y;
-	return res;
-}
+/*************************************************************************
+ HELPER FUNCTIONS
+ **************************************************************************/
 
-// substract float3 vectors
+// Substract float3 vectors
 float3 sub(float3 v1, float3 v2)
 {
 	float3 res;
@@ -130,127 +164,164 @@ float3 sub(float3 v1, float3 v2)
 	return res;
 }
 
-
-float ComponentMask(float3 v, int comp)
+uint WangHash(uint seed)
 {
-	float3 component_mask_3[3] = 
+    seed = (seed ^ 61) ^ (seed >> 16);
+    seed *= 9;
+    seed = seed ^ (seed >> 4);
+    seed *= 0x27d4eb2d;
+    seed = seed ^ (seed >> 15);
+    return seed;
+}
+
+uint RandUint(RNG* sRNG)
+{
+    sRNG->uVal = 1664525U * sRNG->uVal + 1013904223U;
+    return sRNG->uVal;
+}
+
+float RandFloat(RNG* sRNG)
+{
+    return ((float)RandUint(sRNG)) / 0xffffffffU;
+}
+
+RNG CreateRNG(uint uSeed)
+{
+    RNG sRNG;
+    sRNG.uVal = WangHash(uSeed);
+    for (int i=0;i<100;++i)
+        RandFloat(&sRNG);
+    return sRNG;
+}
+
+
+float ComponentMask(float3 vVec, int iComponent)
+{
+	float3 compMask[3] =
 	{
 		{1.0, 0.0, 0.0},
 		{0.0, 1.0, 0.0},
 		{0.0, 0.0, 1.0}
 	};
-
-	return dot(v, component_mask_3[comp]);
+    
+	return dot(vVec, compMask[iComponent]);
 }
 
-float4 TransformPoint(float16 mvp, float4 p)
+// Tranform point using 4x4 matrix
+float4 TransformPoint(float16 mWVP, float4 vPoint)
 {
-	float4 res;
-	res.w = mvp.sc * p.x + mvp.sd * p.y + mvp.se * p.z + mvp.sf * p.w;
-	res.x = mvp.s0 * p.x + mvp.s1 * p.y + mvp.s2 * p.z + mvp.s3 * p.w;
-	res.y = mvp.s4 * p.x + mvp.s5 * p.y + mvp.s6 * p.z + mvp.s7 * p.w;
-	res.z = mvp.s8 * p.x + mvp.s9 * p.y + mvp.sa * p.z + mvp.sb * p.w;
-	return res;
-}
-
-bool FrustumCheck(float4 p)
-{
-	float invw = 1.0 / p.w;
-	return p.x * invw >= -1 && p.x * invw <= 1 && p.y * invw >= -1 && p.y * invw <= 1 &&
-		p.z * invw >= -1 && p.z * invw <= 1;
+	float4 vRes;
+	vRes.w = mWVP.sc * vPoint.x + mWVP.sd * vPoint.y + mWVP.se * vPoint.z + mWVP.sf * vPoint.w;
+	vRes.x = mWVP.s0 * vPoint.x + mWVP.s1 * vPoint.y + mWVP.s2 * vPoint.z + mWVP.s3 * vPoint.w;
+	vRes.y = mWVP.s4 * vPoint.x + mWVP.s5 * vPoint.y + mWVP.s6 * vPoint.z + mWVP.s7 * vPoint.w;
+	vRes.z = mWVP.s8 * vPoint.x + mWVP.s9 * vPoint.y + mWVP.sa * vPoint.z + mWVP.sb * vPoint.w;
+	return vRes;
 }
 
 
-float4 FindMinZ(float4 v1, float4 v2)
+// Intersect Ray against triangle
+bool IntersectTriangle(Ray* sRay, float3 vP1, float3 vP2, float3 vP3, float* fA, float* fB)
 {
-	return (v1.z < v2.z) ? (v1) : (v2);
-}
-
-
-// intersect Ray against triangle
-bool IntersectTriangle(Ray* r, float3 v1, float3 v2, float3 v3)
-{
-	float3 e1 = sub(v2, v1);
-	float3 e2 = sub(v3, v1);
-
-	float3 s1 = cross(r->d, e2);
-	float invDir = 1.0/dot(s1, e1);
-
+	float3 vE1 = sub(vP2, vP1);
+	float3 vE2 = sub(vP3, vP1);
+    
+	float3 vS1 = cross(sRay->d, vE2);
+	float  fInvDir = 1.0/dot(vS1, vE1);
+    
 	//if (div == 0.f)
 	//return false;
-
-	float3 d = r->o - v1;
-	float b1 = dot(d,s1) * invDir;
-
-	if (b1 < 0 || b1 > 1)
+    
+	float3 vD = sRay->o - vP1;
+	float  fB1 = dot(vD, vS1) * fInvDir;
+    
+	if (fB1 < 0.0 || fB1 > 1.0)
 		return false;
-
-	float3 s2 = cross(d, e1);
-	float b2 = dot(r->d, s2) * invDir;
-
-	if (b2 < 0 || b1 + b2 > 1)
+    
+	float3 vS2 = cross(vD, vE1);
+	float  fB2 = dot(sRay->d, vS2) * fInvDir;
+    
+	if (fB2 < 0.0 || fB1 + fB2 > 1.0)
 		return false;
-
-	float temp = dot(e2, s2) * invDir;
-
-	if (temp > 0 && temp <= r->maxt)
+    
+	float fTemp = dot(vE2, vS2) * fInvDir;
+    
+	if (fTemp > 0 && fTemp <= sRay->maxt)
 	{
-		r->maxt = temp;
+		sRay->maxt = fTemp;
+        *fA = fB1;
+        *fB = fB2;
 		return true;
 	}
-
+    
 	return false;
 }
 
-// intersect Ray with the axis-aligned box
-bool IntersectBox(Ray* r, BBox box)
+// Intersect ray with the axis-aligned box
+bool IntersectBox(Ray* sRay, BBox sBox)
 {
-	float3 rayDir  = make_float3(1.0/r->d.x, 1.0/r->d.y, 1.0/r->d.z);
-	float lo = rayDir.x*(box.vMin.x - r->o.x);
-	float hi = rayDir.x*(box.vMax.x - r->o.x);
-
+	float3 vRayDir  = make_float3(1.0/sRay->d.x, 1.0/sRay->d.y, 1.0/sRay->d.z);
+	float lo = vRayDir.x*(sBox.vMin.x - sRay->o.x);
+	float hi = vRayDir.x*(sBox.vMax.x - sRay->o.x);
+    
 	float tmin = fmin(lo, hi);
 	float tmax = fmax(lo, hi);
-
-	float lo1 = rayDir.y*(box.vMin.y - r->o.y);
-	float hi1 = rayDir.y*(box.vMax.y - r->o.y);
-
+    
+	float lo1 = vRayDir.y*(sBox.vMin.y - sRay->o.y);
+	float hi1 = vRayDir.y*(sBox.vMax.y - sRay->o.y);
+    
 	tmin = fmax(tmin, fmin(lo1, hi1));
 	tmax = fmin(tmax, fmax(lo1, hi1));
-
-	float lo2 = rayDir.z*(box.vMin.z - r->o.z);
-	float hi2 = rayDir.z*(box.vMax.z - r->o.z);
-
+    
+	float lo2 = vRayDir.z*(sBox.vMin.z - sRay->o.z);
+	float hi2 = vRayDir.z*(sBox.vMax.z - sRay->o.z);
+    
 	tmin = fmax(tmin, fmin(lo2, hi2));
 	tmax = fmin(tmax, fmax(lo2, hi2));
-
+    
 	bool hit = (tmin <= tmax) && (tmax > 0.0);
 	float t = tmin >=0 ? tmin : tmax;
-
-	if (hit && tmin < r->maxt)
+    
+	if (hit && tmin < sRay->maxt)
 	{
 		return true;
 	}
-
+    
 	return false;
 }
 
-/// BVH related functions
+/*************************************************************************
+ BVH FUNCTIONS
+ **************************************************************************/
 //  intersect a Ray with BVH leaf
-bool IntersectLeaf(__global float4* vertices, __global uint4* indices, uint idx, int uNumPrims, Ray* r)
+bool IntersectLeaf(__global Vertex* vertices, __global uint4* indices, uint idx, int uNumPrims, Ray* r, ShadingData* shadingData)
 {
 	bool hit = false;
 	for (int i = 0; i < uNumPrims; ++i)
 	{
 		uint4 triangle = indices[idx + i];
-
-		float4 v1 = vertices[triangle.x];
-		float4 v2 = vertices[triangle.y];
-		float4 v3 = vertices[triangle.z];
-
-		hit |= IntersectTriangle(r, v1.xyz, v2.xyz, v3.xyz);
+        
+		float4 v1 = vertices[triangle.x].vPos;
+		float4 v2 = vertices[triangle.y].vPos;
+		float4 v3 = vertices[triangle.z].vPos;
+        
+        float4 n1 = vertices[triangle.x].vNormal;
+		float4 n2 = vertices[triangle.y].vNormal;
+		float4 n3 = vertices[triangle.z].vNormal;
+        
+        float a = 0;
+        float b = 0;
+        bool thisHit = IntersectTriangle(r, v1.xyz, v2.xyz, v3.xyz, &a, &b);
+        
+        if (thisHit)
+        {
+            shadingData->vPos = (1.f - a - b) * v1.xyz + a * v2.xyz + b * v3.xyz;
+            shadingData->vNormal = normalize((1.f - a - b) * n1.xyz + a * n2.xyz + b * n3.xyz);
+            shadingData->uMaterialIdx = triangle.w;
+        }
+        
+		hit |= thisHit;
 	}
-
+    
 	return hit;
 }
 
@@ -262,64 +333,66 @@ bool IntersectLeaf(__global float4* vertices, __global uint4* indices, uint idx,
 
 #ifdef LOCAL_STACK
 #define NODE_STACK_INIT(size) \
-	__local int* stack_ptr = stack; \
-	*stack_ptr++ = -1
+__local int* stack_ptr = stack; \
+*stack_ptr++ = -1
 #else
 #define NODE_STACK_INIT(size) \
-	int stack[size]; \
-	int* stack_ptr = stack;\
-	*stack_ptr++ = -1
+int stack[size]; \
+int* stack_ptr = stack;\
+*stack_ptr++ = -1
 #endif
 
 
 // intersect Ray against the whole BVH structure
 bool TraverseBVHStacked(
 #ifdef LOCAL_STACK
-	__local int* stack, 
+                        __local int* stack,
 #endif
-	__global BVHNode* nodes, __global float4* vertices, __global uint4* indices, Ray* r)
+                        __global BVHNode* nodes, __global Vertex* vertices, __global uint4* indices, Ray* r, ShadingData* shadingData)
 {
 	// init node stack
 	NODE_STACK_INIT(NODE_STACK_SIZE);
-
+    
 	bool hit = false;
-
+    
 	// start from the root
-	uint idx = 0;
+    uint idx = 0;
 	do
 	{
 		float tt = DEFAULT_DEPTH;
-
+        
 		// load current node
 		BBox box = nodes[idx].box;
-		uint  left  = idx + 1;
+		uint  uLeft  = idx + 1;
 		uint  uRight = nodes[idx].uRight;
-		uint uPrimStartIdx = nodes[idx].uPrimStartIdx;
+		uint  uPrimStartIdx = nodes[idx].uPrimStartIdx;
 		uint  uNumPrims = nodes[idx].uNumPrims;
-
+        
 		// try intersecting against current node's bounding box
 		// if this is the leaf try to intersect against contained triangle
 		if (uNumPrims != 0)
 		{
-			hit |= IntersectLeaf(vertices, indices, uPrimStartIdx, uNumPrims, r);
+			hit |= IntersectLeaf(vertices, indices, uPrimStartIdx, uNumPrims, r, shadingData);
 		}
 		// traverse child nodes otherwise
 		else
 		{
-			bool radd = IntersectBox(r, nodes[uRight].box);
-			bool ladd = IntersectBox(r, nodes[left].box);
-
+            BBox lbox = nodes[uLeft].box;
+            BBox rbox = nodes[uRight].box;
+			bool radd = IntersectBox(r, rbox);
+			bool ladd = IntersectBox(r, lbox);
+            
 			if (radd && ladd)
 			{
 				int axis = uPrimStartIdx;
 				if (ComponentMask(r->d, axis) > 0)
 				{
 					NODE_STACK_PUSH(uRight);
-					idx = left;
-				} 
+					idx = uLeft;
+				}
 				else
 				{
-					NODE_STACK_PUSH(left);
+					NODE_STACK_PUSH(uLeft);
 					idx = uRight;
 				}
 			}
@@ -329,90 +402,21 @@ bool TraverseBVHStacked(
 			}
 			else if (ladd)
 			{
-				idx = left;
+				idx = uLeft;
 			}
 			else
 			{
 				idx = NODE_STACK_POP;
 			}
-
+            
 			continue;
 		}
-
+        
 		// pop next item from the stack
 		idx = NODE_STACK_POP;
 	}
 	while (idx != NODE_STACK_GUARD);
-
-	return hit;
-}
-
-bool anythreads(__local int* flag, int val)
-{
-	if (get_local_id(0) == 0 && get_local_id(1) == 0)
-		*flag = 0;
-	barrier(CLK_LOCAL_MEM_FENCE);
-	atom_max(flag, val);
-	barrier(CLK_LOCAL_MEM_FENCE);
-	return *flag > 0;
-}
-
-// intersect Ray against the whole BVH structure
-bool TraverseBVHPacket(
-#ifdef LOCAL_STACK
-	__local int* stack, 
-#endif
-	__local int* flag,
-	__global BVHNode* nodes, __global float4* vertices, __global uint4* indices, Ray* r)
-{
-	// init node stack
-	NODE_STACK_INIT(NODE_SHARED_STACK_SIZE);
-
-	bool hit = false;
-
-	// start from the root
-	uint idx = 0;
-	do
-	{
-		// load current node
-		BBox box = nodes[idx].box;
-		uint  left  = idx + 1;
-		uint  uRight = nodes[idx].uRight;
-		uint uPrimStartIdx = nodes[idx].uPrimStartIdx;
-		uint  uNumPrims = nodes[idx].uNumPrims;
-		int radd = 0;
-		int ladd = 0;
-
-		// try intersecting against current node's bounding box
-		// if this is the leaf try to intersect against contained triangle
-		if (uNumPrims != 0)
-		{
-			hit |= IntersectLeaf(vertices, indices, uPrimStartIdx, uNumPrims, r);
-		}
-		// traverse child nodes otherwise
-		else
-		{
-			radd = IntersectBox(r, nodes[uRight].box) ? 1 : 0;
-			ladd = IntersectBox(r, nodes[left].box) ? 1 : 0;
-		}
-
-		bool rany = anythreads(flag, radd);
-		bool lany = anythreads(flag, ladd);
-
-		if (get_local_id(0) == 0 && get_local_id(1) == 0)
-		{
-			if (lany) NODE_STACK_PUSH(left);
-			if (rany) NODE_STACK_PUSH(uRight);
-			*flag = NODE_STACK_POP;
-		}
-
-		barrier(CLK_LOCAL_MEM_FENCE);
-
-		// pop next item from the stack
-		idx = *flag;
-	}
-	while (idx != NODE_STACK_GUARD);
-
+    
 	return hit;
 }
 
@@ -426,24 +430,24 @@ bool TraverseBVHPacket(
 
 #define IS_LEAF(x) (nodes[(x)].uNumPrims != 0)
 
-bool TraverseBVHStackless(__global BVHNode* nodes, __global float4* vertices, __global uint4* indices, Ray* r)
+bool TraverseBVHStackless(__global BVHNode* nodes, __global Vertex* vertices, __global uint4* indices, Ray* r, ShadingData* shadingData)
 {
 	uint current = 1;
 	int  state   = FROM_PARENT;
-
+    
 	bool hit = false;
-
+    
 	while (true)
 	{
 		switch (state)
 		{
-		case FROM_CHILD:
+            case FROM_CHILD:
 			{
 				if (current == 0)
 				{
 					return hit;
 				}
-
+                
 				else if (current == LEFT_CHILD(uParent(current)))
 				{
 					current = RIGHT_CHILD(uParent(current));
@@ -456,8 +460,8 @@ bool TraverseBVHStackless(__global BVHNode* nodes, __global float4* vertices, __
 				}
 				break;
 			}
-
-		case FROM_SIBLING:
+                
+            case FROM_SIBLING:
 			{
 				BBox box = nodes[current].box;
 				if (!IntersectBox(r, box))
@@ -467,7 +471,7 @@ bool TraverseBVHStackless(__global BVHNode* nodes, __global float4* vertices, __
 				}
 				else if (IS_LEAF(current))
 				{
-					hit |= IntersectLeaf(vertices, indices, nodes[current].uPrimStartIdx, nodes[current].uNumPrims, r);
+					hit |= IntersectLeaf(vertices, indices, nodes[current].uPrimStartIdx, nodes[current].uNumPrims, r, shadingData);
 					current = uParent(current);
 					state = FROM_CHILD;
 				}
@@ -476,11 +480,11 @@ bool TraverseBVHStackless(__global BVHNode* nodes, __global float4* vertices, __
 					current = LEFT_CHILD(current);
 					state = FROM_PARENT;
 				}
-
+                
 				break;
 			}
-
-		case FROM_PARENT:
+                
+            case FROM_PARENT:
 			{
 				BBox box = nodes[current].box;
 				if (!IntersectBox(r, box))
@@ -490,7 +494,7 @@ bool TraverseBVHStackless(__global BVHNode* nodes, __global float4* vertices, __
 				}
 				else if (IS_LEAF(current))
 				{
-					hit |= IntersectLeaf(vertices, indices, nodes[current].uPrimStartIdx, nodes[current].uNumPrims, r);
+					hit |= IntersectLeaf(vertices, indices, nodes[current].uPrimStartIdx, nodes[current].uNumPrims, r, shadingData);
 					current = RIGHT_CHILD(uParent(current));
 					state = FROM_SIBLING;
 				}
@@ -499,26 +503,183 @@ bool TraverseBVHStackless(__global BVHNode* nodes, __global float4* vertices, __
 					current = LEFT_CHILD(current);
 					state = FROM_PARENT;
 				}
-
+                
 				break;
 			}
 		}
-
+        
 	}
-
+    
 	return false;
+    
+}
 
+
+
+Ray GetNewRay(ShadingData* shadingData, float3 vIncidentDir)
+{
+    float3 vReflDir = vIncidentDir - 2*dot(vIncidentDir, shadingData->vNormal) * shadingData->vNormal;
+        
+    Ray r;
+    r.o = shadingData->vPos + RAY_EPSILON * vReflDir;
+    r.d = normalize(vReflDir);
+    r.mint = 0.f;
+    r.maxt = 10000.f;
+    
+    return r;
+}
+
+BSDF_TYPE GetBSDFFromMaterial(uint uMaterialIdx, RNG* sRNG)
+{
+    switch (uMaterialIdx)
+    {
+        case MATERIAL2:
+        {
+            return BSDF_TYPE_LAMBERT;
+            
+            break;
+        }
+        case MATERIAL1:
+        {
+            return RandFloat(sRNG) > 0.3f ? BSDF_TYPE_SPECULAR : BSDF_TYPE_LAMBERT;
+            
+            break;
+    
+        }
+    }
+}
+
+bool SampleBSDF(BSDF_TYPE eBsdf, ShadingData* sShadingData, float3 vWo, RNG* sRNG, Ray* sRay)
+{
+    switch (eBsdf)
+    {
+        case BSDF_TYPE_LAMBERT:
+        {
+            //float fPhi = ((float) RandFloat(sRNG)) * 6.28f;
+            //float fPsi = ((float) RandFloat(sRNG)) * 1.71f;
+            //float3 vDir = make_float3(sin(fPhi)*sin(fPsi), cos(fPhi)*sin(fPsi), cos(fPsi));
+        
+            return false;
+        }
+            
+        case BSDF_TYPE_SPECULAR:
+        {
+            float3 vReflDir = -vWo + 2*dot(vWo, sShadingData->vNormal) * sShadingData->vNormal;
+            
+            sRay->o = sShadingData->vPos + RAY_EPSILON * vReflDir;
+            sRay->d = normalize(vReflDir);
+            sRay->mint = 0.f;
+            sRay->maxt = 10000.f;
+            return true;
+        }
+    }
+}
+
+float4 EvaluateBSDF(BSDF_TYPE eBsdf, ShadingData* sShadingData, float3 vWi, float3 vWo, float4 vRadiance)
+{
+    switch (eBsdf)
+    {
+        case BSDF_TYPE_LAMBERT:
+            return make_float4(0.2f, 0.3f, 0.3f, 1.f) * vRadiance;
+            
+        case BSDF_TYPE_SPECULAR:
+        {
+            float3 vReflDir = -vWi + 2.f*dot(vWi, sShadingData->vNormal) * sShadingData->vNormal;
+            return length(vReflDir - vWo) < 0.1f ? vRadiance : make_float4(0.f,0.f,0.f,0.f);
+        }
+    }
+}
+
+float4 SampleDirectIllumination(
+                                SceneData*      sSceneData,
+                                BSDF_TYPE       eBsdf,
+                                ShadingData*    sShadingData,
+                                float3          vWo
+                                )
+{
+    float4 vRes = make_float4(0,0,0,1);
+    
+    for (uint i=0;i<sSceneData->sParams->uNumPointLights;++i)
+    {
+        float3 vLight = normalize(sSceneData->sPointLights[i].vPos.xyz - sShadingData->vPos);
+        
+        Ray sRay;
+        sRay.o = sShadingData->vPos + RAY_EPSILON * vLight;
+        sRay.d = vLight;
+        sRay.maxt = length(sSceneData->sPointLights[i].vPos.xyz - sShadingData->vPos);
+        sRay.mint = 0.f;
+        
+        ShadingData sTempData;
+        float fShadow = TraverseBVHStackless(sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
+        float fNdotL = dot(sShadingData->vNormal, vLight);
+        
+        vRes += fShadow * EvaluateBSDF(eBsdf, sShadingData, vLight, vWo, sSceneData->sPointLights[i].vColor) * fNdotL;
+    }
+    
+    return vRes;
+}
+
+float4 TraceRay(
+                SceneData*              sSceneData,
+                RNG*                    sRNG,
+                Ray*                    sRay,
+                __global PathVertex*    sPath,
+                int*                    iNumPoolItems
+                )
+{
+    Ray sThisRay = *sRay;
+    
+    
+    ShadingData sShadingData;
+    while (TraverseBVHStackless(sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sThisRay, &sShadingData))
+    {
+        PathVertex sNewVertex;
+        sNewVertex.vIncidentDir = sThisRay.d;
+        sNewVertex.sShadingData = sShadingData;
+        sNewVertex.eBsdf = GetBSDFFromMaterial(sShadingData.uMaterialIdx, sRNG);
+        
+        sNewVertex.vRadiance = SampleDirectIllumination(sSceneData, sNewVertex.eBsdf, &sShadingData, -sThisRay.d);
+        
+        sPath[*iNumPoolItems] = sNewVertex;
+        ++(*iNumPoolItems);
+        
+        if (*iNumPoolItems >= 3)
+            break;
+        
+        if (!SampleBSDF(sNewVertex.eBsdf, &sShadingData, -sThisRay.d, sRNG, &sThisRay))
+        {
+            break;
+        }
+    }
+    
+    int iPathLength = *iNumPoolItems;
+    
+    while(*iNumPoolItems > 1)
+    {
+        float fDirectWeight = 0.3f;
+        sPath[*iNumPoolItems - 2].vRadiance *= fDirectWeight;
+        
+        ShadingData sShadingData = sPath[*iNumPoolItems - 2].sShadingData;
+        sPath[*iNumPoolItems - 2].vRadiance += EvaluateBSDF(sPath[*iNumPoolItems - 2].eBsdf, &sShadingData, sPath[*iNumPoolItems - 1].vIncidentDir, -sPath[*iNumPoolItems - 2].vIncidentDir,  sPath[*iNumPoolItems - 1].vRadiance * (1.f - fDirectWeight));
+        
+        --(*iNumPoolItems);
+    }
+    
+    return iPathLength > 0 ? sPath[0].vRadiance : make_float4(0,0,0,0);
 }
 
 
 /// Raytrace depth kernel
 __kernel void TraceDepth(
-	__global BVHNode* bvh,
-	__global float4* vertices,
-	__global uint4* indices,
-	__global Config* params,
-	__write_only image2d_t output
-	)
+                         __global BVHNode*      bvh,
+                         __global Vertex*       vertices,
+                         __global uint4*        indices,
+                         __global Config*       params,
+                         __global PointLight*   lights,
+                         __global float*        rand,
+                         __global PathVertex*   pathPool,
+                         __read_write image2d_t output
+                         )
 {
 #if defined (TRAVERSAL_PACKET)
 	__local int stack[NODE_SHARED_STACK_SIZE];
@@ -527,197 +688,80 @@ __kernel void TraceDepth(
 	__local int stack[NODE_STACK_SIZE * 64];
 #else
 #endif
-
+    
 	int2 globalId;
 	globalId.x = get_global_id(0);
 	globalId.y = get_global_id(1);
-
+    
+    int flatGlobalId = globalId.y * params->uOutputWidth + globalId.x;
+    __global PathVertex* thisThreadPool = pathPool + flatGlobalId;
+    
 	int2 localId;
 	localId.x = get_local_id(0);
 	localId.y = get_local_id(1);
-
+    
 	int flatLocalId = localId.y * get_local_size(0) + localId.x;
-
+    
 	if (globalId.x < params->uOutputWidth && globalId.y < params->uOutputHeight)
 	{
-		unsigned width = params->uOutputWidth;
+		unsigned width  = params->uOutputWidth;
 		unsigned height = params->uOutputHeight;
 		float pixelSize = params->fCameraPixelSize;
-		float nearZ = params->fCameraNearZ;
-
+		float nearZ     = params->fCameraNearZ;
+        
 		int xc = globalId.x - (width >> 1);
 		int yc = globalId.y - (height >> 1);
-
-		Ray rr;
-		rr.o = params->vCameraPos;
-		rr.d.x = params->vCameraDir.x * nearZ + params->vCameraUp.x * (yc + 0.5f) * pixelSize + params->vCameraRight.x * (xc + 0.5f) * pixelSize;
-		rr.d.y = params->vCameraDir.y * nearZ + params->vCameraUp.y * (yc + 0.5f) * pixelSize + params->vCameraRight.y * (xc + 0.5f) * pixelSize;
-		rr.d.z = params->vCameraDir.z * nearZ + params->vCameraUp.z * (yc + 0.5f) * pixelSize + params->vCameraRight.z * (xc + 0.5f) * pixelSize;
-
-		rr.d = normalize(rr.d);
-
-		rr.mint = 0.f;
-		rr.maxt = DEFAULT_DEPTH;
-
-		float res = DEFAULT_DEPTH;
-
-#if defined(TRAVERSAL_STACKLESS)
-		bool hit  = TraverseBVHStackless(bvh, vertices, indices, &rr);
-#elif defined(TRAVERSAL_STACKED)
-#if defined(LOCAL_STACK)
-		__local int* this_thread_stack = stack + NODE_STACK_SIZE * flatLocalId;
-		bool hit  = TraverseBVHStacked(this_thread_stack, bvh, vertices, indices, &rr);
-#else
-		bool hit  = TraverseBVHStacked(bvh, vertices, indices, &rr);
-#endif
-#elif defined(TRAVERSAL_PACKET)
-		bool hit  = TraverseBVHPacket(stack, &flag, bvh, vertices, indices, &rr);
-#endif
-		if (hit)
-		{
-			res = rr.maxt;
-		}
-
+        
+        float4 res = make_float4(0,0,0,0);
+        RNG sRNG = CreateRNG((get_global_id(0) + 153) * (get_global_id(1) + 173) * (params->uFrameCount + 13));
+        
+        for (int i = 0; i < NUM_SAMPLES; ++i)
+            for (int j = 0; j < NUM_SAMPLES; ++j)
+            {
+                float fY = yc + (i + RandFloat(&sRNG))/NUM_SAMPLES;
+                float fX = xc + (j + RandFloat(&sRNG))/NUM_SAMPLES;
+                
+                Ray rr;
+                rr.o = params->vCameraPos;
+                rr.d.x = params->vCameraDir.x * nearZ + params->vCameraUp.x * fY * pixelSize + params->vCameraRight.x * fX * pixelSize;
+                rr.d.y = params->vCameraDir.y * nearZ + params->vCameraUp.y * fY * pixelSize + params->vCameraRight.y * fX * pixelSize;
+                rr.d.z = params->vCameraDir.z * nearZ + params->vCameraUp.z * fY * pixelSize + params->vCameraRight.z * fX * pixelSize;
+                
+                rr.d = normalize(rr.d);
+                
+                rr.mint = 0.f;
+                rr.maxt = DEFAULT_DEPTH;
+                
+                int pathLength = 0;
+                
+                SceneData sSceneData;
+                sSceneData.sBVH         = bvh;
+                sSceneData.sVertices    = vertices,
+                sSceneData.sIndices     = indices;
+                sSceneData.sPointLights = lights;
+                sSceneData.sParams      = params;
+                
+                RandomBuffer sRandBuffer;
+                sRandBuffer.fRands       = rand;
+                sRandBuffer.uBufferSize  = params->uNumRandomNumbers;
+                
+                res += TraceRay(&sSceneData, &sRNG, &rr, thisThreadPool, &pathLength);
+            }
+                                
+        res /= (NUM_SAMPLES*NUM_SAMPLES);
+        
+        uint uFrameCount = params->uFrameCount;
+        if (uFrameCount)
+        {
+            float4 vPrevValue =  read_imagef(output, g_sampDefault, globalId);
+            res = vPrevValue * ((float)(uFrameCount - 1.f)/uFrameCount) + res * (1.f/uFrameCount);
+        }
+        
 		write_imagef(output, globalId, res);
 	}
 }
 
 
-float4 TransformPointHdiv( float16 pi, float4 p )
-{
-	p = TransformPoint(pi, p);
-	p /= p.w;
-	return p;
-}
 
-bool TestBSphere(__global Config* cfg, 
-				 float4 bsphere,
-				 float2 minmax)
-{
-	int gx = get_group_id(0);
-	int gy = get_group_id(1);
-
-	int tx = get_local_size(0);
-	int ty = get_local_size(1);
-
-	int nx = get_global_size(0) / tx;
-	int ny = get_global_size(1) / ty;
-
-
-	float tsx = 2.0 / nx;
-	float tsy = 2.0 / ny;
-
-	float l = (tsx * gx) - 1.0;
-	float r = l + tsx;
-	float b = (tsy * gy) - 1.0;
-	float t = b + tsy;
-
-	float4 v0 = TransformPointHdiv( cfg->mProjInv, make_float4( l, b, 0.1f, 1.f ) );
-	float4 v1 = TransformPointHdiv( cfg->mProjInv, make_float4( r, b, 0.1f, 1.f ) );
-	float4 v2 = TransformPointHdiv( cfg->mProjInv, make_float4( r, t, 0.1f, 1.f ) );
-	float4 v3 = TransformPointHdiv( cfg->mProjInv, make_float4( l, t, 0.1f, 1.f ) );
-
-	float4 eq0;
-	eq0.xyz = normalize(cross(v0.xyz, v1.xyz)); eq0.w = 0;
-
-	float4 eq1;
-	eq1.xyz = normalize(cross(v2.xyz, v3.xyz)); eq1.w = 0;
-
-	float4 eq2;
-	eq2.xyz = normalize(cross(v1.xyz, v2.xyz)); eq2.w = 0;
-
-	float4 eq3;
-	eq3.xyz = normalize(cross(v3.xyz, v0.xyz)); eq3.w = 0;
-
-	float zHalf = 0.5 * (minmax.x + minmax.y);
-	float4 center = bsphere; center.w = 1;
-	center = TransformPointHdiv(cfg->mView, center); 
-
-	if( dot(eq0.xyz, center.xyz) >= -bsphere.w &&
-		dot(eq1.xyz, center.xyz) >= -bsphere.w &&
-		dot(eq2.xyz, center.xyz) >= -bsphere.w &&
-		dot(eq3.xyz, center.xyz) >= -bsphere.w )
-	{
-		if( center.z - bsphere.w <= minmax.y && center.z >= -bsphere.w )
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-__kernel void CheckVisibility(
-	__global Config* cfg,
-	uint numBounds,
-	__global float4* bounds,
-	__read_only image2d_t depthmap,
-	__global uint* visiblity
-	)
-{
-	__local uint lMin;
-	__local uint lMax;
-
-	int2 localId = make_int2(get_local_id(0), get_local_id(1));
-	int2 groupId = make_int2(get_group_id(0), get_group_id(1));
-	int2 groupDim = make_int2(get_local_size(0), get_local_size(1));
-
-	int flatLocalId = localId.y * groupDim.x + localId.x;
-
-	if (localId.x == 0 && localId.y == 0)
-	{
-		lMin = 10000.0;
-		lMax = 0.0;
-	}
-
-	barrier(CLK_LOCAL_MEM_FENCE);
-
-	int2 texCoord = make_int2(groupId.x * TILE_SIZE_X + localId.x, groupId.y * TILE_SIZE_Y + localId.y);
-
-	if (texCoord.x < get_image_width(depthmap) && texCoord.y < get_image_height(depthmap))
-	{
-		float depth = read_imagef(depthmap, texCoord).x;
-		atom_min(&lMin, as_uint(depth));
-		atom_max(&lMax, as_uint(depth));
-	}
-
-	barrier(CLK_LOCAL_MEM_FENCE);
-
-	for (int i = flatLocalId; i < numBounds; i += groupDim.x * groupDim.y)
-	{
-		int2 num_tiles = make_int2(cfg->uOutputWidth / TILE_SIZE_X, cfg->uOutputHeight / TILE_SIZE_Y); 
-
-		if (TestBSphere(cfg, bounds[i], make_float2(as_float(lMin), as_float(lMax))))
-		{
-			atom_or(&visiblity[i], 1);
-		}
-	}
-}
-
-/// replace with scan further
-__kernel void BuildCmdList( uint numBounds, 
-						   __global Offset* offsets,  
-						   __global DrawElementsIndirectCommand* commands, 
-						   __global int* counter,
-						   __global uint* visibility)
-{
-	uint globalId = get_global_id(0);
-
-	if (globalId < numBounds)
-	{
-		if (visibility[globalId])
-		{
-			int idx = atom_inc(counter);
-
-			__global DrawElementsIndirectCommand* cmd = commands + idx;
-
-			cmd->uCount = offsets[globalId].uNumIndices;
-			cmd->uInstanceCount = 1;
-			cmd->uFirstIndex= offsets[globalId].uStartIdx;
-			cmd->uBaseVertex = 0;
-			cmd->uBaseInstance = 0;
-		}
-	}
-}
 
 

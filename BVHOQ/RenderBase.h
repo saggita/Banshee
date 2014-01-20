@@ -22,10 +22,9 @@ public:
 	virtual						~RenderBase() = 0;
 	virtual void				Init(unsigned width, unsigned height) = 0;
 	virtual void				Commit() = 0;
-	virtual void				CullMeshes(std::vector<SceneBase::MeshDesc> const& meshes) = 0;
+	virtual void				Render() = 0;
 	virtual GLuint				GetOutputTexture() const = 0;
-	virtual GLuint				GetDrawCommandBuffer() const = 0;
-	virtual GLuint				GetDrawCommandCount() const = 0;
+    virtual void                FlushFrame() = 0;
 	
 	void						SetScene(std::shared_ptr<SceneBase>  scene);
 	void						SetCamera(std::shared_ptr<CameraBase> camera);

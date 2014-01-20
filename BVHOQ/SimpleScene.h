@@ -27,13 +27,13 @@ public:
 	
 	std::vector<Mesh::Vertex> const& GetVertices() const;
 	std::vector<unsigned int> const& GetIndices() const;
-	std::vector<MeshDesc> const& GetMeshes() const;
+    std::vector<unsigned int> const& GetMaterials() const;
 	
 	
 private:
 	std::vector<Mesh::Vertex> vertices_;
 	std::vector<unsigned int> indices_;
-	std::vector<MeshDesc> meshes_;
+    std::vector<unsigned int> materials_;
 };
 
 

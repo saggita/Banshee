@@ -46,16 +46,12 @@ static vector2 gMousePosition = vector2(0,0);
 static vector2 gMouseDelta = vector2(0,0);
 
 GLuint gVertexBufferId;
-GLuint gIndexBufferId; 
+GLuint gIndexBufferId;
 
-GLuint gSceneVertexBufferId;
-GLuint gSceneIndexBufferId; 
-GLuint gSceneIndexCount;
-
-#define WINDOW_WIDTH  800
-#define WINDOW_HEIGHT 600
-#define CAMERA_POSITION vector3(0,0,0)
-#define CAMERA_AT vector3(-1,0,0)
+#define WINDOW_WIDTH  400
+#define WINDOW_HEIGHT 300
+#define CAMERA_POSITION vector3(1,1,2)
+#define CAMERA_AT vector3(0,0,0)
 #define CAMERA_UP vector3(0,1,0)
 #define CAMERA_NEAR_PLANE 0.01f
 #define CAMERA_PIXEL_SIZE 0.000025f
@@ -83,109 +79,8 @@ void Display()
 	try
 	{
 		{
-			glEnable(GL_DEPTH_TEST);
-
+            glDisable(GL_DEPTH_TEST);
 			glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-			glBindBuffer(GL_ARRAY_BUFFER, gSceneVertexBufferId);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gSceneIndexBufferId);
-
-			GLuint program = gShaderManager->GetProgram("scene");
-			glUseProgram(program);
-
-			glVertexAttribPointer(glGetAttribLocation(program, "inPosition"), 3, GL_FLOAT, GL_FALSE, sizeof(Mesh::Vertex), 0);
-			glVertexAttribPointer(glGetAttribLocation(program, "inTexcoord"), 2, GL_FLOAT, GL_FALSE, sizeof(Mesh::Vertex), (void*)(sizeof(float)*3));
-			glVertexAttribPointer(glGetAttribLocation(program, "inNormal"), 3, GL_FLOAT, GL_FALSE, sizeof(Mesh::Vertex), (void*)(sizeof(float)*5));
-
-			glEnableVertexAttribArray(glGetAttribLocation(program, "inPosition"));
-			glEnableVertexAttribArray(glGetAttribLocation(program, "inTexcoord"));
-			glEnableVertexAttribArray(glGetAttribLocation(program, "inNormal"));
-
-			vector3 eyePosition = gCamera->GetPosition();
-			matrix4x4 wvpMatrix = gCamera->GetProjMatrix() * gCamera->GetViewMatrix();
-
-			glUniformMatrix4fv(glGetUniformLocation(program, "g_mWorldViewProj"), 1, false, &(wvpMatrix(0,0)));
-			glUniform3fv(glGetUniformLocation(program, "g_vEyePos"), 1, (GLfloat*)&eyePosition[0]);
-
-			// Point lights
-			for (int i = 0; i < gPointLights.size(); ++i)
-			{
-				/// TODO: Cache this stuff
-				std::ostringstream stream;
-				stream << "g_PointLights[" << i << "].vPos";
-
-				GLint location = glGetUniformLocation(program, stream.str().c_str());
-				assert(location != -1);
-				glUniform4fv(location, 1, &gPointLights[i].pos[0]);
-
-				stream = std::ostringstream();
-				stream << "g_PointLights[" << i << "].vColor";
-
-				location = glGetUniformLocation(program, stream.str().c_str());
-				assert(location != -1);
-				glUniform4fv(location, 1, &gPointLights[i].color[0]);
-			}
-
-			// Spot lights data
-			for (int i = 0; i < gSpotLights.size(); ++i)
-			{
-				/// TODO: Cache this stuff 
-				std::ostringstream stream;
-				stream << "g_SpotLights[" << i << "].vPos";
-
-				GLint location = glGetUniformLocation(program, stream.str().c_str());
-				assert(location != -1);
-				glUniform4fv(location, 1, &gSpotLights[i].pos[0]);
-
-				stream = std::ostringstream();
-				stream << "g_SpotLights[" << i << "].vColor";
-
-				location = glGetUniformLocation(program, stream.str().c_str());
-				assert(location != -1);
-				glUniform4fv(location, 1, &gSpotLights[i].color[0]);
-
-				stream = std::ostringstream();
-				stream << "g_SpotLights[" << i << "].vDir";
-
-				location = glGetUniformLocation(program, stream.str().c_str());
-				assert(location != -1);
-				glUniform4fv(location, 1, &gSpotLights[i].dir[0]);
-
-				stream = std::ostringstream();
-				stream << "g_SpotLights[" << i << "].vAngle";
-
-				location = glGetUniformLocation(program, stream.str().c_str());
-				assert(location != -1);
-				glUniform4fv(location, 1, &gSpotLights[i].angle[0]);
-			}
-
-			GLuint drawCommandCount = gRender->GetDrawCommandCount();
-			GLuint drawCommandBuffer = gRender->GetDrawCommandBuffer();
-
-			std::cout << drawCommandCount << " objects in frustum\n";
-
-			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, drawCommandBuffer);
-
-#ifdef INDIRECT_PARAMS
-			glBindBuffer(GL_PARAMETER_BUFFER_ARB, drawDrawCommandCount);
-			glMultiDrawElementsIndirectCountARB(GL_TRIANGLES, GL_UNSIGNED_INT, (GLvoid*)0, (GLintptr)0, 1000, 0);
-			glBindBuffer(GL_PARAMETER_BUFFER_ARB, 0);
-#else
-			glMultiDrawElementsIndirectAMD(GL_TRIANGLES, GL_UNSIGNED_INT, (GLvoid*)0, drawCommandCount, 0);
-#endif
-
-			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
-			glDisable(GL_DEPTH_TEST);
-
-			glDisableVertexAttribArray(glGetAttribLocation(program, "inPosition"));
-			glDisableVertexAttribArray(glGetAttribLocation(program, "inTexcoord"));
-			glDisableVertexAttribArray(glGetAttribLocation(program, "inNormal"));
-		}
-
-		{
-			glViewport(10, 10, 2*160, 2*120);
 
 			glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferId);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBufferId);
@@ -244,24 +139,32 @@ void Update()
 	cameraRotationY = -delta.x();
 
 	if (cameraRotationY != 0.f)
+    {
 		gCamera->Rotate(cameraRotationY);
+        gRender->FlushFrame();
+    }
 
 	if (cameraRotationX != 0.f)
+    {
 		gCamera->Tilt(cameraRotationX);
+        gRender->FlushFrame();
+    }
 
-	const float kMovementSpeed = 0.001f;
+	const float kMovementSpeed = 0.1f;
 	if (gIsFwdPressed)
 	{
 		gCamera->MoveForward((float)deltaTime.count() * kMovementSpeed);
+        gRender->FlushFrame();
 	}
 
 	if (gIsBackPressed)
 	{
 		gCamera->MoveForward(-(float)deltaTime.count() * kMovementSpeed);
+        gRender->FlushFrame();
 	}
 
 	gRender->Commit();
-	gRender->CullMeshes(gScene->GetMeshes());
+	gRender->Render();
 
 	glutPostRedisplay();
 }
@@ -307,31 +210,14 @@ void InitGraphics()
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-	gPointLights.resize(4);
-	gSpotLights.resize(4);
-
-	memset(&gPointLights[0], 0, sizeof(PointLightData)*4);
-	memset(&gSpotLights[0], 0, sizeof(SpotLightData)*4);
-
-	gPointLights[0].pos = vector4(0,-2,0,1);
-	gPointLights[0].pos = vector4(0.2,0.2,0.2,1);
-
-	gSpotLights[0].pos = vector4(0,0,-3,1);
-	gSpotLights[0].dir = vector4(0.5,0.5, 1,1);
-	gSpotLights[0].color = vector4(0.5,0,0,1);
-	gSpotLights[0].angle = vector4(0.707, 0.5, 0, 0);
-
-	gSpotLights[1].pos = vector4(0,0,-3,1);
-	gSpotLights[1].dir = vector4(-0.5,-0.5, 1,1);
-	gSpotLights[1].color = vector4(0,0.5,0,1);
-	gSpotLights[1].angle = vector4(0.707, 0.5, 0, 0);
 }
 
 void InitData()
 {
+    rand_init();
+    
 	//gScene = SimpleScene::CreateFromObj("sibenik.objm");
-	gScene = MassiveScene::CreateFromObj("monkey.objm");
+	gScene = MassiveScene::Create();
 	gCamera = QuatCamera::LookAt(CAMERA_POSITION, CAMERA_AT, CAMERA_UP);
 
 	gCamera->SetNearZ(CAMERA_NEAR_PLANE);
@@ -347,22 +233,6 @@ void InitData()
 	gRender->SetCamera(gCamera);
 
 	gRender->Init(WINDOW_WIDTH, WINDOW_HEIGHT);
-
-	glGenBuffers(1, &gSceneVertexBufferId);
-	glGenBuffers(1, &gSceneIndexBufferId);
-
-	// create Vertex buffer
-	glBindBuffer(GL_ARRAY_BUFFER, gSceneVertexBufferId);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gSceneIndexBufferId);
-
-	// fill data
-	glBufferData(GL_ARRAY_BUFFER, gScene->GetVertices().size() * sizeof(Mesh::Vertex), &gScene->GetVertices()[0], GL_STATIC_DRAW);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, gScene->GetIndices().size() * sizeof(unsigned), &gScene->GetIndices()[0], GL_STATIC_DRAW);
-
-	gSceneIndexCount = gScene->GetIndices().size();
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 
@@ -439,7 +309,7 @@ int main(int argc, const char * argv[])
 		glutReshapeFunc (Reshape);
 		glutSpecialFunc(OnKey);
 		glutSpecialUpFunc(OnKeyUp);
-		glutPassiveMotionFunc(OnMouseMove);
+		glutMotionFunc(OnMouseMove);
 		glutIdleFunc (Update);
 		glutMainLoop ();
 

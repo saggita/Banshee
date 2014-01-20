@@ -100,36 +100,36 @@ float SurfaceArea(vector3 const& v1, vector3 const& v2, vector3 const& v3)
 	
 }
 
-BBox BVHAccelerator::CalcBbox(Triangle const& t)
+template <typename T> BBox BVHAccelerator::CalcBbox(Triangle const& t, std::vector<T> const& vertices)
 {
-	BBox b(vertices_[t.i1], vertices_[t.i2]);
-	return BBoxUnion(b, vertices_[t.i3]);
+	BBox b(vertices[t.i1].position, vertices[t.i2].position);
+	return BBoxUnion(b, vertices[t.i3].position);
 }
 
 std::shared_ptr<BVHAccelerator> BVHAccelerator::CreateFromScene(SceneBase const& scene)
 {
-	return std::make_shared<BVHAccelerator>(scene.GetVertices(), scene.GetIndices(), 8);
+	return std::make_shared<BVHAccelerator>(scene.GetVertices(), scene.GetIndices(), scene.GetMaterials(), 8);
 }
 
-template <typename T> BVHAccelerator::BVHAccelerator(std::vector<T> const& vertices, std::vector<unsigned> const& indices, unsigned maxNodePrims)
+template <typename T> BVHAccelerator::BVHAccelerator(std::vector<T> const& vertices, std::vector<unsigned> const& indices, std::vector<unsigned> const& materials, unsigned maxNodePrims)
 	: maxNodePrims_(maxNodePrims)
 {
-	vertices_.resize(vertices.size());
-	std::transform(vertices.begin(), vertices.end(), vertices_.begin(), 
-		[](T const& v)
-	{
-		return v.position;
-	});
+	//vertices_.resize(vertices.size());
+	//std::transform(vertices.begin(), vertices.end(), vertices_.begin(),
+		//[](T const& v)
+	//{
+		//return v.position;
+	//});
 
 	/// build primitives list
 	prims_.resize(indices.size()/3);
 	buildInfo_.resize(indices.size()/3);
 	for (unsigned i = 0; i < indices.size(); i += 3)
 	{
-		BBox b(vertices_[indices[i]], vertices_[indices[i+1]]);
-		b = BBoxUnion(b, vertices_[indices[i+2]]);
+		BBox b(vertices[indices[i]].position, vertices[indices[i+1]].position);
+		b = BBoxUnion(b, vertices[indices[i+2]].position);
 	
-		Triangle t = {indices[i], indices[i + 1], indices[i + 2]};
+		Triangle t = {indices[i], indices[i + 1], indices[i + 2], materials[i/3]};
 		prims_[i/3] = t;
 
 		BuildInfo info = { b, i/3 };
@@ -204,7 +204,7 @@ unsigned BVHAccelerator::BuildHierarchy(unsigned begin, unsigned end, std::vecto
 	// Decide whether to split or to create new leaf
 	if (primCount > maxNodePrims_ || (sahValue > primCount && primCount > 1))
 	{
-		BuildNode n = {b, axis, 0, 0, 0};
+		BuildNode n = {b, static_cast<unsigned int>(axis), 0, 0, 0};
 	
 		//unsigned mid = find_best_split(begin, end, b, centroidBounds);
 		n.left = BuildHierarchy(begin, mid, buildNodes);
@@ -314,10 +314,10 @@ unsigned   BVHAccelerator::FindBestSplit(unsigned begin, unsigned end, BBox cons
 	return (unsigned)((iter - &buildInfo_[begin]) + begin);
 }
 
-std::vector<vector3> const& BVHAccelerator::GetVertices() const
-{
-	return vertices_;
-}
+//std::vector<vector3> const& BVHAccelerator::GetVertices() const
+//{
+	//return vertices_;
+//}
 
 std::vector<BVHAccelerator::Triangle> const& BVHAccelerator::GetPrimitives() const
 {
@@ -334,78 +334,78 @@ int BVHAccelerator::GetRootNode() const
 	return root_;
 }
 
-bool  BVHAccelerator::Intersect(int idx, ray const& r, float& t)
-{
-	float tt;
-	Node* n = &nodes_[idx];
-	if (::Intersect(r, n->box, tt))
-	{
-		if (n->primStartIdx != 0xffffffff)
-		{
-			float depth = std::numeric_limits<float>::max();
-			float tt = std::numeric_limits<float>::max();
-			bool hit = false;
-			
-			for (unsigned i = 0; i < n->primCount; ++i)
-			{
-				if(::Intersect(r, vertices_[primsReordered_[n->primStartIdx + i].i1],
-							vertices_[primsReordered_[n->primStartIdx + i].i2], vertices_[primsReordered_[n->primStartIdx + i].i3], tt))
-				{
-					hit = true;
-					depth = std::min(depth, tt);
-				}
-				
-			}
-			
-			if (hit)
-			{
-				t = depth;
-			}
-			
-			return hit;
-		}
-		else
-		{
-			bool hit1 = false;
-			bool hit2 = false;
-			float t1 = std::numeric_limits<float>::max();
-			float t2 = std::numeric_limits<float>::max();
-			
-			hit1 = Intersect(idx + 1, r, t1);
-			hit2 = Intersect(n->right, r, t2);
-			
-			if (hit1 || hit2)
-			{
-				t = std::min(t1,t2);
-			}
-			
-			return hit1 || hit2;
-		}
-	}
-	
-	return false;
-}
-
-bool BVHAccelerator::Intersect(ray const& r, float& t)
-{
-	bool hit = false;
-	
-	float depth = std::numeric_limits<float>::max();
-	float tt = std::numeric_limits<float>::max();
-	
-	if (Intersect(0, r, tt))
-	{
-		hit = true;
-		depth = std::min(depth, tt);
-	}
-	
-	if (hit)
-	{
-		t = depth;
-	}
-	
-	return hit;
-}
+//bool  BVHAccelerator::Intersect(int idx, ray const& r, float& t)
+//{
+//	float tt;
+//	Node* n = &nodes_[idx];
+//	if (::Intersect(r, n->box, tt))
+//	{
+//		if (n->primStartIdx != 0xffffffff)
+//		{
+//			float depth = std::numeric_limits<float>::max();
+//			float tt = std::numeric_limits<float>::max();
+//			bool hit = false;
+//			
+//			for (unsigned i = 0; i < n->primCount; ++i)
+//			{
+//				if(::Intersect(r, vertices_[primsReordered_[n->primStartIdx + i].i1],
+//							vertices_[primsReordered_[n->primStartIdx + i].i2], vertices_[primsReordered_[n->primStartIdx + i].i3], tt))
+//				{
+//					hit = true;
+//					depth = std::min(depth, tt);
+//				}
+//				
+//			}
+//			
+//			if (hit)
+//			{
+//				t = depth;
+//			}
+//			
+//			return hit;
+//		}
+//		else
+//		{
+//			bool hit1 = false;
+//			bool hit2 = false;
+//			float t1 = std::numeric_limits<float>::max();
+//			float t2 = std::numeric_limits<float>::max();
+//			
+//			hit1 = Intersect(idx + 1, r, t1);
+//			hit2 = Intersect(n->right, r, t2);
+//			
+//			if (hit1 || hit2)
+//			{
+//				t = std::min(t1,t2);
+//			}
+//			
+//			return hit1 || hit2;
+//		}
+//	}
+//	
+//	return false;
+//}
+//
+//bool BVHAccelerator::Intersect(ray const& r, float& t)
+//{
+//	bool hit = false;
+//	
+//	float depth = std::numeric_limits<float>::max();
+//	float tt = std::numeric_limits<float>::max();
+//	
+//	if (Intersect(0, r, tt))
+//	{
+//		hit = true;
+//		depth = std::min(depth, tt);
+//	}
+//	
+//	if (hit)
+//	{
+//		t = depth;
+//	}
+//	
+//	return hit;
+//}
 
 unsigned BVHAccelerator::Linearize(unsigned buildNodeIdx, unsigned parent, std::vector<BuildNode> const& buildNodes)
 {

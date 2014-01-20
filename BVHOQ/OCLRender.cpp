@@ -24,6 +24,8 @@
 
 #define MAX_BOUNDS 1000
 #define TILE_SIZE 8
+#define RANDOM_BUFFER_SIZE 1000
+#define MAX_PATH_LENGTH 5
 
 GLuint OCLRender::GetOutputTexture() const
 {
@@ -32,7 +34,7 @@ GLuint OCLRender::GetOutputTexture() const
 
 OCLRender::OCLRender(cl_platform_id platform)
 	:platform_(platform)
-	, visibleObjectsCount_(0)
+    , frameCount_(0)
 {
 	
 }
@@ -43,7 +45,7 @@ void OCLRender::Init(unsigned width, unsigned height)
 	outputSize_.s[1] = height;
 
 	cl_int status = CL_SUCCESS;
-	CHECK_ERROR(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_GPU, 1, &device_, nullptr), "GetDeviceIDs failed");
+	CHECK_ERROR(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_ALL, 1, &device_, nullptr), "GetDeviceIDs failed");
 
 	char device_name[2048];
 	clGetDeviceInfo(device_, CL_DEVICE_NAME, 2048, device_name, nullptr);
@@ -120,29 +122,29 @@ void OCLRender::Init(unsigned width, unsigned height)
 	
 	traceDepthKernel_ = clCreateKernel(program_, "TraceDepth", &status);
 	CHECK_ERROR(status, "Cannot create TraceDepth kernel");
-	
-	checkVisibilityKernel_ = clCreateKernel(program_, "CheckVisibility", &status);
-	CHECK_ERROR(status, "Cannot create CheckVisibility kernel");
-
-	buildCmdListKernel_ = clCreateKernel(program_, "BuildCmdList", &status);
-	CHECK_ERROR(status, "Cannot create BuildCmdList kernel");
-	
+		
 	accel_ = BVHAccelerator::CreateFromScene(*GetScene());
 
-	std::vector<cl_float4> vertices;
-	std::for_each(accel_->GetVertices().cbegin(), accel_->GetVertices().cend(), [&vertices](vector3 const& v)
+	std::vector<DevVertex> vertices;
+	std::for_each(GetScene()->GetVertices().cbegin(), GetScene()->GetVertices().cend(), [&vertices](Mesh::Vertex const& v)
 				  {
-					  cl_float4 val;
+					  DevVertex val;
 
-					  val.s[0] = v.x();
-					  val.s[1] = v.y();
-					  val.s[2] = v.z();
+					  val.vPos.s[0] = v.position.x();
+					  val.vPos.s[1] = v.position.y();
+					  val.vPos.s[2] = v.position.z();
+                      val.vPos.s[3] = 0;
+                      
+                      val.vNormal.s[0] = v.normal.x();
+					  val.vNormal.s[1] = v.normal.y();
+					  val.vNormal.s[2] = v.normal.z();
+                      val.vNormal.s[3] = 0;
 
 					  vertices.push_back(val);
 				  });
 	
 	
-	vertexBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float4) * vertices.size(), (void*)&vertices[0], &status);
+	vertexBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevVertex) * vertices.size(), (void*)&vertices[0], &status);
 	CHECK_ERROR(status, "Cannot create vertex buffer");
 	
 	std::vector<cl_uint4> triangles;
@@ -154,6 +156,7 @@ void OCLRender::Init(unsigned width, unsigned height)
 					  val.s[0] = t.i1;
 					  val.s[1] = t.i2;
 					  val.s[2] = t.i3;
+                      val.s[3] = t.m;
 
 					  triangles.push_back(val);
 				  });
@@ -189,15 +192,6 @@ void OCLRender::Init(unsigned width, unsigned height)
 	configBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(configData_), nullptr, &status);
 	CHECK_ERROR(status, "Cannot create parameter buffer");
 
-	boundsBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(cl_float4) * MAX_BOUNDS, nullptr, &status);
-	CHECK_ERROR(status, "Cannot create bounds buffer");
-
-	offsetsBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(DevOffsets) * MAX_BOUNDS, nullptr, &status);
-	CHECK_ERROR(status, "Cannot create offsets buffer");
-
-	visibilityBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_uint) * MAX_BOUNDS, nullptr, &status);
-	CHECK_ERROR(status, "Cannot create visibility buffer");
-
 	glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &glDepthTexture_);
 
@@ -213,30 +207,47 @@ void OCLRender::Init(unsigned width, unsigned height)
 	CHECK_ERROR(status, "Cannot create interop texture");
 	
 	glBindTexture(GL_TEXTURE_2D, 0);
+    
+    std::vector<DevPointLight> pointLights;
+    
+    DevPointLight light;
+    light.vPos.s[0] = 0;
+    light.vPos.s[1] = 0;
+    light.vPos.s[2] = 10;
+    light.vPos.s[3] = 0;
 
-	glGenBuffers(1, &glCmdBuffer_);
+    light.vColor.s[0] = 3.7;
+    light.vColor.s[1] = 3.7;
+    light.vColor.s[2] = 3.7;
+    light.vColor.s[3] = 0;
+    
+    pointLights.push_back(light);
+    
+    //DevPointLight light;
+    light.vPos.s[0] = 1;
+    light.vPos.s[1] = 2;
+    light.vPos.s[2] = 1;
+    light.vPos.s[3] = 0;
+    
+    light.vColor.s[0] = 3.5;
+    light.vColor.s[1] = 3.5;
+    light.vColor.s[2] = 3.5;
+    light.vColor.s[3] = 0;
+    
+    pointLights.push_back(light);
+    
+    pointLights_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevPointLight) * pointLights.size(), (void*)&pointLights[0],&status);
+	CHECK_ERROR(status, "Cannot create lights buffer");
+    
+    std::vector<cl_float> randomBuffer(RANDOM_BUFFER_SIZE);
+    std::generate(randomBuffer.begin(), randomBuffer.end(), rand_float);
+    
+    randomBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR , RANDOM_BUFFER_SIZE * sizeof(cl_float), (void*)&randomBuffer[0], &status);
+	CHECK_ERROR(status, "Cannot create random buffer");
 
-	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, glCmdBuffer_);
-	glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(DevDrawCommand) * MAX_BOUNDS, nullptr, GL_STATIC_READ);
-	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
-
-	drawCmdBuffer_ = clCreateFromGLBuffer(context_, CL_MEM_WRITE_ONLY, glCmdBuffer_, &status);
-	CHECK_ERROR(status, "Cannot create interop buffer");
-
-#ifdef INDIRECT_PARAMS
-	glGenBuffers(1, &glVisibleObjectsCounterBuffer_);
-
-	glBindBuffer(GL_PARAMETER_BUFFER_ARB, glVisibleObjectsCounterBuffer_);
-	glBufferData(GL_PARAMETER_BUFFER_ARB, sizeof(cl_uint), nullptr, GL_STATIC_READ);
-	glBindBuffer(GL_PARAMETER_BUFFER_ARB, 0);
-
-
-	visibleObjectsCounterBuffer_ = clCreateFromGLBuffer(context_, CL_MEM_WRITE_ONLY, glVisibleObjectsCounterBuffer_, &status);
-	CHECK_ERROR(status, "Cannot create atomic counter interop buffer");
-#else
-	visibleObjectsCounterBuffer_ =  clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_int), nullptr, &status);
-	CHECK_ERROR(status, "Cannot create atomic counter buffer");
-#endif
+    pathBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, MAX_PATH_LENGTH * sizeof(DevPathVertex) * outputSize_.s0 * outputSize_.s1, nullptr, &status);
+	CHECK_ERROR(status, "Cannot create path buffer");
+    
 }
 
 void OCLRender::Commit()
@@ -264,6 +275,9 @@ void OCLRender::Commit()
 	configData_.vCameraUp.s[2] = GetCamera()->GetUpVector().z();
 	configData_.fCameraNearZ = GetCamera()->GetNearZ();
 	configData_.fCameraPixelSize = GetCamera()->GetPixelSize();
+    configData_.uNumPointLights = 2;
+    configData_.uNumRandomNumbers = RANDOM_BUFFER_SIZE;
+    configData_.uFrameCount = frameCount_;
 
 	CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, configBuffer_, CL_FALSE, 0, sizeof(configData_), &configData_, 0, nullptr, nullptr), "Cannot update param buffer");
 }
@@ -272,19 +286,10 @@ OCLRender::~OCLRender()
 {
 	/// TODO: implement RAII for CL objects
 	glDeleteTextures(1, &glDepthTexture_);
-
-#ifdef INDIRECT_PARAMS
-	glDeleteBuffers(1, &glVisibleObjectsCounterBuffer_);
-#endif
-
-	glDeleteBuffers(1, &glCmdBuffer_);
-	//clReleaseMemObject(bvh_texture_);
-	clReleaseMemObject(visibilityBuffer_);
-	clReleaseMemObject(offsetsBuffer_);
-	clReleaseMemObject(visibleObjectsCounterBuffer_);
-	clReleaseMemObject(boundsBuffer_);
-	clReleaseMemObject(drawCmdBuffer_);
-	clReleaseMemObject(outputDepthTexture_);
+    clReleaseMemObject(pathBuffer_);
+    clReleaseMemObject(randomBuffer_);
+    clReleaseMemObject(outputDepthTexture_);
+    clReleaseMemObject(pointLights_);
 	clReleaseMemObject(vertexBuffer_);
 	clReleaseMemObject(indexBuffer_);
 	clReleaseMemObject(bvhBuffer_);
@@ -293,19 +298,17 @@ OCLRender::~OCLRender()
 	clReleaseProgram(program_);
 	clReleaseCommandQueue(commandQueue_);
 	clReleaseKernel(traceDepthKernel_);
-	clReleaseKernel(checkVisibilityKernel_);
-	clReleaseKernel(buildCmdListKernel_);
 }
 
-void OCLRender::CullMeshes(std::vector<SceneBase::MeshDesc> const& meshes)
+void OCLRender::Render()
 {
 	cl_event kernelExecutionEvent;
 
 	glFinish();
 
-	cl_mem gl_objects[] = {outputDepthTexture_, drawCmdBuffer_, visibleObjectsCounterBuffer_};
+	cl_mem gl_objects[] = {outputDepthTexture_};
 
-	CHECK_ERROR(clEnqueueAcquireGLObjects(commandQueue_, 2, gl_objects, 0,0,0), "Cannot acquire OpenGL objects");
+	CHECK_ERROR(clEnqueueAcquireGLObjects(commandQueue_, 1, gl_objects, 0,0,0), "Cannot acquire OpenGL objects");
 
 	size_t localWorkSize[2];
 
@@ -327,15 +330,16 @@ void OCLRender::CullMeshes(std::vector<SceneBase::MeshDesc> const& meshes)
 	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 1, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
 	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 2, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
 	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 3, sizeof(cl_mem), &configBuffer_), "SetKernelArg failed");
-	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 4, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
+    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 4, sizeof(cl_mem), &pointLights_), "SetKernelArg failed");
+    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 5, sizeof(cl_mem), &randomBuffer_), "SetKernelArg failed");
+    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 6, sizeof(cl_mem), &pathBuffer_), "SetKernelArg failed");
+	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 7, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
 	//CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 5, sizeof(cl_int) * localWorkSize[0] * localWorkSize[1] * 64, nullptr), "SetKernelArg failed");
 
 	cl_int status = clEnqueueNDRangeKernel(commandQueue_, traceDepthKernel_, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, &kernelExecutionEvent);
 	CHECK_ERROR(status, "Raytracing kernel launch failed");
 
-	Cull(meshes);
-
-	CHECK_ERROR(clEnqueueReleaseGLObjects(commandQueue_, 2, gl_objects, 0,0,0), "Cannot release OpenGL objects");
+	CHECK_ERROR(clEnqueueReleaseGLObjects(commandQueue_, 1, gl_objects, 0,0,0), "Cannot release OpenGL objects");
 	CHECK_ERROR(clFinish(commandQueue_), "Cannot flush command queue");
 
 	CHECK_ERROR(clWaitForEvents(1, &kernelExecutionEvent), "Wait for events failed");
@@ -348,106 +352,14 @@ void OCLRender::CullMeshes(std::vector<SceneBase::MeshDesc> const& meshes)
 	totalTime = (double)(endTime - startTime)/1000000.0;
 
 	std::cout << "Ray tracing time " << totalTime << " msec\n";
+    
+    ++frameCount_;
 }
 
-void OCLRender::Cull(std::vector<SceneBase::MeshDesc> const& meshes)
+void   OCLRender::FlushFrame()
 {
-	cl_event kernelExecutionEvent[2];
-
-	cl_uint numMeshes = meshes.size();
-
-	assert(numMeshes < MAX_BOUNDS);
-
-	std::vector<cl_float4> temp;
-	std::vector<DevOffsets> temp1;
-	std::for_each(meshes.begin(), meshes.end(), [&](SceneBase::MeshDesc const& md)
-	{
-		cl_float4 sphere;
-		sphere.s[0] = md.bSphere.center.x();
-		sphere.s[1] = md.bSphere.center.y();
-		sphere.s[2] = md.bSphere.center.z();
-		sphere.s[3] = md.bSphere.radius;
-
-		temp.push_back(sphere);
-
-		DevOffsets o;
-		o.uStartIdx = md.startIdx;
-		o.uNumIndices   = md.numIndices;
-		temp1.push_back(o);
-	});
-
-	CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, boundsBuffer_, CL_FALSE, 0, sizeof(cl_float4) * temp.size(), &temp[0], 0, nullptr, nullptr), "Cannot update bounds buffer");
-	CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, offsetsBuffer_, CL_FALSE, 0, sizeof(DevOffsets) * temp1.size(), &temp1[0], 0, nullptr, nullptr), "Cannot update offsets buffer");
-	
-	cl_int zero = 0;
-	CHECK_ERROR(clEnqueueFillBuffer(commandQueue_, visibilityBuffer_, &zero, sizeof(cl_int), 0, sizeof(cl_int) * MAX_BOUNDS, 0, nullptr, nullptr), "Cannot clear visibility buffer");
-
-	{
-		size_t localWorkSize[2] = {TILE_SIZE, TILE_SIZE};
-		size_t globalWorkSize[2] = {
-			(configData_.uOutputWidth + localWorkSize[0] - 1)/(localWorkSize[0]) * localWorkSize[0],
-			(configData_.uOutputHeight + localWorkSize[1] - 1)/(localWorkSize[1]) * localWorkSize[1]
-		};
-
-		//const cl_float16* mat = (const cl_float16*)&mvp;
-		CHECK_ERROR(clSetKernelArg(checkVisibilityKernel_, 0, sizeof(cl_mem), &configBuffer_), "SetKernelArg failed")
-		CHECK_ERROR(clSetKernelArg(checkVisibilityKernel_, 1, sizeof(cl_uint), &numMeshes), "SetKernelArg failed");
-		CHECK_ERROR(clSetKernelArg(checkVisibilityKernel_, 2, sizeof(cl_mem), &boundsBuffer_), "SetKernelArg failed");
-		CHECK_ERROR(clSetKernelArg(checkVisibilityKernel_, 3, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
-		CHECK_ERROR(clSetKernelArg(checkVisibilityKernel_, 4, sizeof(cl_mem), &visibilityBuffer_), "SetKernelArg failed");
-
-		cl_int status = clEnqueueNDRangeKernel(commandQueue_, checkVisibilityKernel_, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, &kernelExecutionEvent[0]);
-		CHECK_ERROR(status, "Visibility check kernel launch failed");
-	}
-
-	CHECK_ERROR(clEnqueueFillBuffer(commandQueue_, visibleObjectsCounterBuffer_, &zero, sizeof(cl_int), 0, sizeof(cl_int) , 0, nullptr, nullptr), "Cannot clear atomic counter");
-
-	{
-		size_t localWorkSize[1] = {8};
-		size_t globalWorkSize[1] = {
-		(numMeshes + localWorkSize[0] - 1)/(localWorkSize[0]) * localWorkSize[0]};
-
-		CHECK_ERROR(clSetKernelArg(buildCmdListKernel_, 0, sizeof(cl_uint), &numMeshes), "SetKernelArg failed");
-		CHECK_ERROR(clSetKernelArg(buildCmdListKernel_, 1, sizeof(cl_mem), &offsetsBuffer_), "SetKernelArg failed");
-		CHECK_ERROR(clSetKernelArg(buildCmdListKernel_, 2, sizeof(cl_mem), &drawCmdBuffer_), "SetKernelArg failed");
-		CHECK_ERROR(clSetKernelArg(buildCmdListKernel_, 3, sizeof(cl_mem), &visibleObjectsCounterBuffer_), "SetKernelArg failed");
-		CHECK_ERROR(clSetKernelArg(buildCmdListKernel_, 4, sizeof(cl_mem), &visibilityBuffer_), "SetKernelArg failed");
-
-		cl_int status = clEnqueueNDRangeKernel(commandQueue_, buildCmdListKernel_, 1, nullptr, globalWorkSize, localWorkSize, 0, nullptr, &kernelExecutionEvent[1]);
-		CHECK_ERROR(status, "Command list kernel launch failed");
-	}
-
-	CHECK_ERROR(clEnqueueReadBuffer(commandQueue_, visibleObjectsCounterBuffer_, CL_TRUE, 0, sizeof(int), &visibleObjectsCount_, 0, nullptr, nullptr), "Cannot read back atomic counter");
-
-	CHECK_ERROR(clWaitForEvents(2, kernelExecutionEvent), "Wait for events failed");
-
-	cl_ulong startTime, endTime;
-	double totalTime;
-
-	clGetEventProfilingInfo(kernelExecutionEvent[0], CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
-	clGetEventProfilingInfo(kernelExecutionEvent[0], CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
-	totalTime = (double)(endTime - startTime)/1000000.0;
-
-	std::cout << "Visibility check " << totalTime << " msec\n";
-
-	clGetEventProfilingInfo(kernelExecutionEvent[1], CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
-	clGetEventProfilingInfo(kernelExecutionEvent[1], CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
-	totalTime = (double)(endTime - startTime)/1000000.0;
-
-	std::cout << "Command list building " << totalTime << " msec\n";
+    frameCount_ = 0;
 }
 
-GLuint OCLRender::GetDrawCommandBuffer() const
-{
-	return glCmdBuffer_;
-}
 
-GLuint OCLRender::GetDrawCommandCount() const
-{
-#ifdef INDIRECT_PARAMS
-	return glVisibleObjectsCounterBuffer_;
-#else
-	return visibleObjectsCount_;
-#endif
-}
 

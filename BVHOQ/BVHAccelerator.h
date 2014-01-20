@@ -21,7 +21,7 @@ class BVHAccelerator
 public:
 	static std::shared_ptr<BVHAccelerator> CreateFromScene(SceneBase const& scene);
 	
-	template <typename T> BVHAccelerator(std::vector<T> const& vertices, std::vector<unsigned> const& indices, unsigned max_node_prims);
+	template <typename T> BVHAccelerator(std::vector<T> const& vertices, std::vector<unsigned> const& indices, std::vector<unsigned> const& materials, unsigned max_node_prims);
 	~BVHAccelerator();
 	
 	struct Node
@@ -35,15 +35,15 @@ public:
 	
 	struct Triangle
 	{
-		unsigned i1,i2,i3,padding;
+		unsigned i1,i2,i3,m;
 	};
 	
-	std::vector<vector3> const& GetVertices() const;
+	//std::vector<vector3> const& GetVertices() const;
 	std::vector<Triangle> const& GetPrimitives() const;
 	std::vector<Node> const& GetNodes() const;
 	int GetRootNode() const;
 	
-	bool Intersect(ray const& r, float& t);
+	//bool Intersect(ray const& r, float& t);
 	
 private:
 	struct BuildNode
@@ -68,10 +68,10 @@ private:
 	unsigned Linearize(unsigned build_node_idx, unsigned parent, std::vector<BuildNode> const& buildNodes);
 	bool     Intersect(int idx, ray const& r, float& t);
 	
-	BBox CalcBbox(Triangle const& t);
+	template <typename T> BBox CalcBbox(Triangle const& t, std::vector<T> const& vertices);
 	
 	// temporary solution to keep geometry here
-	std::vector<vector3> vertices_;
+	//std::vector<vector3> vertices_;
 	std::vector<Triangle> primsReordered_;
 	std::vector<Triangle> prims_;
 	std::vector<BuildInfo> buildInfo_;
@@ -80,5 +80,7 @@ private:
 	unsigned maxNodePrims_;
 	int root_;
 };
+
+
 
 #endif /* defined(__BVHOQ__BVHAccelerator__) */

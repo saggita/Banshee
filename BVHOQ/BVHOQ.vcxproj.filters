@@ -106,7 +106,5 @@
     <None Include="depthmap.cl" />
     <None Include="simple.fsh" />
     <None Include="simple.vsh" />
-    <None Include="scene.vsh" />
-    <None Include="scene.fsh" />
   </ItemGroup>
 </Project>

@@ -23,9 +23,8 @@
 #define CHECK_ERROR(x,m) if((x) != CL_SUCCESS) { std::ostringstream o; o << m <<" error " <<x <<"\n";  throw std::runtime_error(o.str()); }
 
 #define MAX_BOUNDS 1000
-#define TILE_SIZE 8
 #define RANDOM_BUFFER_SIZE 1000
-#define MAX_PATH_LENGTH 5
+#define MAX_PATH_LENGTH 10
 
 GLuint OCLRender::GetOutputTexture() const
 {
@@ -203,7 +202,7 @@ void OCLRender::Init(unsigned width, unsigned height)
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F_ARB, outputSize_.s[0], outputSize_.s[1], 0, GL_RGBA, GL_FLOAT, nullptr);
 
-	outputDepthTexture_ = clCreateFromGLTexture(context_, CL_MEM_READ_WRITE, GL_TEXTURE_2D, 0, glDepthTexture_, &status);
+	outputDepthTexture_ = clCreateFromGLTexture(context_, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, glDepthTexture_, &status);
 	CHECK_ERROR(status, "Cannot create interop texture");
 	
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -211,14 +210,14 @@ void OCLRender::Init(unsigned width, unsigned height)
     std::vector<DevPointLight> pointLights;
     
     DevPointLight light;
-    light.vPos.s[0] = 0;
+    light.vPos.s[0] = -1;
     light.vPos.s[1] = 0;
-    light.vPos.s[2] = 10;
+    light.vPos.s[2] = -1;
     light.vPos.s[3] = 0;
 
-    light.vColor.s[0] = 3.7;
-    light.vColor.s[1] = 3.7;
-    light.vColor.s[2] = 3.7;
+    light.vColor.s[0] = 1.7;
+    light.vColor.s[1] = 1.7;
+    light.vColor.s[2] = 1.7;
     light.vColor.s[3] = 0;
     
     pointLights.push_back(light);
@@ -229,9 +228,9 @@ void OCLRender::Init(unsigned width, unsigned height)
     light.vPos.s[2] = 1;
     light.vPos.s[3] = 0;
     
-    light.vColor.s[0] = 3.5;
-    light.vColor.s[1] = 3.5;
-    light.vColor.s[2] = 3.5;
+    light.vColor.s[0] = 1.5;
+    light.vColor.s[1] = 1.5;
+    light.vColor.s[2] = 1.5;
     light.vColor.s[3] = 0;
     
     pointLights.push_back(light);
@@ -245,8 +244,11 @@ void OCLRender::Init(unsigned width, unsigned height)
     randomBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR , RANDOM_BUFFER_SIZE * sizeof(cl_float), (void*)&randomBuffer[0], &status);
 	CHECK_ERROR(status, "Cannot create random buffer");
 
-    pathBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, MAX_PATH_LENGTH * sizeof(DevPathVertex) * outputSize_.s0 * outputSize_.s1, nullptr, &status);
+    pathBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, MAX_PATH_LENGTH * sizeof(DevPathVertex) * outputSize_.s[0] * outputSize_.s[1], nullptr, &status);
 	CHECK_ERROR(status, "Cannot create path buffer");
+
+	intermediateBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_float4) * outputSize_.s[0] * outputSize_.s[1], nullptr, &status);
+	CHECK_ERROR(status, "Cannot create intermediate buffer");
     
 }
 
@@ -286,6 +288,7 @@ OCLRender::~OCLRender()
 {
 	/// TODO: implement RAII for CL objects
 	glDeleteTextures(1, &glDepthTexture_);
+	clReleaseMemObject(intermediateBuffer_);
     clReleaseMemObject(pathBuffer_);
     clReleaseMemObject(randomBuffer_);
     clReleaseMemObject(outputDepthTexture_);
@@ -333,7 +336,8 @@ void OCLRender::Render()
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 4, sizeof(cl_mem), &pointLights_), "SetKernelArg failed");
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 5, sizeof(cl_mem), &randomBuffer_), "SetKernelArg failed");
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 6, sizeof(cl_mem), &pathBuffer_), "SetKernelArg failed");
-	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 7, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
+	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 7, sizeof(cl_mem), &intermediateBuffer_), "SetKernelArg failed");
+	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 8, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
 	//CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 5, sizeof(cl_int) * localWorkSize[0] * localWorkSize[1] * 64, nullptr), "SetKernelArg failed");
 
 	cl_int status = clEnqueueNDRangeKernel(commandQueue_, traceDepthKernel_, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, &kernelExecutionEvent);

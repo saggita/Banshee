@@ -79,7 +79,7 @@ private:
         cl_uint uFrameCount;
 	};
 	
-	struct __declspec(align(1)) DevBVHNode
+	struct __declspec(align(16)) DevBVHNode
 	{
 		struct
 		{
@@ -99,36 +99,22 @@ private:
 		cl_float3 vMax;
 	};
 
-	struct  __declspec(align(1)) DevDrawCommand
-	{
-		cl_uint  uCount;
-		cl_uint  uInstanceCount;
-		cl_uint  uFirstIndex;
-		cl_uint  uBaseVertex;
-		cl_uint  uBaseInstance;
-	};
-
-	struct  __declspec(align(1)) DevOffsets
-	{
-		cl_uint  uStartIdx;
-		cl_uint  uNumIndices;
-	};
     
-    struct __declspec(align(1)) DevVertex
+    struct __declspec(align(16)) DevVertex
     {
         cl_float4 vPos;
         cl_float4 vNormal;
         cl_float2 vTex;
     };
     
-    struct __declspec(align(1)) DevPointLight
+    struct __declspec(align(16)) DevPointLight
     {
         cl_float4 vPos;
         cl_float4 vColor;
         cl_float4 vAttenuation;
     };
     
-    struct DevShadingData
+    struct  __declspec(align(16)) DevShadingData
     {
         cl_float3 vPos;
         cl_float3 vNormal;
@@ -136,7 +122,7 @@ private:
         cl_uint   uMaterialIdx;
     };
     
-    struct DevPathVertex
+    struct  __declspec(align(16)) DevPathVertex
     {
         DevShadingData shadingData;
         cl_float3 vIncidentDir;
@@ -159,6 +145,7 @@ private:
     cl_mem      pointLights_;
     cl_mem      randomBuffer_;
     cl_mem      pathBuffer_;
+	cl_mem      intermediateBuffer_;
 	
 	GLuint    glDepthTexture_;
 

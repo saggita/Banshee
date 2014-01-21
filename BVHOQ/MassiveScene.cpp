@@ -8,7 +8,7 @@ MassiveScene::MassiveScene()
 {
     {
     std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("monkey.objm");
-    mesh_ptr->Rescale(0.5f);
+    //mesh_ptr->Rescale(0.5f);
 	Mesh::Vertex const* vertexData = mesh_ptr->GetVertexArrayPtr();
 	unsigned const* indexData = mesh_ptr->GetIndexArrayPtr();
 
@@ -23,7 +23,7 @@ MassiveScene::MassiveScene()
 				{
 					indices_.push_back(indexData[idx]);
 				}
-                
+
                 unsigned material = 0;
                 for (int idx = 0; idx < mesh_ptr->GetIndexCount()/3; ++idx)
                     materials_.push_back(material);
@@ -33,7 +33,7 @@ MassiveScene::MassiveScene()
         std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("sibenik.objm");
         Mesh::Vertex const* vertexData = mesh_ptr->GetVertexArrayPtr();
         unsigned const* indexData = mesh_ptr->GetIndexArrayPtr();
-                
+
         unsigned baseIdx = vertices_.size();
         unsigned startIdx = indices_.size();
                 

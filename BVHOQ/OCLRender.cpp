@@ -219,9 +219,9 @@ void OCLRender::Init(unsigned width, unsigned height)
     light.vPos.s[2] = -1;
     light.vPos.s[3] = 0;
 
-    light.vColor.s[0] = 1.7;
-    light.vColor.s[1] = 1.7;
-    light.vColor.s[2] = 1.7;
+    light.vColor.s[0] = 2.7;
+    light.vColor.s[1] = 2.7;
+    light.vColor.s[2] = 2.7;
     light.vColor.s[3] = 0;
     
     pointLights.push_back(light);
@@ -253,7 +253,24 @@ void OCLRender::Init(unsigned width, unsigned height)
 
 	intermediateBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_float4) * outputSize_.s[0] * outputSize_.s[1], nullptr, &status);
 	CHECK_ERROR(status, "Cannot create intermediate buffer");
-    
+
+	std::vector<DevMaterialRep> materials;
+
+	DevMaterialRep materialRep;
+
+	materialRep.eBsdf = 2;
+	materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0;
+	materialRep.vKs.s[0] = 0.9;
+	materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.0;
+	materials.push_back(materialRep);
+
+	materialRep.eBsdf = 1;
+	materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0.6;
+	materialRep.vKs.s[0] = materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.0;
+	materials.push_back(materialRep);
+
+	materialBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevMaterialRep) * 2, (void*)&materials[0], &status);
+	CHECK_ERROR(status, "Cannot create material buffer");
 }
 
 void OCLRender::Commit()
@@ -292,6 +309,7 @@ OCLRender::~OCLRender()
 {
 	/// TODO: implement RAII for CL objects
 	glDeleteTextures(1, &glDepthTexture_);
+	clReleaseMemObject(materialBuffer_);
 	clReleaseMemObject(intermediateBuffer_);
     clReleaseMemObject(pathBuffer_);
     clReleaseMemObject(randomBuffer_);
@@ -340,8 +358,9 @@ void OCLRender::Render()
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 4, sizeof(cl_mem), &pointLights_), "SetKernelArg failed");
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 5, sizeof(cl_mem), &randomBuffer_), "SetKernelArg failed");
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 6, sizeof(cl_mem), &pathBuffer_), "SetKernelArg failed");
-	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 7, sizeof(cl_mem), &intermediateBuffer_), "SetKernelArg failed");
-	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 8, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
+	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 7, sizeof(cl_mem), &materialBuffer_), "SetKernelArg failed");
+	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 8, sizeof(cl_mem), &intermediateBuffer_), "SetKernelArg failed");
+	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 9, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
 	//CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 5, sizeof(cl_int) * localWorkSize[0] * localWorkSize[1] * 64, nullptr), "SetKernelArg failed");
 
 	cl_int status = clEnqueueNDRangeKernel(commandQueue_, traceDepthKernel_, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, &kernelExecutionEvent);

@@ -127,8 +127,16 @@ private:
         DevShadingData shadingData;
         cl_float3 vIncidentDir;
         cl_float4 vRadiance;
-		cl_int	  eBsdf;
+		cl_uint	  uMaterialIdx;
     };
+
+	struct  __declspec(align(16)) DevMaterialRep
+	{
+		cl_float4 vKd;
+		cl_float4 vKs;
+		cl_uint   eBsdf;
+	} ;
+
 
 	cl_platform_id platform_;
 	cl_device_id   device_;
@@ -147,6 +155,7 @@ private:
     cl_mem      randomBuffer_;
     cl_mem      pathBuffer_;
 	cl_mem      intermediateBuffer_;
+	cl_mem		materialBuffer_;
 	
 	GLuint    glDepthTexture_;
 

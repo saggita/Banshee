@@ -17,7 +17,7 @@ DEFINES
 //#define TRAVERSAL_STACKLESS
 #define TRAVERSAL_STACKED
 //#define LOCAL_STACK
-#define NODE_STACK_SIZE 32
+#define NODE_STACK_SIZE 22
 #define MAX_PATH_LENGTH 3
 
 #define RAY_EPSILON 0.01f
@@ -32,11 +32,12 @@ DEFINES
 #define NULL 0
 #define DEFAULT_DEPTH 10000.f;
 
+#define  M_PI 3.141592653589f
+#define  AMBIENT_LIGHT 0.2f
+
 /*************************************************************************
 TYPE DEFINITIONS
 **************************************************************************/
-typedef int BSDF_TYPE;
-
 typedef struct _BBox
 {
 	float3 vMin;
@@ -108,7 +109,7 @@ typedef struct _PathVertex{
 	ShadingData sShadingData;
 	float3      vIncidentDir;
 	float4      vRadiance;
-	BSDF_TYPE   eBsdf;
+	uint		uMaterialIdx;
 } PathVertex;
 
 typedef  struct {
@@ -126,14 +127,6 @@ typedef struct {
 } PointLight;
 
 typedef struct {
-	__global BVHNode*       sBVH;
-	__global Vertex*        sVertices;
-	__global uint4*         sIndices;
-	__global Config*        sParams;
-	__global PointLight*    sPointLights;
-} SceneData;
-
-typedef struct {
 	__global float* fRands;
 	uint            uBufferSize;
 
@@ -141,9 +134,24 @@ typedef struct {
 
 typedef struct
 {
+	float4 vKd;
+	float4 vKs;
+	uint eBsdf;
+} MaterialRep;
+
+typedef struct
+{
 	uint uVal;
 } RNG;
 
+typedef struct {
+	__global BVHNode*       sBVH;
+	__global Vertex*        sVertices;
+	__global uint4*         sIndices;
+	__global Config*        sParams;
+	__global PointLight*    sPointLights;
+	__global MaterialRep*	sMaterials;
+} SceneData;
 /*************************************************************************
 HELPER FUNCTIONS
 **************************************************************************/
@@ -533,43 +541,14 @@ bool TraverseBVHStackless(__global BVHNode* nodes, __global Vertex* vertices, __
 }
 
 
-
-Ray GetNewRay(ShadingData* shadingData, float3 vIncidentDir)
+MaterialRep GetMaterial(uint uMaterialIdx, SceneData* sSceneData, RNG* sRNG)
 {
-	float3 vReflDir = vIncidentDir - 2*dot(vIncidentDir, shadingData->vNormal) * shadingData->vNormal;
-
-	Ray r;
-	r.o = shadingData->vPos + RAY_EPSILON * vReflDir;
-	r.d = normalize(vReflDir);
-	r.mint = 0.f;
-	r.maxt = 10000.f;
-
-	return r;
+	return sSceneData->sMaterials[uMaterialIdx];
 }
 
-BSDF_TYPE GetBSDFFromMaterial(uint uMaterialIdx, RNG* sRNG)
+bool SampleMaterial(MaterialRep* sMaterialRep, ShadingData* sShadingData, float3 vWo, RNG* sRNG, Ray* sRay)
 {
-	switch (uMaterialIdx)
-	{
-	case MATERIAL2:
-		{
-			return BSDF_TYPE_LAMBERT;
-
-			break;
-		}
-	case MATERIAL1:
-		{
-			return BSDF_TYPE_SPECULAR;
-
-			break;
-
-		}
-	}
-}
-
-bool SampleBSDF(BSDF_TYPE eBsdf, ShadingData* sShadingData, float3 vWo, RNG* sRNG, Ray* sRay)
-{
-	switch (eBsdf)
+	switch (sMaterialRep->eBsdf)
 	{
 	case BSDF_TYPE_LAMBERT:
 		{
@@ -593,29 +572,35 @@ bool SampleBSDF(BSDF_TYPE eBsdf, ShadingData* sShadingData, float3 vWo, RNG* sRN
 	}
 }
 
-float4 EvaluateBSDF(BSDF_TYPE eBsdf, ShadingData* sShadingData, float3 vWi, float3 vWo, float4 vRadiance)
+float4 EvaluateMaterial(MaterialRep* sMaterialRep, ShadingData* sShadingData, float3 vWi, float3 vWo, float4 vRadiance)
 {
-	switch (eBsdf)
+	switch (sMaterialRep->eBsdf)
 	{
 	case BSDF_TYPE_LAMBERT:
-		return make_float4(0.2f, 0.3f, 0.3f, 1.f) * vRadiance;
+		{
+			float  fInvPi = 1.f /  M_PI;
+			return sMaterialRep->vKd * fInvPi * vRadiance;
+		}
 
 	case BSDF_TYPE_SPECULAR:
 		{
 			float3 vReflDir = -vWi + 2.f*dot(vWi, sShadingData->vNormal) * sShadingData->vNormal;
-			return length(vReflDir - vWo) < 0.1f ? vRadiance : make_float4(0.f,0.f,0.f,0.f);
+			return length(vReflDir - vWo) < 0.1f ? (vRadiance * sMaterialRep->vKs) : make_float4(0.f,0.f,0.f,0.f);
 		}
 	}
 }
 
 float4 SampleDirectIllumination(
+#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
+	__local int* iThreadStack,
+#endif
 	SceneData*      sSceneData,
-	BSDF_TYPE       eBsdf,
+	MaterialRep*	sMaterialRep,
 	ShadingData*    sShadingData,
 	float3          vWo
 	)
 {
-	float4 vRes = make_float4(0, 0, 0,1);
+	float4 vRes = make_float4(0, 0, 0, 0);
 
 	for (uint i=0;i<sSceneData->sParams->uNumPointLights;++i)
 	{
@@ -628,11 +613,21 @@ float4 SampleDirectIllumination(
 		sRay.mint = 0.f;
 
 		ShadingData sTempData;
-		float fShadow = TraverseBVHStacked(sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
+		
 		float fNdotL = dot(sShadingData->vNormal, vLight);
 
-		vRes += fShadow * EvaluateBSDF(eBsdf, sShadingData, vLight, vWo, sSceneData->sPointLights[i].vColor) * fNdotL;
+		if (fNdotL > 0)
+		{
+			float fShadow = TraverseBVHStacked(
+#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
+				iThreadStack,
+#endif
+				sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
+			float4 vDirectContribution = fNdotL * EvaluateMaterial(sMaterialRep, sShadingData, vLight, vWo, sSceneData->sPointLights[i].vColor);
+			vRes += fShadow * vDirectContribution + AMBIENT_LIGHT * vDirectContribution;
+		}
 	}
+
 
 	return vRes;
 }
@@ -642,27 +637,44 @@ float4 TraceRay(
 	RNG*                    sRNG,
 	Ray*                    sRay,
 	__global PathVertex*    sPath
+#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
+,   __local int* iThreadStack
+#endif
+
 	)
 {
 	Ray sThisRay = *sRay;
 	int iNumPoolItems = 0;
 
-	ShadingData sShadingData;
-	while (TraverseBVHStacked(sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sThisRay, &sShadingData))
 	{
-		sPath[iNumPoolItems].vIncidentDir = sThisRay.d;
-		sPath[iNumPoolItems].sShadingData = sShadingData;
-		sPath[iNumPoolItems].eBsdf = GetBSDFFromMaterial(sShadingData.uMaterialIdx, sRNG);
-
-		sPath[iNumPoolItems].vRadiance = SampleDirectIllumination(sSceneData, sPath[iNumPoolItems].eBsdf, &sShadingData, -sThisRay.d);
-		++(iNumPoolItems);
-
-		if (iNumPoolItems >= MAX_PATH_LENGTH)
-			break;
-
-		if (!SampleBSDF(sPath[iNumPoolItems-1].eBsdf, &sShadingData, -sThisRay.d, sRNG, &sThisRay))
+		ShadingData sShadingData;
+		while (TraverseBVHStacked(
+#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
+			iThreadStack,
+#endif
+			sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sThisRay, &sShadingData))
 		{
-			break;
+			sPath[iNumPoolItems].vIncidentDir = sThisRay.d;
+			sPath[iNumPoolItems].sShadingData = sShadingData;
+			sPath[iNumPoolItems].uMaterialIdx = sShadingData.uMaterialIdx;
+
+			MaterialRep sMaterial;
+			sMaterial = GetMaterial(sShadingData.uMaterialIdx, sSceneData, sRNG);
+
+			sPath[iNumPoolItems].vRadiance = SampleDirectIllumination(
+#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
+				iThreadStack,
+#endif
+				sSceneData, &sMaterial, &sShadingData, -sThisRay.d);
+			++(iNumPoolItems);
+
+			if (iNumPoolItems >= MAX_PATH_LENGTH)
+				break;
+
+			if (!SampleMaterial(&sMaterial, &sShadingData, -sThisRay.d, sRNG, &sThisRay))
+			{
+				break;
+			}
 		}
 	}
 
@@ -673,8 +685,12 @@ float4 TraceRay(
 		float fDirectWeight = 0.5f;
 		sPath[iNumPoolItems - 2].vRadiance *= fDirectWeight;
 
+		MaterialRep sMaterial;
+		sMaterial = GetMaterial(sPath[iNumPoolItems - 2].uMaterialIdx, sSceneData, sRNG);
 		ShadingData sShadingData = sPath[iNumPoolItems - 2].sShadingData;
-		sPath[iNumPoolItems - 2].vRadiance += EvaluateBSDF(sPath[iNumPoolItems - 2].eBsdf, &sShadingData, sPath[iNumPoolItems - 1].vIncidentDir, -sPath[iNumPoolItems - 2].vIncidentDir,  sPath[iNumPoolItems - 1].vRadiance * (1.f - fDirectWeight));
+
+		/// TODO: add NdotL term
+		sPath[iNumPoolItems - 2].vRadiance += EvaluateMaterial(&sMaterial, &sShadingData, sPath[iNumPoolItems - 1].vIncidentDir, -sPath[iNumPoolItems - 2].vIncidentDir,  sPath[iNumPoolItems - 1].vRadiance * (1.f - fDirectWeight));
 
 		--(iNumPoolItems);
 	}
@@ -692,15 +708,23 @@ __kernel void TraceDepth(
 	__global PointLight*   lights,
 	__global float*        rand,
 	__global PathVertex*   pathPool,
+	__global MaterialRep*  materials,
 	__global float4*       intermediateBuffer,
 	__write_only image2d_t output
 	)
 {
+	int2 localId;
+	localId.x = get_local_id(0);
+	localId.y = get_local_id(1);
+
+	int flatLocalId = localId.y * get_local_size(0) + localId.x;
+
 #if defined (TRAVERSAL_PACKET)
 	__local int stack[NODE_SHARED_STACK_SIZE];
 	__local int flag;
 #elif defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
 	__local int stack[NODE_STACK_SIZE * 64];
+	__local int* iThreadStack = stack + NODE_STACK_SIZE * flatLocalId;
 #else
 #endif
 
@@ -744,11 +768,16 @@ __kernel void TraceDepth(
 				SceneData sSceneData;
 				sSceneData.sBVH         = bvh;
 				sSceneData.sVertices    = vertices,
-					sSceneData.sIndices     = indices;
+				sSceneData.sIndices     = indices;
 				sSceneData.sPointLights = lights;
 				sSceneData.sParams      = params;
+				sSceneData.sMaterials   = materials;
 
-				res += TraceRay(&sSceneData, &sRNG, &rr, thisThreadPool);
+				res += TraceRay(&sSceneData, &sRNG, &rr, thisThreadPool
+#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
+					, iThreadStack
+#endif
+					);
 			}
 
 			res /= (NUM_SAMPLES*NUM_SAMPLES);

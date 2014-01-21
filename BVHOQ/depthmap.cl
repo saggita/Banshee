@@ -18,7 +18,7 @@ DEFINES
 #define TRAVERSAL_STACKED
 //#define LOCAL_STACK
 #define NODE_STACK_SIZE 32
-#define MAX_PATH_LENGTH 5
+#define MAX_PATH_LENGTH 3
 
 #define RAY_EPSILON 0.01f
 #define NUM_SAMPLES 1.f
@@ -212,6 +212,8 @@ float4 TransformPoint(float16 mWVP, float4 vPoint)
 	return vRes;
 }
 
+#ifndef __APPLE__
+
 float4 make_float4(float x, float y, float z, float w)
 {
 	float4 res;
@@ -231,6 +233,8 @@ float3 make_float3(float x, float y, float z)
 	res.z = z;
 	return res;
 }
+
+#endif
 
 
 // Intersect Ray against triangle
@@ -653,7 +657,7 @@ float4 TraceRay(
 		sPath[iNumPoolItems].vRadiance = SampleDirectIllumination(sSceneData, sPath[iNumPoolItems].eBsdf, &sShadingData, -sThisRay.d);
 		++(iNumPoolItems);
 
-		if (iNumPoolItems >= 3)
+		if (iNumPoolItems >= MAX_PATH_LENGTH)
 			break;
 
 		if (!SampleBSDF(sPath[iNumPoolItems-1].eBsdf, &sShadingData, -sThisRay.d, sRNG, &sThisRay))
@@ -752,7 +756,7 @@ __kernel void TraceDepth(
 			uint uFrameCount = params->uFrameCount;
 			if (uFrameCount)
 			{
-				float4 vPrevValue =  intermediateBuffer[globalId.y * params->uOutputWidth + globalId.x];
+				float4 vPrevValue =  intermediateBuffer[flatGlobalId];
 				res = vPrevValue * ((float)(uFrameCount - 1.f)/uFrameCount) + res * (1.f/uFrameCount);
 			}
 

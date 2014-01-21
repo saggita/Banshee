@@ -126,7 +126,8 @@ private:
     {
         DevShadingData shadingData;
         cl_float3 vIncidentDir;
-        cl_float3 vRadiance;
+        cl_float4 vRadiance;
+		cl_int	  eBsdf;
     };
 
 	cl_platform_id platform_;

@@ -24,7 +24,7 @@
 
 #define MAX_BOUNDS 1000
 #define RANDOM_BUFFER_SIZE 1000
-#define MAX_PATH_LENGTH 10
+#define MAX_PATH_LENGTH 3
 
 GLuint OCLRender::GetOutputTexture() const
 {
@@ -53,7 +53,11 @@ void OCLRender::Init(unsigned width, unsigned height)
 	size_t workGroupSize = 0;
 	clGetDeviceInfo(device_, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &workGroupSize, nullptr);
 	std::cout << "Max work group size: " << workGroupSize << "\n";
-	
+
+	cl_ulong maxAllocationSize = 0;
+	status = clGetDeviceInfo(device_, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &maxAllocationSize, nullptr);
+	std::cout << "Max mem allocation size: " << maxAllocationSize << "\n";
+
 	clGetDeviceInfo(device_, CL_DEVICE_TYPE, sizeof(deviceType_), &deviceType_, nullptr);
 
 	switch (deviceType_)

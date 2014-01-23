@@ -17,7 +17,7 @@ DEFINES
 //#define TRAVERSAL_STACKLESS
 #define TRAVERSAL_STACKED
 //#define LOCAL_STACK
-#define NODE_STACK_SIZE 22
+#define NODE_STACK_SIZE 32
 #define MAX_PATH_LENGTH 3
 
 #define RAY_EPSILON 0.01f
@@ -34,6 +34,10 @@ DEFINES
 
 #define  M_PI 3.141592653589f
 #define  AMBIENT_LIGHT 0.2f
+//#define  AO_ENABLE
+#define  AO_SAMPLES 1
+#define  AO_RADIUS  0.1f
+#define  AO_MIN    0.3f
 
 /*************************************************************************
 TYPE DEFINITIONS
@@ -62,9 +66,6 @@ typedef struct _BVHNode
 
 typedef struct _Config
 {
-	float16 mProjInv;
-	float16 mView;
-
 	float3 vCameraDir;
 	float3 vCameraRight;
 	float3 vCameraUp;
@@ -342,6 +343,10 @@ bool IntersectLeaf(__global Vertex* vertices, __global uint4* indices, uint idx,
 		{
 			shadingData->vPos = (1.f - a - b) * v1.xyz + a * v2.xyz + b * v3.xyz;
 			shadingData->vNormal = normalize((1.f - a - b) * n1.xyz + a * n2.xyz + b * n3.xyz);
+
+			if (dot(-r->d, shadingData->vNormal) < 0)
+				shadingData->vNormal = - shadingData->vNormal;
+
 			shadingData->uMaterialIdx = triangle.w;
 		}
 
@@ -540,6 +545,49 @@ bool TraverseBVHStackless(__global BVHNode* nodes, __global Vertex* vertices, __
 
 }
 
+float3 GetHemisphereSample(float3 vNormal, float e, RNG* sRNG)
+{
+	float3 vU = normalize(make_float3(-vNormal.z - 0.1, vNormal.y - vNormal.x + vNormal.z + 0.11, vNormal.x + 0.32));
+	float3 vV = cross(vU, vNormal);
+	vU = cross(vNormal, vV);
+
+	float fR1 = RandFloat(sRNG);
+	float fR2 = RandFloat(sRNG);
+
+	float fSinPsi = sin(2*M_PI*fR1);
+	float fCosPsi = cos(2*M_PI*fR1);
+	float fCosTheta = pow(1.f - fR2, 1.f/(e + 1.f));
+	float fSinTheta = sqrt(1.f - fCosTheta * fCosTheta);
+
+	return vU * fSinTheta * fCosPsi + vV * fSinTheta * fSinPsi + vNormal * fCosTheta;
+}
+
+float EstimateOcclusion(SceneData* sSceneData, ShadingData* sShadingData, RNG* sRNG, float fKernelRadius)
+{
+	Ray sRay;
+	sRay.o = sShadingData->vPos + RAY_EPSILON * sShadingData->vNormal;
+
+	uint uNumOccluded = 0;
+	ShadingData sTempData;
+
+	for (int i = 0; i < AO_SAMPLES; ++i)
+	{
+		sRay.d = GetHemisphereSample(sShadingData->vNormal, 1.f, sRNG);
+		sRay.maxt = 10000.f;
+		sRay.mint = 0.f;
+		if (TraverseBVHStacked(
+#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
+				iThreadStack,
+#endif
+				sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) && sRay.maxt < fKernelRadius)
+		{
+			++uNumOccluded;
+		}
+	}
+
+	return (float)uNumOccluded/AO_SAMPLES;
+}
+
 
 MaterialRep GetMaterial(uint uMaterialIdx, SceneData* sSceneData, RNG* sRNG)
 {
@@ -564,7 +612,7 @@ bool SampleMaterial(MaterialRep* sMaterialRep, ShadingData* sShadingData, float3
 			float3 vReflDir = -vWo + 2*dot(vWo, sShadingData->vNormal) * sShadingData->vNormal;
 
 			sRay->o = sShadingData->vPos + RAY_EPSILON * vReflDir;
-			sRay->d = normalize(vReflDir);
+			sRay->d = normalize(GetHemisphereSample(vReflDir, 1024.f, sRNG));
 			sRay->mint = 0.f;
 			sRay->maxt = 10000.f;
 			return true;
@@ -584,8 +632,8 @@ float4 EvaluateMaterial(MaterialRep* sMaterialRep, ShadingData* sShadingData, fl
 
 	case BSDF_TYPE_SPECULAR:
 		{
-			float3 vReflDir = -vWi + 2.f*dot(vWi, sShadingData->vNormal) * sShadingData->vNormal;
-			return length(vReflDir - vWo) < 0.1f ? (vRadiance * sMaterialRep->vKs) : make_float4(0.f,0.f,0.f,0.f);
+			float3 vReflDir = normalize(-vWi + 2.f*dot(vWi, sShadingData->vNormal) * sShadingData->vNormal);
+			return vRadiance * sMaterialRep->vKs * pow(max(0.f, dot(vReflDir, vWo)), 1024.f);
 		}
 	}
 }
@@ -597,10 +645,19 @@ float4 SampleDirectIllumination(
 	SceneData*      sSceneData,
 	MaterialRep*	sMaterialRep,
 	ShadingData*    sShadingData,
-	float3          vWo
+	float3          vWo,
+	RNG* sRNG
 	)
 {
 	float4 vRes = make_float4(0, 0, 0, 0);
+	
+#ifdef AO_ENABLE
+		float fOcclusion = EstimateOcclusion(sSceneData, sShadingData, sRNG, AO_RADIUS);
+		float fMinAmount = AO_MIN;
+#else
+		float fOcclusion = 0.f;
+		float fMinAmount = 0.f;
+#endif
 
 	for (uint i=0;i<sSceneData->sParams->uNumPointLights;++i)
 	{
@@ -624,10 +681,9 @@ float4 SampleDirectIllumination(
 #endif
 				sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
 			float4 vDirectContribution = fNdotL * EvaluateMaterial(sMaterialRep, sShadingData, vLight, vWo, sSceneData->sPointLights[i].vColor);
-			vRes += fShadow * vDirectContribution + AMBIENT_LIGHT * vDirectContribution;
+			vRes += (fShadow * vDirectContribution) * (1.f - fOcclusion) + vDirectContribution * AO_MIN;
 		}
 	}
-
 
 	return vRes;
 }
@@ -665,7 +721,7 @@ float4 TraceRay(
 #if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
 				iThreadStack,
 #endif
-				sSceneData, &sMaterial, &sShadingData, -sThisRay.d);
+				sSceneData, &sMaterial, &sShadingData, -sThisRay.d, sRNG);
 			++(iNumPoolItems);
 
 			if (iNumPoolItems >= MAX_PATH_LENGTH)
@@ -682,7 +738,7 @@ float4 TraceRay(
 
 	while(iNumPoolItems > 1)
 	{
-		float fDirectWeight = 0.5f;
+		float fDirectWeight = 0.3f;
 		sPath[iNumPoolItems - 2].vRadiance *= fDirectWeight;
 
 		MaterialRep sMaterial;

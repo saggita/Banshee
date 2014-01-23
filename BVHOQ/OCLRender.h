@@ -60,9 +60,6 @@ public:
 private:
 	struct __declspec(align(1)) DevConfig
 	{
-		cl_float16 mProjInv;
-		cl_float16 mView;
-
 		cl_float3 vCameraDir;
 		cl_float3 vCameraRight;
 		cl_float3 vCameraUp;

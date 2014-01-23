@@ -260,8 +260,8 @@ void OCLRender::Init(unsigned width, unsigned height)
 
 	materialRep.eBsdf = 2;
 	materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0;
-	materialRep.vKs.s[0] = 0.9;
-	materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.0;
+	materialRep.vKs.s[0] = 0.9; materialRep.vKs.s[1] = 0.8;
+	materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0;
 	materials.push_back(materialRep);
 
 	materialRep.eBsdf = 1;
@@ -275,13 +275,6 @@ void OCLRender::Init(unsigned width, unsigned height)
 
 void OCLRender::Commit()
 {
-	matrix4x4 mView = GetCamera()->GetViewMatrix();
-	matrix4x4 mProj = GetCamera()->GetProjMatrix();
-	matrix4x4 mProjInv = inverse(mProj);
-
-	memcpy(&configData_.mView, &mView(0,0), 4*4*sizeof(float));
-	memcpy(&configData_.mProjInv, &mProjInv(0,0), 4*4*sizeof(float));
-
 	configData_.uOutputWidth = outputSize_.s[0];
 	configData_.uOutputHeight = outputSize_.s[1];
 	configData_.vCameraPos.s[0] = GetCamera()->GetPosition().x();

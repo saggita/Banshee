@@ -2,7 +2,6 @@
 *.sdf
 *.suo
 *.user
-*.exe
 *.lastbuildstate
 *.log
 *.pdb

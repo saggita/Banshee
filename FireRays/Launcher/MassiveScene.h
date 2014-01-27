@@ -13,7 +13,7 @@
 #include <vector>
 #include <string>
 
-#include "SceneBase.h"
+#include "FireRays.h"
 
 class MassiveScene : public SceneBase
 {

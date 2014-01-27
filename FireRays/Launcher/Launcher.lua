@@ -3,7 +3,7 @@ project "Launcher"
     location "../Launcher"
     links {"FireRays", "assimp"}
     files { "../Launcher/**.h", "../Launcher/**.cpp", "../Launcher/**.cl", "../Launcher/**.fsh", "../Launcher/**.vsh" } 
-    includedirs{ "../FireRays/Core", "../FireRays/Util", "../3rdParty/assimp/include"} 
+    includedirs{ "../FireRays/Core", "../FireRays/Util"  } 
     
     buildoptions "-std=c++11 -stdlib=libc++"
 

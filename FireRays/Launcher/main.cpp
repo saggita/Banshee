@@ -23,31 +23,30 @@
 #include <stdexcept>
 #include <sstream>
 
-#include "CommonTypes.h"
+#include "FireRays.h"
+
 #include "ShaderManager.h"
-#include "OCLRender.h"
 #include "QuatCamera.h"
 #include "SimpleScene.h"
 #include "MassiveScene.h"
-#include "utils.h"
 
 std::unique_ptr<ShaderManager>	gShaderManager;
 std::unique_ptr<OCLRender>		gRender;
 std::shared_ptr<SceneBase>		gScene;
 std::shared_ptr<QuatCamera>		gCamera;
 
-static bool gIsLeftPressed = false;
+static bool gIsLeftPressed	= false;
 static bool gIsRightPressed = false;
-static bool gIsFwdPressed = false;
-static bool gIsBackPressed = false;
+static bool gIsFwdPressed	= false;
+static bool gIsBackPressed	= false;
 static vector2 gMousePosition = vector2(0,0);
 static vector2 gMouseDelta = vector2(0,0);
 
 GLuint gVertexBufferId;
 GLuint gIndexBufferId;
 
-#define WINDOW_WIDTH  300
-#define WINDOW_HEIGHT 200
+#define WINDOW_WIDTH  800
+#define WINDOW_HEIGHT 600
 #define CAMERA_POSITION vector3(1,1,2)
 #define CAMERA_AT vector3(0,0,0)
 #define CAMERA_UP vector3(0,1,0)
@@ -77,7 +76,7 @@ void Display()
 	try
 	{
 		{
-            glDisable(GL_DEPTH_TEST);
+			glDisable(GL_DEPTH_TEST);
 			glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
 			glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferId);
@@ -137,28 +136,28 @@ void Update()
 	cameraRotationY = -delta.x();
 
 	if (cameraRotationY != 0.f)
-    {
+	{
 		gCamera->Rotate(cameraRotationY);
-        gRender->FlushFrame();
-    }
+		gRender->FlushFrame();
+	}
 
 	if (cameraRotationX != 0.f)
-    {
+	{
 		gCamera->Tilt(cameraRotationX);
-        gRender->FlushFrame();
-    }
+		gRender->FlushFrame();
+	}
 
 	const float kMovementSpeed = 0.01f;
 	if (gIsFwdPressed)
 	{
 		gCamera->MoveForward((float)deltaTime.count() * kMovementSpeed);
-        gRender->FlushFrame();
+		gRender->FlushFrame();
 	}
 
 	if (gIsBackPressed)
 	{
 		gCamera->MoveForward(-(float)deltaTime.count() * kMovementSpeed);
-        gRender->FlushFrame();
+		gRender->FlushFrame();
 	}
 
 	gRender->Commit();
@@ -212,8 +211,6 @@ void InitGraphics()
 
 void InitData()
 {
-    rand_init();
-    
 	//gScene = SimpleScene::CreateFromObj("sibenik.objm");
 	gScene = MassiveScene::Create();
 	gCamera = QuatCamera::LookAt(CAMERA_POSITION, CAMERA_AT, CAMERA_UP);
@@ -222,10 +219,7 @@ void InitData()
 	gCamera->SetPixelSize(CAMERA_PIXEL_SIZE);
 	gCamera->SetFilmResolution(ui_size(WINDOW_WIDTH, WINDOW_HEIGHT));
 
-	cl_platform_id platform;
-	clGetPlatformIDs(1, &platform, nullptr);
-
-	gRender.reset(new OCLRender(platform));
+	gRender = CreateRender();
 	//gRender.reset(new simple_rt_render());
 	gRender->SetScene(gScene);
 	gRender->SetCamera(gCamera);
@@ -255,9 +249,9 @@ void OnKey(int key, int x, int y)
 		break;
 	case GLUT_KEY_RIGHT:
 		gIsRightPressed = true;
-    case GLUT_KEY_F1:
-        gMouseDelta = vector2(0,0);
-        break;
+	case GLUT_KEY_F1:
+		gMouseDelta = vector2(0,0);
+		break;
 	default:
 		break;
 	}

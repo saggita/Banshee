@@ -13,7 +13,7 @@
 #include <vector>
 #include <string>
 
-#include "SceneBase.h"
+#include "FireRays.h"
 #include "Mesh.h"
 
 

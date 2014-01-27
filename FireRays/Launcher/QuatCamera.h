@@ -11,8 +11,7 @@
 
 #include <memory>
 
-#include "CameraBase.h"
-#include "CommonTypes.h"
+#include "FireRays.h"
 
 
 class QuatCamera : public CameraBase

@@ -38,33 +38,34 @@ class OCLRender : public RenderBase
 public:
 	OCLRender(cl_platform_id platform);
 	~OCLRender();
-	
-	void Init(unsigned width, unsigned height);
-	void Render();
-	void Commit();
 
-	unsigned GetOutputTexture() const;
-    void	 FlushFrame();
+	void		Init(unsigned width, unsigned height);
+	void		Render();
+	void		Commit();
+
+	unsigned	GetOutputTexture() const;
+	void		FlushFrame();
 
 private:
+
 	struct __declspec(align(1)) DevConfig
 	{
 		cl_float3 vCameraDir;
 		cl_float3 vCameraRight;
 		cl_float3 vCameraUp;
 		cl_float3 vCameraPos;
-		
+
 		cl_float fCameraNearZ;
 		cl_float fCameraPixelSize;
-		
+
 		cl_uint uOutputWidth;
 		cl_uint uOutputHeight;
-        
-        cl_uint uNumPointLights;
-        cl_uint uNumRandomNumbers;
-        cl_uint uFrameCount;
+
+		cl_uint uNumPointLights;
+		cl_uint uNumRandomNumbers;
+		cl_uint uFrameCount;
 	};
-	
+
 	struct __declspec(align(16)) DevBVHNode
 	{
 		struct
@@ -72,7 +73,7 @@ private:
 			cl_float3 vMin;
 			cl_float3 vMax;
 		} sBox;
-		
+
 		cl_uint uPrimStart;
 		cl_uint uRight;
 		cl_uint uParent;
@@ -85,36 +86,36 @@ private:
 		cl_float3 vMax;
 	};
 
-    
-    struct __declspec(align(16)) DevVertex
-    {
-        cl_float4 vPos;
-        cl_float4 vNormal;
-        cl_float2 vTex;
-    };
-    
-    struct __declspec(align(16)) DevPointLight
-    {
-        cl_float4 vPos;
-        cl_float4 vColor;
-        cl_float4 vAttenuation;
-    };
-    
-    struct  __declspec(align(16)) DevShadingData
-    {
-        cl_float3 vPos;
-        cl_float3 vNormal;
-        cl_float2 vTex;
-        cl_uint   uMaterialIdx;
-    };
-    
-    struct  __declspec(align(16)) DevPathVertex
-    {
-        DevShadingData shadingData;
-        cl_float3 vIncidentDir;
-        cl_float4 vRadiance;
+
+	struct __declspec(align(16)) DevVertex
+	{
+		cl_float4 vPos;
+		cl_float4 vNormal;
+		cl_float2 vTex;
+	};
+
+	struct __declspec(align(16)) DevPointLight
+	{
+		cl_float4 vPos;
+		cl_float4 vColor;
+		cl_float4 vAttenuation;
+	};
+
+	struct  __declspec(align(16)) DevShadingData
+	{
+		cl_float3 vPos;
+		cl_float3 vNormal;
+		cl_float2 vTex;
+		cl_uint   uMaterialIdx;
+	};
+
+	struct  __declspec(align(16)) DevPathVertex
+	{
+		DevShadingData shadingData;
+		cl_float3 vIncidentDir;
+		cl_float4 vRadiance;
 		cl_uint	  uMaterialIdx;
-    };
+	};
 
 	struct  __declspec(align(16)) DevMaterialRep
 	{
@@ -137,17 +138,17 @@ private:
 	cl_mem		bvhBuffer_;
 	cl_mem		configBuffer_;
 	cl_mem		outputDepthTexture_;
-    cl_mem      pointLights_;
-    cl_mem      randomBuffer_;
-    cl_mem      pathBuffer_;
+	cl_mem      pointLights_;
+	cl_mem      randomBuffer_;
+	cl_mem      pathBuffer_;
 	cl_mem      intermediateBuffer_;
 	cl_mem		materialBuffer_;
-	
+
 	GLuint		glDepthTexture_;
 
 	cl_uint2  outputSize_;
-    cl_uint   frameCount_;
-	
+	cl_uint   frameCount_;
+
 	DevConfig configData_;
 
 	std::shared_ptr<BVHAccelerator> accel_;

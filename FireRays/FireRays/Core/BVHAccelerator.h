@@ -6,8 +6,8 @@
 //  Copyright (c) 2013 Dmitry Kozlov. All rights reserved.
 //
 
-#ifndef __BVHOQ__BVHAccelerator__
-#define __BVHOQ__BVHAccelerator__
+#ifndef BVHACCELERATOR_H
+#define BVHACCELERATOR_H
 
 #include "CommonTypes.h"
 #include "SceneBase.h"
@@ -83,4 +83,4 @@ private:
 
 
 
-#endif /* defined(__BVHOQ__BVHAccelerator__) */
+#endif // BVHACCELERATOR_H

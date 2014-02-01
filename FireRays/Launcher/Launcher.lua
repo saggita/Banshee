@@ -3,7 +3,7 @@ project "Launcher"
     location "../Launcher"
     links {"FireRays", "assimp"}
     files { "../Launcher/**.h", "../Launcher/**.cpp", "../Launcher/**.cl", "../Launcher/**.fsh", "../Launcher/**.vsh" } 
-    includedirs{ "../FireRays/Core", "../FireRays/Util"  } 
+    includedirs{ "../FireRays/Core", "../FireRays/Util", "../3rdParty/assimp/include" } 
     
     buildoptions "-std=c++11 -stdlib=libc++"
 
@@ -15,7 +15,7 @@ project "Launcher"
 	
 	if os.is("windows") then
 	links {"FireRays", "assimp", "freeglut", "glew"}
-        includedirs { "../3rdParty/assimp/include", "../3rdParty/glew/include", "../3rdParty/freeglut/include" }
+        includedirs { "../3rdParty/glew/include", "../3rdParty/freeglut/include" }
 		
 		configuration {"x32"}
 			libdirs {"../3rdParty/assimp/lib/x86", "../3rdParty/glew/lib/x86", "../3rdParty/freeglut/lib/x86" }

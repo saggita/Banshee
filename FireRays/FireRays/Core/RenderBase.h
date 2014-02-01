@@ -6,8 +6,8 @@
 //  Copyright (c) 2013 Dmitry Kozlov. All rights reserved.
 //
 
-#ifndef BVHOQ_RenderBase_h
-#define BVHOQ_RenderBase_h
+#ifndef RENDERBASE_H
+#define RENDERBASE_H
 
 #include <memory>
 #include "CommonTypes.h"
@@ -63,4 +63,4 @@ inline std::shared_ptr<CameraBase> RenderBase::GetCamera() const
 	return camera_;
 }
 
-#endif
+#endif // RENDERBASE_H

@@ -221,8 +221,6 @@ float4 TransformPoint(float16 mWVP, float4 vPoint)
 	return vRes;
 }
 
-#ifndef OCLAPPLE
-
 float4 make_float4(float x, float y, float z, float w)
 {
 	float4 res;
@@ -242,9 +240,6 @@ float3 make_float3(float x, float y, float z)
 	res.z = z;
 	return res;
 }
-
-#endif
-
 
 // Intersect Ray against triangle
 bool IntersectTriangle(Ray* sRay, float3 vP1, float3 vP2, float3 vP3, float* fA, float* fB)

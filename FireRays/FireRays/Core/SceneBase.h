@@ -6,8 +6,8 @@
 //  Copyright (c) 2013 Dmitry Kozlov. All rights reserved.
 //
 
-#ifndef BVHOQ_SceneBase_h
-#define BVHOQ_SceneBase_h
+#ifndef SCENEBASE_H
+#define SCENEBASE_H
 
 #include <vector>
 #include "CommonTypes.h"
@@ -34,6 +34,4 @@ private:
 
 inline SceneBase::~SceneBase(){}
 
-
-
-#endif
+#endif //SCENEBASE_H

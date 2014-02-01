@@ -6,8 +6,8 @@
 //  Copyright (c) 2013 Dmitry Kozlov. All rights reserved.
 //
 
-#ifndef __BVHOQ__opencl_render__
-#define __BVHOQ__opencl_render__
+#ifndef OCLRENDER_H
+#define OCLRENDER_H
 
 #include <iostream>
 
@@ -123,6 +123,13 @@ private:
 		cl_float4 vKs;
 		cl_uint   eBsdf;
 	} ;
+    
+    struct __declspec(align(16)) DevTextureDesc
+    {
+        cl_uint uWidth;
+        cl_uint uHeight;
+        cl_uint uPoolOffset;
+    };
 
 
 	cl_platform_id platform_;
@@ -154,5 +161,5 @@ private:
 	std::shared_ptr<BVHAccelerator> accel_;
 };
 
-#endif
+#endif // OCLRENDER_H
 

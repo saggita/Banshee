@@ -6,8 +6,8 @@
 //  Copyright (c) 2013 Dmitry Kozlov. All rights reserved.
 //
 
-#ifndef BVHOQ_CameraBase_h
-#define BVHOQ_CameraBase_h
+#ifndef CAMERABASE_H
+#define CAMERABASE_H
 
 #include "CommonTypes.h"
 
@@ -33,4 +33,4 @@ private:
 inline CameraBase::~CameraBase(){};
 
 
-#endif
+#endif // CAMERABASE_H

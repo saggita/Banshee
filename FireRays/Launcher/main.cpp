@@ -101,7 +101,7 @@ private:
                 int rowTileEven = (i / tileSize_) & 1;
                 int columnTileEven = (j / tileSize_) & 1;
                 
-                float color = (rowTileEven && columnTileEven) || (!rowTileEven && !columnTileEven) ? 1.f : 0.f;
+                float color = (rowTileEven && columnTileEven) || (!rowTileEven && !columnTileEven) ? 0.7f : 0.5f;
                 
                 data_[i * w_ * 4 + j * 4] = color;
                 data_[i * w_ * 4 + j * 4 + 1] = color;

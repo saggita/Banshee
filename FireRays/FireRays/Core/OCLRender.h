@@ -46,8 +46,10 @@ private:
     
     void CompileTextures();
 
-	struct __declspec(align(1)) DevConfig
+	struct __declspec(align(16)) DevConfig
 	{
+        cl_float4 vBackgroundColor;
+        
 		cl_float3 vCameraDir;
 		cl_float3 vCameraRight;
 		cl_float3 vCameraUp;
@@ -79,7 +81,7 @@ private:
 		cl_uint uPrimCount;
 	};
 
-	struct __declspec(align(1)) sBox
+	struct __declspec(align(16)) sBox
 	{
 		cl_float3 vMin;
 		cl_float3 vMax;
@@ -123,7 +125,7 @@ private:
 		cl_uint   eBsdf;
 	} ;
     
-    struct __declspec(align(1)) DevTextureDesc
+    struct __declspec(align(16)) DevTextureDesc
     {
         cl_uint uWidth;
         cl_uint uHeight;

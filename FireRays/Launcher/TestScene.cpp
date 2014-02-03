@@ -41,7 +41,7 @@ TestScene::TestScene()
             indices_.push_back(indexData[idx]);
         }
         
-        unsigned material = 1;
+        unsigned material = 0;
         for (int idx = 0; idx < mesh_ptr->GetIndexCount()/3; ++idx)
             materials_.push_back(material);
     }

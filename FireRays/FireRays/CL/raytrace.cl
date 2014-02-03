@@ -66,6 +66,8 @@ typedef struct _BVHNode
 
 typedef struct _Config
 {
+    float4 vBackgroundColor;
+    
 	float3 vCameraDir;
 	float3 vCameraRight;
 	float3 vCameraUp;
@@ -733,8 +735,9 @@ float4 TraceRay(
 	int iNumPoolItems = 0;
 
 	{
+        bool bHit = false;
 		ShadingData sShadingData;
-		while (TraverseBVHStacked(
+		while (bHit = TraverseBVHStacked(
 #if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
 			iThreadStack,
 #endif
@@ -762,6 +765,14 @@ float4 TraceRay(
 				break;
 			}
 		}
+        
+        /// Account for the radiance coming from missing ray
+        if (!bHit && iNumPoolItems < MAX_PATH_LENGTH)
+        {
+            sPath[iNumPoolItems].vIncidentDir = sThisRay.d;
+            sPath[iNumPoolItems].vRadiance = sSceneData->sParams->vBackgroundColor;
+            ++iNumPoolItems;
+        }
 	}
 
 	int iPathLength = iNumPoolItems;
@@ -781,7 +792,7 @@ float4 TraceRay(
 		--(iNumPoolItems);
 	}
 
-	return iPathLength > 0 ? sPath[0].vRadiance : make_float4(0,0,0,0);
+	return iPathLength > 0 ? sPath[0].vRadiance : sSceneData->sParams->vBackgroundColor;
 }
 
 

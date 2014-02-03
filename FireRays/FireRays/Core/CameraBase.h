@@ -9,6 +9,7 @@
 #ifndef CAMERABASE_H
 #define CAMERABASE_H
 
+#include "Common.h"
 #include "CommonTypes.h"
 
 class CameraBase

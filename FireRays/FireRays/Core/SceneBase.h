@@ -9,7 +9,7 @@
 #ifndef SCENEBASE_H
 #define SCENEBASE_H
 
-#include <vector>
+#include "Common.h"
 #include "CommonTypes.h"
 
 class SceneBase

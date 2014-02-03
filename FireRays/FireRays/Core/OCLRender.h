@@ -9,11 +9,6 @@
 #ifndef OCLRENDER_H
 #define OCLRENDER_H
 
-#include <iostream>
-
-#include <vector>
-#include <memory>
-
 #ifdef __APPLE__
 #include <OpenCL/OpenCL.h>
 #include <OpenGL/OpenGL.h>
@@ -27,12 +22,13 @@
 #include "GLUT/GLUT.h"
 #endif
 
-#include "SceneBase.h"
-#include "CameraBase.h"
+#include "Common.h"
 #include "RenderBase.h"
 #include "CommonTypes.h"
 #include "BVHAccelerator.h"
 
+
+class TextureBase;
 class OCLRender : public RenderBase
 {
 public:
@@ -42,11 +38,13 @@ public:
 	void		Init(unsigned width, unsigned height);
 	void		Render();
 	void		Commit();
-
+    
 	unsigned	GetOutputTexture() const;
 	void		FlushFrame();
 
 private:
+    
+    void CompileTextures();
 
 	struct __declspec(align(1)) DevConfig
 	{
@@ -64,6 +62,7 @@ private:
 		cl_uint uNumPointLights;
 		cl_uint uNumRandomNumbers;
 		cl_uint uFrameCount;
+        cl_uint uTextureCount;
 	};
 
 	struct __declspec(align(16)) DevBVHNode
@@ -111,7 +110,7 @@ private:
 
 	struct  __declspec(align(16)) DevPathVertex
 	{
-		DevShadingData shadingData;
+		DevShadingData sShadingData;
 		cl_float3 vIncidentDir;
 		cl_float4 vRadiance;
 		cl_uint	  uMaterialIdx;
@@ -124,7 +123,7 @@ private:
 		cl_uint   eBsdf;
 	} ;
     
-    struct __declspec(align(16)) DevTextureDesc
+    struct __declspec(align(1)) DevTextureDesc
     {
         cl_uint uWidth;
         cl_uint uHeight;
@@ -132,13 +131,13 @@ private:
     };
 
 
-	cl_platform_id platform_;
-	cl_device_id   device_;
-	cl_device_type deviceType_;
-	cl_context	   context_;
-	cl_command_queue commandQueue_;
-	cl_program       program_;
-	cl_kernel        traceDepthKernel_;
+	cl_platform_id      platform_;
+	cl_device_id        device_;
+	cl_device_type      deviceType_;
+	cl_context          context_;
+	cl_command_queue    commandQueue_;
+	cl_program          program_;
+	cl_kernel           traceDepthKernel_;
 
 	cl_mem		vertexBuffer_;
 	cl_mem		indexBuffer_;
@@ -150,6 +149,8 @@ private:
 	cl_mem      pathBuffer_;
 	cl_mem      intermediateBuffer_;
 	cl_mem		materialBuffer_;
+    cl_mem      textureBuffer_;
+    cl_mem      textureDescBuffer_;
 
 	GLuint		glDepthTexture_;
 

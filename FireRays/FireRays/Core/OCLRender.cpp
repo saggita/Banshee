@@ -15,6 +15,7 @@
 
 #include "RenderBase.h"
 #include "CameraBase.h"
+#include "TextureBase.h"
 
 #include "utils.h"
 #include "bbox.h"
@@ -24,6 +25,8 @@
 #define MAX_BOUNDS 1000
 #define RANDOM_BUFFER_SIZE 1000
 #define MAX_PATH_LENGTH 3
+#define TEXTURE_BUFFER_SIZE 134217728
+#define MAX_TEXTURE_HANDLES 100
 
 GLuint OCLRender::GetOutputTexture() const
 {
@@ -150,7 +153,10 @@ void OCLRender::Init(unsigned width, unsigned height)
 					  val.vNormal.s[1] = v.normal.y();
 					  val.vNormal.s[2] = v.normal.z();
                       val.vNormal.s[3] = 0;
-
+                      
+                      val.vTex.s[0] = v.texcoord.x();
+                      val.vTex.s[1] = v.texcoord.y();
+                      
 					  vertices.push_back(val);
 				  });
 	
@@ -223,8 +229,8 @@ void OCLRender::Init(unsigned width, unsigned height)
     
     DevPointLight light;
     light.vPos.s[0] = -1.f;
-    light.vPos.s[1] = 0.f;
-    light.vPos.s[2] = -1.f;
+    light.vPos.s[1] = 3.f;
+    light.vPos.s[2] = 1.f;
     light.vPos.s[3] = 0.f;
 
     light.vColor.s[0] = 2.7f;
@@ -279,6 +285,12 @@ void OCLRender::Init(unsigned width, unsigned height)
 
 	materialBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevMaterialRep) * 2, (void*)&materials[0], &status);
 	CHECK_ERROR(status, "Cannot create material buffer");
+    
+    textureBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(cl_float) * TEXTURE_BUFFER_SIZE, nullptr, &status);
+	CHECK_ERROR(status, "Cannot create texture buffer");
+    
+    textureDescBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(DevTextureDesc) * MAX_TEXTURE_HANDLES, nullptr, &status);
+	CHECK_ERROR(status, "Cannot create texture handles buffer");
 }
 
 void OCLRender::Commit()
@@ -299,17 +311,25 @@ void OCLRender::Commit()
 	configData_.vCameraUp.s[2] = GetCamera()->GetUpVector().z();
 	configData_.fCameraNearZ = GetCamera()->GetNearZ();
 	configData_.fCameraPixelSize = GetCamera()->GetPixelSize();
-    configData_.uNumPointLights = 2;
+    configData_.uNumPointLights = 1;
     configData_.uNumRandomNumbers = RANDOM_BUFFER_SIZE;
     configData_.uFrameCount = frameCount_;
 
 	CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, configBuffer_, CL_FALSE, 0, sizeof(configData_), &configData_, 0, nullptr, nullptr), "Cannot update param buffer");
+    
+    if (is_textures_dirty())
+    {
+        CompileTextures();
+        reset_textures_dirty();
+    }
 }
 
 OCLRender::~OCLRender()
 {
 	/// TODO: implement RAII for CL objects
 	glDeleteTextures(1, &glDepthTexture_);
+    clReleaseMemObject(textureBuffer_);
+    clReleaseMemObject(textureDescBuffer_);
 	clReleaseMemObject(materialBuffer_);
 	clReleaseMemObject(intermediateBuffer_);
     clReleaseMemObject(pathBuffer_);
@@ -361,7 +381,9 @@ void OCLRender::Render()
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 6, sizeof(cl_mem), &pathBuffer_), "SetKernelArg failed");
 	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 7, sizeof(cl_mem), &materialBuffer_), "SetKernelArg failed");
 	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 8, sizeof(cl_mem), &intermediateBuffer_), "SetKernelArg failed");
-	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 9, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
+    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 9, sizeof(cl_mem), &textureDescBuffer_), "SetKernelArg failed");
+    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 10, sizeof(cl_mem), &textureBuffer_), "SetKernelArg failed");
+	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 11, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
 	//CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 5, sizeof(cl_int) * localWorkSize[0] * localWorkSize[1] * 64, nullptr), "SetKernelArg failed");
 
 	cl_int status = clEnqueueNDRangeKernel(commandQueue_, traceDepthKernel_, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, &kernelExecutionEvent);
@@ -388,6 +410,46 @@ void   OCLRender::FlushFrame()
 {
     frameCount_ = 0;
 }
+
+void OCLRender::CompileTextures()
+{
+    cl_int status = CL_SUCCESS;
+    std::vector<DevTextureDesc> textureDescs;
+    
+    float* data = (float*)clEnqueueMapBuffer(commandQueue_, textureBuffer_, CL_TRUE, CL_MAP_WRITE, 0, TEXTURE_BUFFER_SIZE * sizeof(cl_float), 0, nullptr, nullptr, &status);
+    CHECK_ERROR(status, "Cannot map buffer");
+    
+    unsigned offset = 0;
+    
+    for (auto iter = textures_cbegin(); iter != textures_cend(); ++iter)
+    {
+        DevTextureDesc desc;
+        desc.uWidth = iter->second->GetWidth();
+        desc.uHeight = iter->second->GetHeight();
+        desc.uPoolOffset = offset;
+        
+        float const* texData = iter->second->GetData();
+        
+        unsigned texDataSize = desc.uWidth * desc.uHeight * 4;
+        for (int i = 0; i < texDataSize; ++i)
+        {
+            data[offset + i] = texData[i];
+        }
+        
+        offset += desc.uWidth * desc.uHeight;
+        
+        textureDescs.push_back(desc);
+    }
+    
+    CHECK_ERROR(clEnqueueUnmapMemObject(commandQueue_, textureBuffer_, data, 0, nullptr, nullptr), "Cannot unmap buffer");
+    
+    CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, textureDescBuffer_, CL_TRUE, 0, sizeof(DevTextureDesc) * textureDescs.size(), &textureDescs[0], 0, nullptr, nullptr), "Cannot update texture desc buffer");
+    
+    configData_.uTextureCount = static_cast<unsigned>(textureDescs.size());
+    
+}
+
+
 
 
 

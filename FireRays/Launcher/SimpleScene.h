@@ -31,9 +31,9 @@ public:
 	
 	
 private:
-	std::vector<Vertex> vertices_;
-	std::vector<unsigned int> indices_;
-    std::vector<unsigned int> materials_;
+	std::vector<Vertex>         vertices_;
+	std::vector<unsigned int>   indices_;
+    std::vector<unsigned int>   materials_;
 };
 
 

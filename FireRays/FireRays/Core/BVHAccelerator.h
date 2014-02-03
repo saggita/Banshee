@@ -10,11 +10,10 @@
 #define BVHACCELERATOR_H
 
 #include "CommonTypes.h"
+#include "CommonTypes.h"
+
 #include "SceneBase.h"
 #include "BBox.h"
-
-#include <list>
-#include <memory>
 
 class BVHAccelerator
 {

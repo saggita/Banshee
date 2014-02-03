@@ -29,25 +29,27 @@
 #include "QuatCamera.h"
 #include "SimpleScene.h"
 #include "MassiveScene.h"
+#include "TestScene.h"
+
 
 std::unique_ptr<ShaderManager>	gShaderManager;
 std::unique_ptr<OCLRender>		gRender;
 std::shared_ptr<SceneBase>		gScene;
 std::shared_ptr<QuatCamera>		gCamera;
 
-static bool gIsLeftPressed	= false;
-static bool gIsRightPressed = false;
-static bool gIsFwdPressed	= false;
-static bool gIsBackPressed	= false;
-static vector2 gMousePosition = vector2(0,0);
-static vector2 gMouseDelta = vector2(0,0);
+static bool     gIsLeftPressed	= false;
+static bool     gIsRightPressed = false;
+static bool     gIsFwdPressed	= false;
+static bool     gIsBackPressed	= false;
+static vector2  gMousePosition = vector2(0,0);
+static vector2  gMouseDelta = vector2(0,0);
 
 GLuint gVertexBufferId;
 GLuint gIndexBufferId;
 
-#define WINDOW_WIDTH  800
-#define WINDOW_HEIGHT 600
-#define CAMERA_POSITION vector3(1,1,2)
+#define WINDOW_WIDTH  400
+#define WINDOW_HEIGHT 300
+#define CAMERA_POSITION vector3(3,3,3)
 #define CAMERA_AT vector3(0,0,0)
 #define CAMERA_UP vector3(0,1,0)
 #define CAMERA_NEAR_PLANE 0.01f
@@ -70,6 +72,49 @@ struct SpotLightData
 
 std::vector<PointLightData> gPointLights;
 std::vector<SpotLightData>  gSpotLights;
+
+
+/// TODO: debug texture
+class CheckerboardTexture : public TextureBase
+{
+public:
+    
+    CheckerboardTexture(unsigned w, unsigned h, unsigned tileSize)
+    : w_(w)
+    , h_(h)
+    , data_(w * h * 4)
+    , tileSize_(tileSize)
+    {
+        GenerateData();
+    }
+    
+    unsigned int GetWidth() const { return w_; }
+    unsigned int GetHeight() const { return h_; }
+    float const* GetData() const { return &data_[0]; }
+    
+private:
+    void GenerateData()
+    {
+        for (int i = 0; i < h_; ++i)
+            for (int j = 0; j < w_; ++j)
+            {
+                int rowTileEven = (i / tileSize_) & 1;
+                int columnTileEven = (j / tileSize_) & 1;
+                
+                float color = (rowTileEven && columnTileEven) || (!rowTileEven && !columnTileEven) ? 1.f : 0.f;
+                
+                data_[i * w_ * 4 + j * 4] = color;
+                data_[i * w_ * 4 + j * 4 + 1] = color;
+                data_[i * w_ * 4 + j * 4 + 2] = color;
+                data_[i * w_ * 4 + j * 4 + 3] = color;
+            }
+    }
+    
+    unsigned w_;
+    unsigned h_;
+    unsigned tileSize_;
+    std::vector<float> data_;
+};
 
 void Display()
 {
@@ -212,7 +257,7 @@ void InitGraphics()
 void InitData()
 {
 	//gScene = SimpleScene::CreateFromObj("sibenik.objm");
-	gScene = MassiveScene::Create();
+	gScene = TestScene::Create();
 	gCamera = QuatCamera::LookAt(CAMERA_POSITION, CAMERA_AT, CAMERA_UP);
 
 	gCamera->SetNearZ(CAMERA_NEAR_PLANE);
@@ -223,6 +268,9 @@ void InitData()
 	//gRender.reset(new simple_rt_render());
 	gRender->SetScene(gScene);
 	gRender->SetCamera(gCamera);
+    
+    auto texture = std::make_shared<CheckerboardTexture>(500, 500, 10);
+    gRender->AttachTexture("checker", texture);
 
 	gRender->Init(WINDOW_WIDTH, WINDOW_HEIGHT);
 }
@@ -318,4 +366,5 @@ int main(int argc, const char * argv[])
 
 	return 0;
 }
+
 

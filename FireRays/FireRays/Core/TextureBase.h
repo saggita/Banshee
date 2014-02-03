@@ -12,9 +12,11 @@
 class TextureBase
 {
 public:
+    TextureBase(){}
+    virtual ~TextureBase() = 0;
     virtual unsigned int GetWidth() const = 0;
     virtual unsigned int GetHeight() const = 0;
-    virtual float* GetData() const = 0;
+    virtual float const* GetData() const = 0;
     
 private:
     TextureBase(TextureBase const&);
@@ -22,6 +24,6 @@ private:
     
 };
 
-
+inline TextureBase::~TextureBase(){}
 
 #endif

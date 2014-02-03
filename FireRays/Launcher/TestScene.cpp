@@ -25,7 +25,7 @@ TestScene::TestScene()
 {
     // Add monkey w/ diffuse material
     {
-        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/sphere.obj");
+        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/sphere.objm");
         mesh_ptr->Rescale(2.5f);
         Mesh::Vertex const* vertexData = mesh_ptr->GetVertexArrayPtr();
         unsigned const* indexData = mesh_ptr->GetIndexArrayPtr();

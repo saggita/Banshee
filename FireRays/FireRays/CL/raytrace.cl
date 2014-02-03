@@ -253,25 +253,25 @@ float4 TransformPoint(float16 mWVP, float4 vPoint)
 	return vRes;
 }
 
-//float4 make_float4(float x, float y, float z, float w)
-//{
-//	float4 res;
-//	res.x = x;
-//	res.y = y;
-//	res.z = z;
-//	res.w = w;
-//	return res;
-//}
-//
-//
-//float3 make_float3(float x, float y, float z)
-//{
-//	float3 res;
-//	res.x = x;
-//	res.y = y;
-//	res.z = z;
-//	return res;
-//}
+float4 make_float4(float x, float y, float z, float w)
+{
+	float4 res;
+	res.x = x;
+	res.y = y;
+	res.z = z;
+	res.w = w;
+	return res;
+}
+
+
+float3 make_float3(float x, float y, float z)
+{
+	float3 res;
+	res.x = x;
+	res.y = y;
+	res.z = z;
+	return res;
+}
 
 // Intersect Ray against triangle
 bool IntersectTriangle(Ray* sRay, float3 vP1, float3 vP2, float3 vP3, float* fA, float* fB)
@@ -641,13 +641,17 @@ bool SampleMaterial(MaterialRep* sMaterialRep, ShadingData* sShadingData, float3
 
 	case BSDF_TYPE_SPECULAR:
 		{
-			float3 vReflDir = -vWo + 2*dot(vWo, sShadingData->vNormal) * sShadingData->vNormal;
+			if (dot( sShadingData->vNormal, vWo) > 0)
+			{
+				float3 vReflDir = -vWo + 2*dot(vWo, sShadingData->vNormal) * sShadingData->vNormal;
 
-			sRay->o = sShadingData->vPos + RAY_EPSILON * vReflDir;
-			sRay->d = normalize(GetHemisphereSample(vReflDir, 1024.f, sRNG));
-			sRay->mint = 0.f;
-			sRay->maxt = 10000.f;
-			return true;
+				sRay->o = sShadingData->vPos + RAY_EPSILON * vReflDir;
+				sRay->d = normalize(GetHemisphereSample(vReflDir, 256.f, sRNG));
+				sRay->mint = 0.f;
+				sRay->maxt = 10000.f;
+				return true;
+			}
+			return false;
 		}
 	}
 }
@@ -665,7 +669,7 @@ float4 EvaluateMaterial(SceneData* sSceneData, MaterialRep* sMaterialRep, Shadin
 	case BSDF_TYPE_SPECULAR:
 		{
 			float3 vReflDir = normalize(-vWi + 2.f*dot(vWi, sShadingData->vNormal) * sShadingData->vNormal);
-			return vRadiance * sMaterialRep->vKs * pow(max(0.f, dot(vReflDir, vWo)), 1024.f);
+			return vRadiance * sMaterialRep->vKs * pow(max(0.f, dot(vReflDir, vWo)), 256.f);
 		}
 	}
 }
@@ -779,15 +783,12 @@ float4 TraceRay(
 
 	while(iNumPoolItems > 1)
 	{
-		float fDirectWeight = 0.3f;
-		sPath[iNumPoolItems - 2].vRadiance *= fDirectWeight;
-
 		MaterialRep sMaterial;
 		sMaterial = GetMaterial(sPath[iNumPoolItems - 2].uMaterialIdx, sSceneData, sRNG);
 		ShadingData sShadingData = sPath[iNumPoolItems - 2].sShadingData;
 
 		/// TODO: add NdotL term
-		sPath[iNumPoolItems - 2].vRadiance += EvaluateMaterial(sSceneData, &sMaterial, &sShadingData, sPath[iNumPoolItems - 1].vIncidentDir, -sPath[iNumPoolItems - 2].vIncidentDir,  sPath[iNumPoolItems - 1].vRadiance * (1.f - fDirectWeight));
+		sPath[iNumPoolItems - 2].vRadiance += EvaluateMaterial(sSceneData, &sMaterial, &sShadingData, sPath[iNumPoolItems - 1].vIncidentDir, -sPath[iNumPoolItems - 2].vIncidentDir,  sPath[iNumPoolItems - 1].vRadiance);
 
 		--(iNumPoolItems);
 	}

@@ -25,8 +25,8 @@ TestScene::TestScene()
 {
     // Add monkey w/ diffuse material
     {
-        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/monkey.objm");
-        mesh_ptr->Rescale(0.5f);
+        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/sphere.obj");
+        mesh_ptr->Rescale(2.5f);
         Mesh::Vertex const* vertexData = mesh_ptr->GetVertexArrayPtr();
         unsigned const* indexData = mesh_ptr->GetIndexArrayPtr();
         
@@ -51,27 +51,27 @@ TestScene::TestScene()
     // Add plane w/ diffuse material
     Vertex v;
     
-    v.position = vector3(-500, -2, -500);
+    v.position = vector3(-500, -3, -500);
     v.normal   = vector3(0, 1, 0);
     v.texcoord = vector2(0, 0);
     
     vertices_.push_back(v);
     
-    v.position = vector3(500, -2, -500);
+    v.position = vector3(500, -3, -500);
     v.normal   = vector3(0, 1, 0);
-    v.texcoord = vector2(50, 0);
+    v.texcoord = vector2(25, 0);
     
     vertices_.push_back(v);
     
-    v.position = vector3(500, -2,  500);
+    v.position = vector3(500, -3,  500);
     v.normal   = vector3(0, 1, 0);
-    v.texcoord = vector2(50, 50);
+    v.texcoord = vector2(25, 25);
     
     vertices_.push_back(v);
     
-    v.position = vector3(-500, -2,  500);
+    v.position = vector3(-500, -3,  500);
     v.normal   = vector3(0, 1, 0);
-    v.texcoord = vector2(0, 50);
+    v.texcoord = vector2(0, 25);
     
     vertices_.push_back(v);
     

@@ -229,7 +229,7 @@ void OCLRender::Init(unsigned width, unsigned height)
     
     DevPointLight light;
     light.vPos.s[0] = -1.f;
-    light.vPos.s[1] = 3.f;
+    light.vPos.s[1] = 9.f;
     light.vPos.s[2] = 1.f;
     light.vPos.s[3] = 0.f;
 
@@ -275,7 +275,7 @@ void OCLRender::Init(unsigned width, unsigned height)
 	materialRep.eBsdf = 2;
 	materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0;
 	materialRep.vKs.s[0] = 0.9; materialRep.vKs.s[1] = 0.9;
-	materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.9;
+	materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.1;
 	materials.push_back(materialRep);
 
 	materialRep.eBsdf = 1;
@@ -315,10 +315,10 @@ void OCLRender::Commit()
     configData_.uNumRandomNumbers = RANDOM_BUFFER_SIZE;
     configData_.uFrameCount = frameCount_;
     
-    configData_.vBackgroundColor.s[0] = 0.9f;
-    configData_.vBackgroundColor.s[1] = 0.9f;
-    configData_.vBackgroundColor.s[2] = 0.9f;
-    configData_.vBackgroundColor.s[3] = 0.9f;
+    configData_.vBackgroundColor.s[0] = 1.0f;
+    configData_.vBackgroundColor.s[1] = 1.0f;
+    configData_.vBackgroundColor.s[2] = 1.0f;
+    configData_.vBackgroundColor.s[3] = 1.0f;
 
 	CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, configBuffer_, CL_FALSE, 0, sizeof(configData_), &configData_, 0, nullptr, nullptr), "Cannot update param buffer");
     

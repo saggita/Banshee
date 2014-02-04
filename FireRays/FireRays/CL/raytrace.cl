@@ -25,9 +25,11 @@ DEFINES
 
 #define MATERIAL1 0
 #define MATERIAL2 1
+#define MATERIAL3 2
 
 #define BSDF_TYPE_LAMBERT  1
 #define BSDF_TYPE_SPECULAR 2
+#define BSDF_TYPE_EMISSIVE 3
 
 #define NULL 0
 #define DEFAULT_DEPTH 10000.f;
@@ -37,7 +39,7 @@ DEFINES
 //#define  AO_ENABLE
 #define  AO_SAMPLES 1
 #define  AO_RADIUS  0.1f
-#define  AO_MIN    0.3f
+#define  AO_MIN     0.2f
 
 /*************************************************************************
 TYPE DEFINITIONS
@@ -80,6 +82,7 @@ typedef struct _Config
 	uint uOutputHeight;
 
 	uint uNumPointLights;
+	uint uNumAreaLights;
 	uint uNumRandomNumbers;
 	uint uFrameCount;
     uint uTextureCount;
@@ -138,6 +141,7 @@ typedef struct {
 
 typedef struct
 {
+	float4 vKe;
 	float4 vKd;
 	float4 vKs;
 	uint eBsdf;
@@ -164,26 +168,8 @@ typedef struct {
 	__global MaterialRep*	sMaterials;
     __global TextureDesc*   sTextureDesc;
     __global float4*        vTextures;
+	__global uint*          uAreaLights;
 } SceneData;
-
-float4 tex2d(SceneData* sSceneData, uint texIdx, float2 uv)
-{
-    uv.x -= floor(uv.x);
-    uv.y -= floor(uv.y);
-    
-    TextureDesc desc = sSceneData->sTextureDesc[texIdx];
-    
-    __global float4* vTextureData = sSceneData->vTextures + desc.uPoolOffset;
-    
-    uint x = floor(uv.x * desc.uWidth - 0.5);
-    uint y = floor(uv.y * desc.uHeight - 0.5);
-    
-    x = x % desc.uWidth;
-    y = y % desc.uHeight;
-    
-    return vTextureData[y * desc.uWidth + x];
-}
-
 
 /*************************************************************************
 HELPER FUNCTIONS
@@ -271,6 +257,24 @@ float3 make_float3(float x, float y, float z)
 	res.y = y;
 	res.z = z;
 	return res;
+}
+
+float4 tex2d(SceneData* sSceneData, uint texIdx, float2 uv)
+{
+    uv.x -= floor(uv.x);
+    uv.y -= floor(uv.y);
+    
+    TextureDesc desc = sSceneData->sTextureDesc[texIdx];
+    
+    __global float4* vTextureData = sSceneData->vTextures + desc.uPoolOffset;
+    
+    uint x = floor(uv.x * desc.uWidth - 0.5);
+    uint y = floor(uv.y * desc.uHeight - 0.5);
+    
+    x = x % desc.uWidth;
+    y = y % desc.uHeight;
+    
+    return vTextureData[y * desc.uWidth + x];
 }
 
 // Intersect Ray against triangle
@@ -376,8 +380,8 @@ bool IntersectLeaf(__global Vertex* vertices, __global uint4* indices, uint idx,
 			shadingData->vNormal = normalize((1.f - a - b) * n1.xyz + a * n2.xyz + b * n3.xyz);
             shadingData->vTex = (1.f - a - b) * t1.xy + a * t2.xy + b * t3.xy;
             
-			if (dot(-r->d, shadingData->vNormal) < 0)
-				shadingData->vNormal = - shadingData->vNormal;
+			//if (dot(-r->d, shadingData->vNormal) < 0)
+				//shadingData->vNormal = - shadingData->vNormal;
 
 			shadingData->uMaterialIdx = triangle.w;
 		}
@@ -387,6 +391,27 @@ bool IntersectLeaf(__global Vertex* vertices, __global uint4* indices, uint idx,
 
 	return hit;
 }
+
+// sample triangle
+void SampleTriangleUniform(__global Vertex* sVertices, __global uint4* uIndices, uint uIdx, RNG* sRNG, float3* vPoint, float3* vNormal, float* fPDF)
+{
+	float a = RandFloat(sRNG);
+	float b = RandFloat(sRNG);
+
+	uint4 vTriangle = uIndices[uIdx];
+
+	float4 v1 = sVertices[vTriangle.x].vPos;
+	float4 v2 = sVertices[vTriangle.y].vPos;
+	float4 v3 = sVertices[vTriangle.z].vPos;
+
+	float4 n1 = sVertices[vTriangle.x].vNormal;
+	float4 n2 = sVertices[vTriangle.y].vNormal;
+	float4 n3 = sVertices[vTriangle.z].vNormal;
+
+	*vPoint = (1.f - sqrt(a)) * v1.xyz + sqrt(a) * (1.f - b) * v2.xyz + sqrt(a) * b * v3.xyz;
+	*vNormal = normalize((1.f - sqrt(a)) * n1.xyz + sqrt(a) * (1.f - b) * n2.xyz + sqrt(a) * b * n3.xyz);
+	*fPDF = length(cross((v3-v1), (v3-v2))) * 0.5f;
+};
 
 
 #define NODE_STACK_PUSH(val) *stack_ptr++ = (val)
@@ -579,7 +604,7 @@ bool TraverseBVHStackless(__global BVHNode* nodes, __global Vertex* vertices, __
 
 float3 GetHemisphereSample(float3 vNormal, float e, RNG* sRNG)
 {
-	float3 vU = normalize(make_float3(-vNormal.z - 0.1, vNormal.y - vNormal.x + vNormal.z + 0.11, vNormal.x + 0.32));
+	float3 vU = normalize(make_float3(0, 0.9976, 0));
 	float3 vV = cross(vU, vNormal);
 	vU = cross(vNormal, vV);
 
@@ -626,11 +651,17 @@ MaterialRep GetMaterial(uint uMaterialIdx, SceneData* sSceneData, RNG* sRNG)
 	return sSceneData->sMaterials[uMaterialIdx];
 }
 
+bool IsEmissive(MaterialRep* sMaterial)
+{
+	return length(sMaterial->vKe) > 0.0;
+}
+
 bool SampleMaterial(MaterialRep* sMaterialRep, ShadingData* sShadingData, float3 vWo, RNG* sRNG, Ray* sRay)
 {
 	switch (sMaterialRep->eBsdf)
 	{
 	case BSDF_TYPE_LAMBERT:
+	case BSDF_TYPE_EMISSIVE:
 		{
 			//float fPhi = ((float) RandFloat(sRNG)) * 6.28f;
 			//float fPsi = ((float) RandFloat(sRNG)) * 1.71f;
@@ -671,6 +702,10 @@ float4 EvaluateMaterial(SceneData* sSceneData, MaterialRep* sMaterialRep, Shadin
 			float3 vReflDir = normalize(-vWi + 2.f*dot(vWi, sShadingData->vNormal) * sShadingData->vNormal);
 			return vRadiance * sMaterialRep->vKs * pow(max(0.f, dot(vReflDir, vWo)), 256.f);
 		}
+	case BSDF_TYPE_EMISSIVE:
+		{
+			return sMaterialRep->vKe;
+		}
 	}
 }
 
@@ -686,7 +721,9 @@ float4 SampleDirectIllumination(
 	)
 {
 	float4 vRes = make_float4(0, 0, 0, 0);
-	
+
+	if (!IsEmissive(sMaterialRep))
+	{
 #ifdef AO_ENABLE
 		float fOcclusion = EstimateOcclusion(sSceneData, sShadingData, sRNG, AO_RADIUS);
 		float fMinAmount = AO_MIN;
@@ -695,29 +732,75 @@ float4 SampleDirectIllumination(
 		float fMinAmount = 0.f;
 #endif
 
-	for (uint i=0;i<sSceneData->sParams->uNumPointLights;++i)
-	{
-		float3 vLight = normalize(sSceneData->sPointLights[i].vPos.xyz - sShadingData->vPos);
+//		for (uint i=0;i<sSceneData->sParams->uNumPointLights;++i)
+//		{
+//			float3 vLight = normalize(sSceneData->sPointLights[i].vPos.xyz - sShadingData->vPos);
+//
+//			Ray sRay;
+//			sRay.o = sShadingData->vPos + RAY_EPSILON * vLight;
+//			sRay.d = vLight;
+//			sRay.maxt = length(sSceneData->sPointLights[i].vPos.xyz - sShadingData->vPos);
+//			sRay.mint = 0.f;
+//
+//			ShadingData sTempData;
+//
+//			float fNdotL = dot(sShadingData->vNormal, vLight);
+//
+//			if (fNdotL > 0)
+//			{
+//				float fShadow = TraverseBVHStacked(
+//#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
+//					iThreadStack,
+//#endif
+//					sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
+//				float4 vDirectContribution = fNdotL * EvaluateMaterial(sSceneData, sMaterialRep, sShadingData, vLight, vWo, sSceneData->sPointLights[i].vColor);
+//				vRes += (fShadow * vDirectContribution) * (1.f - fOcclusion) + vDirectContribution * AO_MIN;
+//			}
+//		}
 
-		Ray sRay;
-		sRay.o = sShadingData->vPos + RAY_EPSILON * vLight;
-		sRay.d = vLight;
-		sRay.maxt = length(sSceneData->sPointLights[i].vPos.xyz - sShadingData->vPos);
-		sRay.mint = 0.f;
-
-		ShadingData sTempData;
-		
-		float fNdotL = dot(sShadingData->vNormal, vLight);
-
-		if (fNdotL > 0)
+		for (uint i=0;i<sSceneData->sParams->uNumAreaLights;++i)
 		{
-			float fShadow = TraverseBVHStacked(
+			float3 vLightSample, vLightNormal;
+			float fPDF;
+			SampleTriangleUniform(sSceneData->sVertices, sSceneData->sIndices, sSceneData->uAreaLights[i], sRNG, &vLightSample, &vLightNormal, &fPDF);
+
+			float3 vLight = normalize(vLightSample - sShadingData->vPos);
+			float  fDist = length(vLightSample - sShadingData->vPos);
+
+			Ray sRay;
+			sRay.o = sShadingData->vPos + RAY_EPSILON * vLight;
+			sRay.d = vLight;
+			sRay.maxt = (1.f - RAY_EPSILON) * fDist;
+			sRay.mint = 0.f;
+
+			ShadingData sTempData;
+
+			float fNdotL = dot(sShadingData->vNormal, vLight);
+			float fNdotWo = dot(vLightNormal, -vLight);
+
+			if (fNdotL > 0)
+			{
+				float fShadow = TraverseBVHStacked(
 #if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
-				iThreadStack,
+					iThreadStack,
 #endif
-				sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
-			float4 vDirectContribution = fNdotL * EvaluateMaterial(sSceneData, sMaterialRep, sShadingData, vLight, vWo, sSceneData->sPointLights[i].vColor);
-			vRes += (fShadow * vDirectContribution) * (1.f - fOcclusion) + vDirectContribution * AO_MIN;
+					sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
+
+				float4 vDirectContribution = fNdotL * EvaluateMaterial(sSceneData, sMaterialRep, sShadingData, vLight, vWo, GetMaterial(MATERIAL3, sSceneData, sRNG).vKe) *
+					fNdotWo * GetMaterial(MATERIAL3, sSceneData, sRNG).vKe / (fDist * fDist * fPDF);
+				vRes += (fShadow * vDirectContribution) * (1.f - fOcclusion) + vDirectContribution * AO_MIN;
+			}
+		}
+
+
+
+	}
+	else
+	{
+		float fNdotWo = dot(sShadingData->vNormal, vWo);
+		if (fNdotWo > 0)
+		{
+			vRes = sMaterialRep->vKe * fNdotWo;
 		}
 	}
 
@@ -810,6 +893,7 @@ __kernel void TraceDepth(
 	__global float4*       intermediateBuffer,
     __global TextureDesc*  textureDescBuffer,
     __global float4*       textureBuffer,
+	__global uint*         areaLights,
 	__write_only image2d_t output
 	)
 {
@@ -846,7 +930,7 @@ __kernel void TraceDepth(
 		int yc = globalId.y - (height >> 1);
 
 		float4 res = make_float4(0,0,0,0);
-		RNG sRNG = CreateRNG((get_global_id(0) + 1553) * (get_global_id(1) + 1773) * (params->uFrameCount + 1563));
+		RNG sRNG = CreateRNG((get_global_id(0) + 133) * (get_global_id(1) + 17) * (params->uFrameCount + 57));
 
 		for (int i = 0; i < NUM_SAMPLES; ++i)
 			for (int j = 0; j < NUM_SAMPLES; ++j)
@@ -874,6 +958,7 @@ __kernel void TraceDepth(
 				sSceneData.sMaterials   = materials;
                 sSceneData.sTextureDesc = textureDescBuffer;
                 sSceneData.vTextures    = textureBuffer;
+				sSceneData.uAreaLights  = areaLights;
 
 				res += TraceRay(&sSceneData, &sRNG, &rr, thisThreadPool
 #if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)

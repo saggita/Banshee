@@ -53,6 +53,7 @@ SimpleScene::SimpleScene(std::shared_ptr<Mesh> mesh_ptr)
 	{
 		vertices_[i] = MeshVertexToSceneVertex(vertexData[i]);
 	}
+
 	std::copy(indexData, indexData + mesh_ptr->GetIndexCount(), indices_.begin());
     std::fill(materials_.begin(), materials_.end(), 0);
 }

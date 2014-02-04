@@ -23,7 +23,7 @@ static SceneBase::Vertex MeshVertexToSceneVertex(Mesh::Vertex const& v)
 
 TestScene::TestScene()
 {
-    // Add monkey w/ diffuse material
+    // Add monkey w/ glossy material
     {
         std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/sphere.objm");
         mesh_ptr->Rescale(2.5f);
@@ -47,7 +47,7 @@ TestScene::TestScene()
     }
     
     unsigned startIdx = vertices_.size();
-    
+
     // Add plane w/ diffuse material
     Vertex v;
     
@@ -85,6 +85,42 @@ TestScene::TestScene()
     
     materials_.push_back(1);
     materials_.push_back(1);
+
+	startIdx = vertices_.size();
+
+	v.position = vector3(-1, 8, -1);
+    v.normal   = vector3(0, -1, 0);
+    v.texcoord = vector2(0, 0);
+    
+    vertices_.push_back(v);
+    
+    v.position = vector3(1, 8, -1);
+    v.normal   = vector3(0, -1, 0);
+    v.texcoord = vector2(1, 0);
+    
+    vertices_.push_back(v);
+    
+    v.position = vector3(1, 8,  1);
+    v.normal   = vector3(0, -1, 0);
+    v.texcoord = vector2(1, 1);
+    
+    vertices_.push_back(v);
+    
+    v.position = vector3(-1, 8,  1);
+    v.normal   = vector3(0, -1, 0);
+    v.texcoord = vector2(0, 1);
+    
+    vertices_.push_back(v);
+
+	indices_.push_back(startIdx);
+    indices_.push_back(startIdx + 1);
+    indices_.push_back(startIdx + 3);
+    indices_.push_back(startIdx + 3);
+    indices_.push_back(startIdx + 1);
+    indices_.push_back(startIdx + 2);
+
+	materials_.push_back(2);
+	materials_.push_back(2);
 }
 
 TestScene::~TestScene()

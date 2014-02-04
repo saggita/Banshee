@@ -192,7 +192,7 @@ void Update()
 		gRender->FlushFrame();
 	}
 
-	const float kMovementSpeed = 0.01f;
+	const float kMovementSpeed = 0.005f;
 	if (gIsFwdPressed)
 	{
 		gCamera->MoveForward((float)deltaTime.count() * kMovementSpeed);

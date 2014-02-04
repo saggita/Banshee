@@ -62,6 +62,7 @@ private:
 		cl_uint uOutputHeight;
 
 		cl_uint uNumPointLights;
+		cl_uint uNumAreaLights;
 		cl_uint uNumRandomNumbers;
 		cl_uint uFrameCount;
         cl_uint uTextureCount;
@@ -120,6 +121,7 @@ private:
 
 	struct  __declspec(align(16)) DevMaterialRep
 	{
+		cl_float4 vKe;
 		cl_float4 vKd;
 		cl_float4 vKs;
 		cl_uint   eBsdf;
@@ -153,6 +155,7 @@ private:
 	cl_mem		materialBuffer_;
     cl_mem      textureBuffer_;
     cl_mem      textureDescBuffer_;
+	cl_mem      areaLightsBuffer_;
 
 	GLuint		glDepthTexture_;
 

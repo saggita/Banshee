@@ -27,6 +27,7 @@
 #define MAX_PATH_LENGTH 3
 #define TEXTURE_BUFFER_SIZE 134217728
 #define MAX_TEXTURE_HANDLES 100
+#define MAX_AREA_LIGHTS 100
 
 GLuint OCLRender::GetOutputTexture() const
 {
@@ -117,7 +118,7 @@ void OCLRender::Init(unsigned width, unsigned height)
 #ifdef __APPLE__
      = "-D OCLAPPLE";
 #elif WIN32
-    = "-D OCLWIN32";
+    = "";
 #else
     = "";
 #endif
@@ -165,8 +166,9 @@ void OCLRender::Init(unsigned width, unsigned height)
 	CHECK_ERROR(status, "Cannot create vertex buffer");
 	
 	std::vector<cl_uint4> triangles;
+	std::vector<cl_uint>  areaLights;
 	
-	std::for_each(accel_->GetPrimitives().cbegin(), accel_->GetPrimitives().cend(), [&triangles](BVHAccelerator::Triangle const& t)
+	std::for_each(accel_->GetPrimitives().cbegin(), accel_->GetPrimitives().cend(), [&triangles, &areaLights](BVHAccelerator::Triangle const& t)
 				  {
 					  cl_uint4 val;
 
@@ -176,6 +178,9 @@ void OCLRender::Init(unsigned width, unsigned height)
                       val.s[3] = t.m;
 
 					  triangles.push_back(val);
+
+					  if (t.m == 2)
+						  areaLights.push_back(triangles.size() - 1);
 				  });
 	
 	indexBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint4) * triangles.size(), (void*)&triangles[0], &status);
@@ -228,9 +233,9 @@ void OCLRender::Init(unsigned width, unsigned height)
     std::vector<DevPointLight> pointLights;
     
     DevPointLight light;
-    light.vPos.s[0] = -1.f;
+    light.vPos.s[0] = 0.f;
     light.vPos.s[1] = 9.f;
-    light.vPos.s[2] = 1.f;
+    light.vPos.s[2] = 0.f;
     light.vPos.s[3] = 0.f;
 
     light.vColor.s[0] = 2.7f;
@@ -273,17 +278,25 @@ void OCLRender::Init(unsigned width, unsigned height)
 	DevMaterialRep materialRep;
 
 	materialRep.eBsdf = 2;
+	materialRep.vKe.s[0] = materialRep.vKe.s[1] = materialRep.vKe.s[2] = materialRep.vKe.s[3] = 0;
 	materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0;
-	materialRep.vKs.s[0] = 0.9; materialRep.vKs.s[1] = 0.9;
-	materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.1;
+	materialRep.vKs.s[0] = 0.8; materialRep.vKs.s[1] = 0.8;
+	materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.0;
 	materials.push_back(materialRep);
 
 	materialRep.eBsdf = 1;
+	materialRep.vKe.s[0] = materialRep.vKe.s[1] = materialRep.vKe.s[2] = materialRep.vKe.s[3] = 0;
 	materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0.6;
 	materialRep.vKs.s[0] = materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.0;
 	materials.push_back(materialRep);
 
-	materialBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevMaterialRep) * 2, (void*)&materials[0], &status);
+	materialRep.eBsdf = 3;
+	materialRep.vKe.s[0] = materialRep.vKe.s[1] = materialRep.vKe.s[2] = materialRep.vKe.s[3] = 20.5;
+	materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0.0;
+	materialRep.vKs.s[0] = materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.0;
+	materials.push_back(materialRep);
+
+	materialBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevMaterialRep) * 3, (void*)&materials[0], &status);
 	CHECK_ERROR(status, "Cannot create material buffer");
     
     textureBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(cl_float) * TEXTURE_BUFFER_SIZE, nullptr, &status);
@@ -291,6 +304,11 @@ void OCLRender::Init(unsigned width, unsigned height)
     
     textureDescBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(DevTextureDesc) * MAX_TEXTURE_HANDLES, nullptr, &status);
 	CHECK_ERROR(status, "Cannot create texture handles buffer");
+
+	areaLightsBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint) * MAX_AREA_LIGHTS, &areaLights[0], &status);
+	CHECK_ERROR(status, "Cannot create area lights buffer");
+
+
 }
 
 void OCLRender::Commit()
@@ -312,13 +330,16 @@ void OCLRender::Commit()
 	configData_.fCameraNearZ = GetCamera()->GetNearZ();
 	configData_.fCameraPixelSize = GetCamera()->GetPixelSize();
     configData_.uNumPointLights = 1;
+	configData_.uNumAreaLights = 0;
     configData_.uNumRandomNumbers = RANDOM_BUFFER_SIZE;
     configData_.uFrameCount = frameCount_;
     
-    configData_.vBackgroundColor.s[0] = 1.0f;
-    configData_.vBackgroundColor.s[1] = 1.0f;
-    configData_.vBackgroundColor.s[2] = 1.0f;
-    configData_.vBackgroundColor.s[3] = 1.0f;
+    configData_.vBackgroundColor.s[0] = 0.0f;
+    configData_.vBackgroundColor.s[1] = 0.0f;
+    configData_.vBackgroundColor.s[2] = 0.0f;
+    configData_.vBackgroundColor.s[3] = 0.0f;
+
+	configData_.uNumAreaLights = 2;
 
 	CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, configBuffer_, CL_FALSE, 0, sizeof(configData_), &configData_, 0, nullptr, nullptr), "Cannot update param buffer");
     
@@ -333,6 +354,7 @@ OCLRender::~OCLRender()
 {
 	/// TODO: implement RAII for CL objects
 	glDeleteTextures(1, &glDepthTexture_);
+	clReleaseMemObject(areaLightsBuffer_);
     clReleaseMemObject(textureBuffer_);
     clReleaseMemObject(textureDescBuffer_);
 	clReleaseMemObject(materialBuffer_);
@@ -388,7 +410,8 @@ void OCLRender::Render()
 	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 8, sizeof(cl_mem), &intermediateBuffer_), "SetKernelArg failed");
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 9, sizeof(cl_mem), &textureDescBuffer_), "SetKernelArg failed");
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 10, sizeof(cl_mem), &textureBuffer_), "SetKernelArg failed");
-	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 11, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
+	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 11, sizeof(cl_mem), &areaLightsBuffer_), "SetKernelArg failed");
+	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 12, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
 	//CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 5, sizeof(cl_int) * localWorkSize[0] * localWorkSize[1] * 64, nullptr), "SetKernelArg failed");
 
 	cl_int status = clEnqueueNDRangeKernel(commandQueue_, traceDepthKernel_, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, &kernelExecutionEvent);

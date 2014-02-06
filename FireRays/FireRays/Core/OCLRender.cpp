@@ -290,7 +290,7 @@ void OCLRender::Init(unsigned width, unsigned height)
 	materials.push_back(materialRep);
 
 	materialRep.eBsdf = 3;
-	materialRep.vKe.s[0] = materialRep.vKe.s[1] = materialRep.vKe.s[2] = materialRep.vKe.s[3] = 20.5;
+	materialRep.vKe.s[0] = materialRep.vKe.s[1] = materialRep.vKe.s[2] = materialRep.vKe.s[3] = 15.5;
 	materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0.0;
 	materialRep.vKs.s[0] = materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.0;
 	materials.push_back(materialRep);

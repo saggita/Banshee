@@ -114,25 +114,25 @@ TestScene::TestScene()
 
 	startIdx = vertices_.size();
 
-	v.position = vector3(2, 8, -1);
+	v.position = vector3(2, 6, -1);
     v.normal   = vector3(0, -1, 0);
     v.texcoord = vector2(0, 0);
     
     vertices_.push_back(v);
     
-    v.position = vector3(4, 8, -1);
+    v.position = vector3(4, 6, -1);
     v.normal   = vector3(0, -1, 0);
     v.texcoord = vector2(1, 0);
     
     vertices_.push_back(v);
     
-    v.position = vector3(4, 8,  1);
+    v.position = vector3(4, 6,  1);
     v.normal   = vector3(0, -1, 0);
     v.texcoord = vector2(1, 1);
     
     vertices_.push_back(v);
     
-    v.position = vector3(2, 8,  1);
+    v.position = vector3(2, 6,  1);
     v.normal   = vector3(0, -1, 0);
     v.texcoord = vector2(0, 1);
     

@@ -48,6 +48,33 @@ TestScene::TestScene()
     
     unsigned startIdx = vertices_.size();
 
+	    // Add monkey w/ glossy material
+    {
+        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/sphere.objm");
+        mesh_ptr->Rescale(2.5f);
+        Mesh::Vertex const* vertexData = mesh_ptr->GetVertexArrayPtr();
+        unsigned const* indexData = mesh_ptr->GetIndexArrayPtr();
+        
+    
+        for (int v = 0; v < mesh_ptr->GetVertexCount(); ++v)
+        {
+            vertices_.push_back(MeshVertexToSceneVertex(vertexData[v]));
+			vertices_[vertices_.size() - 1].position += vector3(6, 0, 0);
+        }
+        
+        for (int idx = 0; idx < mesh_ptr->GetIndexCount(); ++idx)
+        {
+            indices_.push_back(startIdx + indexData[idx]);
+        }
+        
+        unsigned material = 1;
+        for (int idx = 0; idx < mesh_ptr->GetIndexCount()/3; ++idx)
+            materials_.push_back(material);
+    }
+
+
+	startIdx = vertices_.size();
+
     // Add plane w/ diffuse material
     Vertex v;
     
@@ -81,32 +108,31 @@ TestScene::TestScene()
     indices_.push_back(startIdx + 3);
     indices_.push_back(startIdx + 1);
     indices_.push_back(startIdx + 2);
-    
-    
+
     materials_.push_back(1);
     materials_.push_back(1);
 
 	startIdx = vertices_.size();
 
-	v.position = vector3(-1, 8, -1);
+	v.position = vector3(2, 8, -1);
     v.normal   = vector3(0, -1, 0);
     v.texcoord = vector2(0, 0);
     
     vertices_.push_back(v);
     
-    v.position = vector3(1, 8, -1);
+    v.position = vector3(4, 8, -1);
     v.normal   = vector3(0, -1, 0);
     v.texcoord = vector2(1, 0);
     
     vertices_.push_back(v);
     
-    v.position = vector3(1, 8,  1);
+    v.position = vector3(4, 8,  1);
     v.normal   = vector3(0, -1, 0);
     v.texcoord = vector2(1, 1);
     
     vertices_.push_back(v);
     
-    v.position = vector3(-1, 8,  1);
+    v.position = vector3(2, 8,  1);
     v.normal   = vector3(0, -1, 0);
     v.texcoord = vector2(0, 1);
     

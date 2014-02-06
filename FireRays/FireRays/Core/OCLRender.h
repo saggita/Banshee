@@ -27,7 +27,6 @@
 #include "CommonTypes.h"
 #include "BVHAccelerator.h"
 
-
 class TextureBase;
 class OCLRender : public RenderBase
 {

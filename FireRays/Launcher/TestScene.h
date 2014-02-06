@@ -28,7 +28,7 @@ public:
     std::vector<unsigned int> const& GetMaterials() const;
 	
 private:
-    
+
 	std::vector<Vertex> vertices_;
 	std::vector<unsigned int> indices_;
     std::vector<unsigned int> materials_;

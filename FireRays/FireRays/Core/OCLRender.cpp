@@ -24,7 +24,7 @@
 
 #define MAX_BOUNDS 1000
 #define RANDOM_BUFFER_SIZE 1000
-#define MAX_PATH_LENGTH 3
+#define MAX_PATH_LENGTH 4
 #define TEXTURE_BUFFER_SIZE 134217728
 #define MAX_TEXTURE_HANDLES 100
 #define MAX_AREA_LIGHTS 100
@@ -280,8 +280,7 @@ void OCLRender::Init(unsigned width, unsigned height)
 	materialRep.eBsdf = 2;
 	materialRep.vKe.s[0] = materialRep.vKe.s[1] = materialRep.vKe.s[2] = materialRep.vKe.s[3] = 0;
 	materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0;
-	materialRep.vKs.s[0] = 0.8; materialRep.vKs.s[1] = 0.8;
-	materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.0;
+	materialRep.vKs.s[0] = materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.8;
 	materials.push_back(materialRep);
 
 	materialRep.eBsdf = 1;
@@ -330,14 +329,13 @@ void OCLRender::Commit()
 	configData_.fCameraNearZ = GetCamera()->GetNearZ();
 	configData_.fCameraPixelSize = GetCamera()->GetPixelSize();
     configData_.uNumPointLights = 1;
-	configData_.uNumAreaLights = 0;
     configData_.uNumRandomNumbers = RANDOM_BUFFER_SIZE;
     configData_.uFrameCount = frameCount_;
     
-    configData_.vBackgroundColor.s[0] = 0.0f;
-    configData_.vBackgroundColor.s[1] = 0.0f;
-    configData_.vBackgroundColor.s[2] = 0.0f;
-    configData_.vBackgroundColor.s[3] = 0.0f;
+    configData_.vBackgroundColor.s[0] = 0.2f;
+    configData_.vBackgroundColor.s[1] = 0.2f;
+    configData_.vBackgroundColor.s[2] = 0.3f;
+    configData_.vBackgroundColor.s[3] = 1.0f;
 
 	configData_.uNumAreaLights = 2;
 

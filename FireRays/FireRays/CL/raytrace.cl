@@ -17,8 +17,8 @@ DEFINES
 //#define TRAVERSAL_STACKLESS
 #define TRAVERSAL_STACKED
 //#define LOCAL_STACK
-#define NODE_STACK_SIZE 32
-#define MAX_PATH_LENGTH 3
+#define NODE_STACK_SIZE 40
+#define MAX_PATH_LENGTH 2
 
 #define RAY_EPSILON 0.01f
 #define NUM_SAMPLES 1.f
@@ -380,8 +380,8 @@ bool IntersectLeaf(__global Vertex* vertices, __global uint4* indices, uint idx,
 			shadingData->vNormal = normalize((1.f - a - b) * n1.xyz + a * n2.xyz + b * n3.xyz);
             shadingData->vTex = (1.f - a - b) * t1.xy + a * t2.xy + b * t3.xy;
             
-			//if (dot(-r->d, shadingData->vNormal) < 0)
-				//shadingData->vNormal = - shadingData->vNormal;
+			if (dot(-r->d, shadingData->vNormal) < 0)
+				shadingData->vNormal = - shadingData->vNormal;
 
 			shadingData->uMaterialIdx = triangle.w;
 		}
@@ -602,9 +602,32 @@ bool TraverseBVHStackless(__global BVHNode* nodes, __global Vertex* vertices, __
 
 }
 
+float myabs(float v)
+{
+	return v < 0 ? -v : v;
+}
+
+float3 GetOrthoVector(float3 n)
+{
+	float3 p;
+	if (myabs(n.z) > 0.707106781186547524401f) {
+        // choose p in y-z plane
+        float k = sqrt(n.y*n.y + n.z*n.z);
+        p.x = 0; p.y = -n.z/k; p.z = n.y/k;
+    }
+    else {
+        // choose p in x-y plane
+        float k = sqrt(n.x*n.x + n.y*n.y);
+        p.x = -n.y/k; p.y = n.x/k; p.z = 0;
+    }
+
+	return p;
+}
+
 float3 GetHemisphereSample(float3 vNormal, float e, RNG* sRNG)
 {
-	float3 vU = normalize(make_float3(0, 0.9976, 0));
+	float3 vU = GetOrthoVector(vNormal);
+
 	float3 vV = cross(vU, vNormal);
 	vU = cross(vNormal, vV);
 
@@ -660,14 +683,18 @@ bool SampleMaterial(MaterialRep* sMaterialRep, ShadingData* sShadingData, float3
 {
 	switch (sMaterialRep->eBsdf)
 	{
-	case BSDF_TYPE_LAMBERT:
 	case BSDF_TYPE_EMISSIVE:
 		{
-			//float fPhi = ((float) RandFloat(sRNG)) * 6.28f;
-			//float fPsi = ((float) RandFloat(sRNG)) * 1.71f;
-			//float3 vDir = make_float3(sin(fPhi)*sin(fPsi), cos(fPhi)*sin(fPsi), cos(fPsi));
-
 			return false;
+		}
+
+	case BSDF_TYPE_LAMBERT:
+		{
+			sRay->d = GetHemisphereSample(sShadingData->vNormal, 1.f, sRNG);
+			sRay->o = sShadingData->vPos + RAY_EPSILON * sRay->d;
+			sRay->maxt = 10000.f;
+			sRay->mint = 0.f;
+			return true;
 		}
 
 	case BSDF_TYPE_SPECULAR:
@@ -682,7 +709,6 @@ bool SampleMaterial(MaterialRep* sMaterialRep, ShadingData* sShadingData, float3
 				sRay->maxt = 10000.f;
 				return true;
 			}
-			return false;
 		}
 	}
 }
@@ -758,6 +784,8 @@ float4 SampleDirectIllumination(
 //			}
 //		}
 
+		float fW = 1.f / (sSceneData->sParams->uNumAreaLights + 1);
+
 		for (uint i=0;i<sSceneData->sParams->uNumAreaLights;++i)
 		{
 			float3 vLightSample, vLightNormal;
@@ -788,12 +816,29 @@ float4 SampleDirectIllumination(
 
 				float4 vDirectContribution = fNdotL * EvaluateMaterial(sSceneData, sMaterialRep, sShadingData, vLight, vWo, GetMaterial(MATERIAL3, sSceneData, sRNG).vKe) *
 					fNdotWo * GetMaterial(MATERIAL3, sSceneData, sRNG).vKe / (fDist * fDist * fPDF);
-				vRes += (fShadow * vDirectContribution) * (1.f - fOcclusion) + vDirectContribution * AO_MIN;
+				vRes += fW * ((fShadow * vDirectContribution) * (1.f - fOcclusion) + vDirectContribution * AO_MIN);
 			}
 		}
 
+		/// Environment light sampling
+		{
+			Ray sRay;
+			sRay.d = GetHemisphereSample(sShadingData->vNormal, 1.f, sRNG);
+			sRay.o = sShadingData->vPos + RAY_EPSILON * sRay.d;
+			sRay.maxt = 10000.f;
+			sRay.mint = 0.f;
 
+			float fNdotL = dot(sShadingData->vNormal, sRay.d);
 
+			ShadingData sTempData;
+			float fShadow = TraverseBVHStacked(
+#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
+					iThreadStack,
+#endif
+					sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
+
+				vRes += fW * fShadow * fNdotL * EvaluateMaterial(sSceneData, sMaterialRep, sShadingData, sRay.d, vWo, sSceneData->sParams->vBackgroundColor);
+		}
 	}
 	else
 	{
@@ -842,6 +887,7 @@ float4 TraceRay(
 				iThreadStack,
 #endif
 				sSceneData, &sMaterial, &sShadingData, -sThisRay.d, sRNG);
+
 			++(iNumPoolItems);
 
 			if (iNumPoolItems >= MAX_PATH_LENGTH)
@@ -852,14 +898,13 @@ float4 TraceRay(
 				break;
 			}
 		}
-        
-        /// Account for the radiance coming from missing ray
-        if (!bHit && iNumPoolItems < MAX_PATH_LENGTH)
-        {
-            sPath[iNumPoolItems].vIncidentDir = sThisRay.d;
-            sPath[iNumPoolItems].vRadiance = sSceneData->sParams->vBackgroundColor;
-            ++iNumPoolItems;
-        }
+
+		if (!bHit && iNumPoolItems < MAX_PATH_LENGTH)
+		{
+			sPath[iNumPoolItems].vIncidentDir = sThisRay.d;
+			sPath[iNumPoolItems].vRadiance = sSceneData->sParams->vBackgroundColor;
+			++iNumPoolItems;
+		}
 	}
 
 	int iPathLength = iNumPoolItems;
@@ -870,8 +915,10 @@ float4 TraceRay(
 		sMaterial = GetMaterial(sPath[iNumPoolItems - 2].uMaterialIdx, sSceneData, sRNG);
 		ShadingData sShadingData = sPath[iNumPoolItems - 2].sShadingData;
 
+		float fNdotL = dot(sPath[iNumPoolItems - 1].vIncidentDir, sPath[iNumPoolItems - 2].sShadingData.vNormal);
+
 		/// TODO: add NdotL term
-		sPath[iNumPoolItems - 2].vRadiance += EvaluateMaterial(sSceneData, &sMaterial, &sShadingData, sPath[iNumPoolItems - 1].vIncidentDir, -sPath[iNumPoolItems - 2].vIncidentDir,  sPath[iNumPoolItems - 1].vRadiance);
+		sPath[iNumPoolItems - 2].vRadiance += fNdotL * EvaluateMaterial(sSceneData, &sMaterial, &sShadingData, sPath[iNumPoolItems - 1].vIncidentDir, -sPath[iNumPoolItems - 2].vIncidentDir,  sPath[iNumPoolItems - 1].vRadiance);
 
 		--(iNumPoolItems);
 	}

@@ -24,214 +24,203 @@
 
 #define MAX_BOUNDS 1000
 #define RANDOM_BUFFER_SIZE 1000
-#define MAX_PATH_LENGTH 4
-#define TEXTURE_BUFFER_SIZE 134217728
+#define MAX_PATH_LENGTH 3
+#define TEXTURE_BUFFER_SIZE (134217728 >> 2)
 #define MAX_TEXTURE_HANDLES 100
 #define MAX_AREA_LIGHTS 100
 
 GLuint OCLRender::GetOutputTexture() const
 {
-	return glDepthTexture_;
+    return glDepthTexture_;
 }
 
 OCLRender::OCLRender(cl_platform_id platform)
-	:platform_(platform)
+    :platform_(platform)
     , frameCount_(0)
 {
-	
+
 }
 
 void OCLRender::Init(unsigned width, unsigned height)
 {
-	outputSize_.s[0] = width;
-	outputSize_.s[1] = height;
+    outputSize_.s[0] = width;
+    outputSize_.s[1] = height;
 
-	cl_int status = CL_SUCCESS;
-	CHECK_ERROR(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_GPU, 1, &device_, nullptr), "GetDeviceIDs failed");
+    cl_int status = CL_SUCCESS;
+    CHECK_ERROR(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_GPU, 1, &device_, nullptr), "GetDeviceIDs failed");
 
-	char device_name[2048];
-	clGetDeviceInfo(device_, CL_DEVICE_NAME, 2048, device_name, nullptr);
-	std::cout << "Device detected: " << device_name << "\n";
+    char device_name[2048];
+    clGetDeviceInfo(device_, CL_DEVICE_NAME, 2048, device_name, nullptr);
+    std::cout << "Device detected: " << device_name << "\n";
 
-	size_t workGroupSize = 0;
-	clGetDeviceInfo(device_, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &workGroupSize, nullptr);
-	std::cout << "Max work group size: " << workGroupSize << "\n";
+    size_t workGroupSize = 0;
+    clGetDeviceInfo(device_, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &workGroupSize, nullptr);
+    std::cout << "Max work group size: " << workGroupSize << "\n";
 
-	cl_ulong maxAllocationSize = 0;
-	status = clGetDeviceInfo(device_, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &maxAllocationSize, nullptr);
-	std::cout << "Max mem allocation size: " << maxAllocationSize << "\n";
+    cl_ulong maxAllocationSize = 0;
+    status = clGetDeviceInfo(device_, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &maxAllocationSize, nullptr);
+    std::cout << "Max mem allocation size: " << maxAllocationSize << "\n";
 
-	clGetDeviceInfo(device_, CL_DEVICE_TYPE, sizeof(deviceType_), &deviceType_, nullptr);
+    clGetDeviceInfo(device_, CL_DEVICE_TYPE, sizeof(deviceType_), &deviceType_, nullptr);
 
-	switch (deviceType_)
-	{
-	case CL_DEVICE_TYPE_CPU:
-		std::cout << "CPU device\n";
-		break;
-	case CL_DEVICE_TYPE_GPU:
-		std::cout << "GPU device\n";
-		break;
-	case CL_DEVICE_TYPE_ACCELERATOR:
-		std::cout << "Accelerator device\n";
-		break;
-	default:
-		std::cout << "Unknown device\n";
-		break;
-	}
+    switch (deviceType_)
+    {
+    case CL_DEVICE_TYPE_CPU:
+        std::cout << "CPU device\n";
+        break;
+    case CL_DEVICE_TYPE_GPU:
+        std::cout << "GPU device\n";
+        break;
+    case CL_DEVICE_TYPE_ACCELERATOR:
+        std::cout << "Accelerator device\n";
+        break;
+    default:
+        std::cout << "Unknown device\n";
+        break;
+    }
 
 #ifdef __APPLE__
-	CGLContextObj kCGLContext = CGLGetCurrentContext(); // GL Context
-	CGLShareGroupObj kCGLShareGroup = CGLGetShareGroup(kCGLContext); // Share Group
-	cl_context_properties props[] =
-	{
-		CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE, (cl_context_properties) kCGLShareGroup, CL_CONTEXT_PLATFORM,
-		(cl_context_properties) platform_,
-		0
-	};
+    CGLContextObj kCGLContext = CGLGetCurrentContext(); // GL Context
+    CGLShareGroupObj kCGLShareGroup = CGLGetShareGroup(kCGLContext); // Share Group
+    cl_context_properties props[] =
+    {
+        CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE, (cl_context_properties) kCGLShareGroup, CL_CONTEXT_PLATFORM,
+        (cl_context_properties) platform_,
+        0
+    };
 #elif WIN32
-	cl_context_properties props[] = {
-		CL_GL_CONTEXT_KHR, (cl_context_properties) wglGetCurrentContext(),
-		CL_WGL_HDC_KHR,
-		(cl_context_properties) wglGetCurrentDC(),
-		CL_CONTEXT_PLATFORM, (cl_context_properties)platform_, 0
-	};
+    cl_context_properties props[] = {
+        CL_GL_CONTEXT_KHR, (cl_context_properties) wglGetCurrentContext(),
+        CL_WGL_HDC_KHR,
+        (cl_context_properties) wglGetCurrentDC(),
+        CL_CONTEXT_PLATFORM, (cl_context_properties)platform_, 0
+    };
 #endif
-	
-	context_ = clCreateContext(props, 1, &device_, nullptr, nullptr, &status);
-	
-	CHECK_ERROR(status, "Cannot create OpenCL context");
-	
-	commandQueue_ = clCreateCommandQueue(context_, device_, CL_QUEUE_PROFILING_ENABLE, &status);
-	
-	CHECK_ERROR(status, "Cannot create command queue");
-	
-	std::vector<char> sourceCode;
-	LoadFileContents("../../../FireRays/CL/raytrace.cl", sourceCode);
-	
-	char*  programSource = &sourceCode[0];
-	size_t programSize = sourceCode.size();
-	
-	program_ = clCreateProgramWithSource(context_, 1, (const char**)&programSource, &programSize, &status);
-	CHECK_ERROR(status, "Cannnot create program from raytrace.cl");
-	
+
+    context_ = clCreateContext(props, 1, &device_, nullptr, nullptr, &status);
+
+    CHECK_ERROR(status, "Cannot create OpenCL context");
+
+    commandQueue_ = clCreateCommandQueue(context_, device_, CL_QUEUE_PROFILING_ENABLE, &status);
+
+    CHECK_ERROR(status, "Cannot create command queue");
+
+    std::vector<char> sourceCode;
+    LoadFileContents("../../../FireRays/CL/raytrace.cl", sourceCode);
+
+    char*  programSource = &sourceCode[0];
+    size_t programSize = sourceCode.size();
+
+    program_ = clCreateProgramWithSource(context_, 1, (const char**)&programSource, &programSize, &status);
+    CHECK_ERROR(status, "Cannnot create program from raytrace.cl");
+
     const char* buildOptions
 #ifdef __APPLE__
-     = "-D OCLAPPLE";
+        = "-D OCLAPPLE";
 #elif WIN32
-    = "";
+        = "";
 #else
-    = "";
+        = "";
 #endif
-    
-	if (clBuildProgram(program_, 1, &device_, buildOptions, nullptr, nullptr) < 0)
-	{
-		std::vector<char> buildLog;
-		size_t logSize;
-		clGetProgramBuildInfo(program_, device_, CL_PROGRAM_BUILD_LOG, 0, nullptr, &logSize);
-		
-		buildLog.resize(logSize);
-		clGetProgramBuildInfo(program_, device_, CL_PROGRAM_BUILD_LOG, logSize, &buildLog[0], nullptr);
-		
-		throw std::runtime_error(&buildLog[0]);
-	};
-	
-	traceDepthKernel_ = clCreateKernel(program_, "TraceDepth", &status);
-	CHECK_ERROR(status, "Cannot create TraceDepth kernel");
-		
-	accel_ = BVHAccelerator::CreateFromScene(*GetScene());
 
-	std::vector<DevVertex> vertices;
-	std::for_each(GetScene()->GetVertices().cbegin(), GetScene()->GetVertices().cend(), [&vertices](SceneBase::Vertex const& v)
-				  {
-					  DevVertex val;
+    if (clBuildProgram(program_, 1, &device_, buildOptions, nullptr, nullptr) < 0)
+    {
+        std::vector<char> buildLog;
+        size_t logSize;
+        clGetProgramBuildInfo(program_, device_, CL_PROGRAM_BUILD_LOG, 0, nullptr, &logSize);
 
-					  val.vPos.s[0] = v.position.x();
-					  val.vPos.s[1] = v.position.y();
-					  val.vPos.s[2] = v.position.z();
-                      val.vPos.s[3] = 0;
-                      
-                      val.vNormal.s[0] = v.normal.x();
-					  val.vNormal.s[1] = v.normal.y();
-					  val.vNormal.s[2] = v.normal.z();
-                      val.vNormal.s[3] = 0;
-                      
-                      val.vTex.s[0] = v.texcoord.x();
-                      val.vTex.s[1] = v.texcoord.y();
-                      
-					  vertices.push_back(val);
-				  });
-	
-	
-	vertexBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevVertex) * vertices.size(), (void*)&vertices[0], &status);
-	CHECK_ERROR(status, "Cannot create vertex buffer");
-	
-	std::vector<cl_uint4> triangles;
-	std::vector<cl_uint>  areaLights;
-	
-	std::for_each(accel_->GetPrimitives().cbegin(), accel_->GetPrimitives().cend(), [&triangles, &areaLights](BVHAccelerator::Triangle const& t)
-				  {
-					  cl_uint4 val;
+        buildLog.resize(logSize);
+        clGetProgramBuildInfo(program_, device_, CL_PROGRAM_BUILD_LOG, logSize, &buildLog[0], nullptr);
 
-					  val.s[0] = t.i1;
-					  val.s[1] = t.i2;
-					  val.s[2] = t.i3;
-                      val.s[3] = t.m;
+        throw std::runtime_error(&buildLog[0]);
+    };
 
-					  triangles.push_back(val);
+    traceDepthKernel_ = clCreateKernel(program_, "TraceDepth", &status);
+    CHECK_ERROR(status, "Cannot create TraceDepth kernel");
 
-					  if (t.m == 2)
-						  areaLights.push_back(triangles.size() - 1);
-				  });
-	
-	indexBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint4) * triangles.size(), (void*)&triangles[0], &status);
-	CHECK_ERROR(status, "Cannot create index buffer");
-	
-	std::vector<DevBVHNode> nodes(accel_->GetNodes().size());
-	std::transform(accel_->GetNodes().begin(), accel_->GetNodes().end(), nodes.begin(),
-		[](BVHAccelerator::Node const& n)->DevBVHNode
-				   {
-					   DevBVHNode nn;
+    accel_ = BVHAccelerator::CreateFromScene(*GetScene());
 
-					   nn.sBox.vMin.s[0] = n.box.GetMinPoint().x();
-					   nn.sBox.vMin.s[1] = n.box.GetMinPoint().y();
-					   nn.sBox.vMin.s[2] = n.box.GetMinPoint().z();
-					   nn.sBox.vMax.s[0] = n.box.GetMaxPoint().x();
-					   nn.sBox.vMax.s[1] = n.box.GetMaxPoint().y();
-					   nn.sBox.vMax.s[2] = n.box.GetMaxPoint().z();
+    std::vector<DevVertex> vertices(GetScene()->GetVertexCount());
+    SceneBase::Vertex const* sceneVertices = GetScene()->GetVertices(); 
+    for (int i = 0; i < GetScene()->GetVertexCount(); ++i)
+    {
+        vertices[i].vPos.s[0] = sceneVertices[i].position.x();
+        vertices[i].vPos.s[1] = sceneVertices[i].position.y();
+        vertices[i].vPos.s[2] = sceneVertices[i].position.z();
+        vertices[i].vPos.s[3] = 0;
 
-					   nn.uRight = n.right;
-					   nn.uPrimStart = n.primStartIdx;
-					   nn.uParent = n.parent;
-					   nn.uPrimCount = n.primCount;
-					   
-					   return nn;
-				   }
-				   );
+        vertices[i].vNormal.s[0] = sceneVertices[i].normal.x();
+        vertices[i].vNormal.s[1] = sceneVertices[i].normal.y();
+        vertices[i].vNormal.s[2] = sceneVertices[i].normal.z();
+        vertices[i].vNormal.s[3] = 0;
 
-	bvhBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR , nodes.size() * sizeof(DevBVHNode), (void*)&nodes[0], &status);
-	CHECK_ERROR(status, "Cannot create BVH node buffer");
-	
-	configBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(configData_), nullptr, &status);
-	CHECK_ERROR(status, "Cannot create parameter buffer");
+        vertices[i].vTex.s[0] = sceneVertices[i].texcoord.x();
+        vertices[i].vTex.s[1] = sceneVertices[i].texcoord.y();
+    };
 
-	glActiveTexture(GL_TEXTURE0);
-	glGenTextures(1, &glDepthTexture_);
+    vertexBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevVertex) * vertices.size(), (void*)&vertices[0], &status);
+    CHECK_ERROR(status, "Cannot create vertex buffer");
 
-	glBindTexture(GL_TEXTURE_2D, glDepthTexture_);
-	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    std::vector<cl_uint4> triangles(accel_->GetPrimitiveCount());
+    std::vector<cl_uint>  areaLights;
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F_ARB, outputSize_.s[0], outputSize_.s[1], 0, GL_RGBA, GL_FLOAT, nullptr);
+    BVHAccelerator::Triangle const* sceneTriangles = accel_->GetPrimitives();
+    for (int i = 0; i < accel_->GetPrimitiveCount(); ++i)
+    {
+        triangles[i].s[0] = sceneTriangles[i].i1;
+        triangles[i].s[1] = sceneTriangles[i].i2;
+        triangles[i].s[2] = sceneTriangles[i].i3;
+        triangles[i].s[3] = sceneTriangles[i].m;
 
-	outputDepthTexture_ = clCreateFromGLTexture(context_, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, glDepthTexture_, &status);
-	CHECK_ERROR(status, "Cannot create interop texture");
-	
-	glBindTexture(GL_TEXTURE_2D, 0);
-    
+        if (sceneTriangles[i].m == 2)
+            areaLights.push_back(i);
+    }
+
+    indexBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint4) * triangles.size(), (void*)&triangles[0], &status);
+    CHECK_ERROR(status, "Cannot create index buffer");
+
+    std::vector<DevBVHNode> nodes(accel_->GetNodeCount());
+    BVHAccelerator::Node const* accelNodes = accel_->GetNodes();
+    for (int i = 0; i < accel_->GetNodeCount(); ++i)
+    {
+        
+        nodes[i].sBox.vMin.s[0] = accelNodes[i].box.GetMinPoint().x();
+        nodes[i].sBox.vMin.s[1] = accelNodes[i].box.GetMinPoint().y();
+        nodes[i].sBox.vMin.s[2] = accelNodes[i].box.GetMinPoint().z();
+        nodes[i].sBox.vMax.s[0] = accelNodes[i].box.GetMaxPoint().x();
+        nodes[i].sBox.vMax.s[1] = accelNodes[i].box.GetMaxPoint().y();
+        nodes[i].sBox.vMax.s[2] = accelNodes[i].box.GetMaxPoint().z();
+
+        nodes[i].uRight = accelNodes[i].right;
+        nodes[i].uPrimStart = accelNodes[i].primStartIdx;
+        nodes[i].uParent = accelNodes[i].parent;
+        nodes[i].uPrimCount = accelNodes[i].primCount;
+    }
+
+    bvhBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR , nodes.size() * sizeof(DevBVHNode), (void*)&nodes[0], &status);
+    CHECK_ERROR(status, "Cannot create BVH node buffer");
+
+    configBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(configData_), nullptr, &status);
+    CHECK_ERROR(status, "Cannot create parameter buffer");
+
+    glActiveTexture(GL_TEXTURE0);
+    glGenTextures(1, &glDepthTexture_);
+
+    glBindTexture(GL_TEXTURE_2D, glDepthTexture_);
+    glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F_ARB, outputSize_.s[0], outputSize_.s[1], 0, GL_RGBA, GL_FLOAT, nullptr);
+
+    outputDepthTexture_ = clCreateFromGLTexture(context_, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, glDepthTexture_, &status);
+    CHECK_ERROR(status, "Cannot create interop texture");
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+
     std::vector<DevPointLight> pointLights;
-    
+
     DevPointLight light;
     light.vPos.s[0] = 0.f;
     light.vPos.s[1] = 9.f;
@@ -242,193 +231,191 @@ void OCLRender::Init(unsigned width, unsigned height)
     light.vColor.s[1] = 2.7f;
     light.vColor.s[2] = 2.7f;
     light.vColor.s[3] = 0.f;
-    
+
     pointLights.push_back(light);
-    
+
     //DevPointLight light;
     light.vPos.s[0] = 1.f;
     light.vPos.s[1] = 2.f;
     light.vPos.s[2] = 1.f;
     light.vPos.s[3] = 0.f;
-    
+
     light.vColor.s[0] = 1.5f;
     light.vColor.s[1] = 1.5f;
     light.vColor.s[2] = 1.5f;
     light.vColor.s[3] = 0.f;
-    
+
     pointLights.push_back(light);
-    
+
     pointLights_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevPointLight) * pointLights.size(), (void*)&pointLights[0],&status);
-	CHECK_ERROR(status, "Cannot create lights buffer");
-    
+    CHECK_ERROR(status, "Cannot create lights buffer");
+
     std::vector<cl_float> randomBuffer(RANDOM_BUFFER_SIZE);
     std::generate(randomBuffer.begin(), randomBuffer.end(), rand_float);
-    
+
     randomBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR , RANDOM_BUFFER_SIZE * sizeof(cl_float), (void*)&randomBuffer[0], &status);
-	CHECK_ERROR(status, "Cannot create random buffer");
+    CHECK_ERROR(status, "Cannot create random buffer");
 
     pathBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, MAX_PATH_LENGTH * sizeof(DevPathVertex) * outputSize_.s[0] * outputSize_.s[1], nullptr, &status);
-	CHECK_ERROR(status, "Cannot create path buffer");
+    CHECK_ERROR(status, "Cannot create path buffer");
 
-	intermediateBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_float4) * outputSize_.s[0] * outputSize_.s[1], nullptr, &status);
-	CHECK_ERROR(status, "Cannot create intermediate buffer");
+    intermediateBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_float4) * outputSize_.s[0] * outputSize_.s[1], nullptr, &status);
+    CHECK_ERROR(status, "Cannot create intermediate buffer");
 
-	std::vector<DevMaterialRep> materials;
+    std::vector<DevMaterialRep> materials;
 
-	DevMaterialRep materialRep;
+    DevMaterialRep materialRep;
 
-	materialRep.eBsdf = 2;
-	materialRep.vKe.s[0] = materialRep.vKe.s[1] = materialRep.vKe.s[2] = materialRep.vKe.s[3] = 0;
-	materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0;
-	materialRep.vKs.s[0] = materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.8;
-	materials.push_back(materialRep);
+    materialRep.eBsdf = 2;
+    materialRep.vKe.s[0] = materialRep.vKe.s[1] = materialRep.vKe.s[2] = materialRep.vKe.s[3] = 0;
+    materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0;
+    materialRep.vKs.s[0] = materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.8;
+    materials.push_back(materialRep);
 
-	materialRep.eBsdf = 1;
-	materialRep.vKe.s[0] = materialRep.vKe.s[1] = materialRep.vKe.s[2] = materialRep.vKe.s[3] = 0;
-	materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0.6;
-	materialRep.vKs.s[0] = materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.0;
-	materials.push_back(materialRep);
+    materialRep.eBsdf = 1;
+    materialRep.vKe.s[0] = materialRep.vKe.s[1] = materialRep.vKe.s[2] = materialRep.vKe.s[3] = 0;
+    materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0.6;
+    materialRep.vKs.s[0] = materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.0;
+    materials.push_back(materialRep);
 
-	materialRep.eBsdf = 3;
-	materialRep.vKe.s[0] = materialRep.vKe.s[1] = materialRep.vKe.s[2] = materialRep.vKe.s[3] = 15.5;
-	materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0.0;
-	materialRep.vKs.s[0] = materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.0;
-	materials.push_back(materialRep);
+    materialRep.eBsdf = 3;
+    materialRep.vKe.s[0] = materialRep.vKe.s[1] = materialRep.vKe.s[2] = materialRep.vKe.s[3] = 15.5;
+    materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0.0;
+    materialRep.vKs.s[0] = materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.0;
+    materials.push_back(materialRep);
 
-	materialBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevMaterialRep) * 3, (void*)&materials[0], &status);
-	CHECK_ERROR(status, "Cannot create material buffer");
-    
+    materialBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevMaterialRep) * 3, (void*)&materials[0], &status);
+    CHECK_ERROR(status, "Cannot create material buffer");
+
     textureBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(cl_float) * TEXTURE_BUFFER_SIZE, nullptr, &status);
-	CHECK_ERROR(status, "Cannot create texture buffer");
-    
+    CHECK_ERROR(status, "Cannot create texture buffer");
+
     textureDescBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(DevTextureDesc) * MAX_TEXTURE_HANDLES, nullptr, &status);
-	CHECK_ERROR(status, "Cannot create texture handles buffer");
+    CHECK_ERROR(status, "Cannot create texture handles buffer");
 
-	areaLightsBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint) * MAX_AREA_LIGHTS, &areaLights[0], &status);
-	CHECK_ERROR(status, "Cannot create area lights buffer");
-
-
+    areaLightsBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint) * MAX_AREA_LIGHTS, &areaLights[0], &status);
+    CHECK_ERROR(status, "Cannot create area lights buffer");
 }
 
 void OCLRender::Commit()
 {
-	configData_.uOutputWidth = outputSize_.s[0];
-	configData_.uOutputHeight = outputSize_.s[1];
-	configData_.vCameraPos.s[0] = GetCamera()->GetPosition().x();
-	configData_.vCameraPos.s[1] = GetCamera()->GetPosition().y();
-	configData_.vCameraPos.s[2] = GetCamera()->GetPosition().z();
-	configData_.vCameraDir.s[0] = GetCamera()->GetDirection().x();
-	configData_.vCameraDir.s[1] = GetCamera()->GetDirection().y();
-	configData_.vCameraDir.s[2] = GetCamera()->GetDirection().z();
-	configData_.vCameraRight.s[0] = GetCamera()->GetRightVector().x();
-	configData_.vCameraRight.s[1] = GetCamera()->GetRightVector().y();
-	configData_.vCameraRight.s[2] = GetCamera()->GetRightVector().z();
-	configData_.vCameraUp.s[0] = GetCamera()->GetUpVector().x();
-	configData_.vCameraUp.s[1] = GetCamera()->GetUpVector().y();
-	configData_.vCameraUp.s[2] = GetCamera()->GetUpVector().z();
-	configData_.fCameraNearZ = GetCamera()->GetNearZ();
-	configData_.fCameraPixelSize = GetCamera()->GetPixelSize();
+    configData_.uOutputWidth = outputSize_.s[0];
+    configData_.uOutputHeight = outputSize_.s[1];
+    configData_.vCameraPos.s[0] = GetCamera()->GetPosition().x();
+    configData_.vCameraPos.s[1] = GetCamera()->GetPosition().y();
+    configData_.vCameraPos.s[2] = GetCamera()->GetPosition().z();
+    configData_.vCameraDir.s[0] = GetCamera()->GetDirection().x();
+    configData_.vCameraDir.s[1] = GetCamera()->GetDirection().y();
+    configData_.vCameraDir.s[2] = GetCamera()->GetDirection().z();
+    configData_.vCameraRight.s[0] = GetCamera()->GetRightVector().x();
+    configData_.vCameraRight.s[1] = GetCamera()->GetRightVector().y();
+    configData_.vCameraRight.s[2] = GetCamera()->GetRightVector().z();
+    configData_.vCameraUp.s[0] = GetCamera()->GetUpVector().x();
+    configData_.vCameraUp.s[1] = GetCamera()->GetUpVector().y();
+    configData_.vCameraUp.s[2] = GetCamera()->GetUpVector().z();
+    configData_.fCameraNearZ = GetCamera()->GetNearZ();
+    configData_.fCameraPixelSize = GetCamera()->GetPixelSize();
     configData_.uNumPointLights = 1;
     configData_.uNumRandomNumbers = RANDOM_BUFFER_SIZE;
     configData_.uFrameCount = frameCount_;
-    
+
     configData_.vBackgroundColor.s[0] = 0.2f;
     configData_.vBackgroundColor.s[1] = 0.2f;
     configData_.vBackgroundColor.s[2] = 0.3f;
     configData_.vBackgroundColor.s[3] = 1.0f;
 
-	configData_.uNumAreaLights = 2;
+    configData_.uNumAreaLights = 2;
 
-	CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, configBuffer_, CL_FALSE, 0, sizeof(configData_), &configData_, 0, nullptr, nullptr), "Cannot update param buffer");
-    
-    if (is_textures_dirty())
+    CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, configBuffer_, CL_FALSE, 0, sizeof(configData_), &configData_, 0, nullptr, nullptr), "Cannot update param buffer");
+
+    if (TexturesDirty())
     {
         CompileTextures();
-        reset_textures_dirty();
+        ResetTexturesDirty();
     }
 }
 
 OCLRender::~OCLRender()
 {
-	/// TODO: implement RAII for CL objects
-	glDeleteTextures(1, &glDepthTexture_);
-	clReleaseMemObject(areaLightsBuffer_);
+    /// TODO: implement RAII for CL objects
+    glDeleteTextures(1, &glDepthTexture_);
+    clReleaseMemObject(areaLightsBuffer_);
     clReleaseMemObject(textureBuffer_);
     clReleaseMemObject(textureDescBuffer_);
-	clReleaseMemObject(materialBuffer_);
-	clReleaseMemObject(intermediateBuffer_);
+    clReleaseMemObject(materialBuffer_);
+    clReleaseMemObject(intermediateBuffer_);
     clReleaseMemObject(pathBuffer_);
     clReleaseMemObject(randomBuffer_);
     clReleaseMemObject(outputDepthTexture_);
     clReleaseMemObject(pointLights_);
-	clReleaseMemObject(vertexBuffer_);
-	clReleaseMemObject(indexBuffer_);
-	clReleaseMemObject(bvhBuffer_);
-	clReleaseMemObject(configBuffer_);
-	clReleaseContext(context_);
-	clReleaseProgram(program_);
-	clReleaseCommandQueue(commandQueue_);
-	clReleaseKernel(traceDepthKernel_);
+    clReleaseMemObject(vertexBuffer_);
+    clReleaseMemObject(indexBuffer_);
+    clReleaseMemObject(bvhBuffer_);
+    clReleaseMemObject(configBuffer_);
+    clReleaseContext(context_);
+    clReleaseProgram(program_);
+    clReleaseCommandQueue(commandQueue_);
+    clReleaseKernel(traceDepthKernel_);
 }
 
 void OCLRender::Render()
 {
-	cl_event kernelExecutionEvent;
+    cl_event kernelExecutionEvent;
 
-	glFinish();
+    glFinish();
 
-	cl_mem gl_objects[] = {outputDepthTexture_};
+    cl_mem gl_objects[] = {outputDepthTexture_};
 
-	CHECK_ERROR(clEnqueueAcquireGLObjects(commandQueue_, 1, gl_objects, 0,0,0), "Cannot acquire OpenGL objects");
+    CHECK_ERROR(clEnqueueAcquireGLObjects(commandQueue_, 1, gl_objects, 0,0,0), "Cannot acquire OpenGL objects");
 
-	size_t localWorkSize[2];
+    size_t localWorkSize[2];
 
-	if (deviceType_ == CL_DEVICE_TYPE_CPU)
-	{
-		localWorkSize[0] = localWorkSize[1] = 1;
-	}
-	else
-	{
-		localWorkSize[0] = localWorkSize[1] = 8;
-	}
+    if (deviceType_ == CL_DEVICE_TYPE_CPU)
+    {
+        localWorkSize[0] = localWorkSize[1] = 1;
+    }
+    else
+    {
+        localWorkSize[0] = localWorkSize[1] = 8;
+    }
 
-	size_t globalWorkSize[2] = {
-		(outputSize_.s[0] + localWorkSize[0] - 1)/(localWorkSize[0]) * localWorkSize[0] , 
-		(outputSize_.s[1] + localWorkSize[1] - 1)/(localWorkSize[1]) * localWorkSize[1]
-	};
+    size_t globalWorkSize[2] = {
+        (outputSize_.s[0] + localWorkSize[0] - 1)/(localWorkSize[0]) * localWorkSize[0] , 
+        (outputSize_.s[1] + localWorkSize[1] - 1)/(localWorkSize[1]) * localWorkSize[1]
+    };
 
-	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 0, sizeof(cl_mem), &bvhBuffer_), "SetKernelArg failed");
-	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 1, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
-	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 2, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
-	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 3, sizeof(cl_mem), &configBuffer_), "SetKernelArg failed");
+    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 0, sizeof(cl_mem), &bvhBuffer_), "SetKernelArg failed");
+    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 1, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
+    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 2, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
+    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 3, sizeof(cl_mem), &configBuffer_), "SetKernelArg failed");
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 4, sizeof(cl_mem), &pointLights_), "SetKernelArg failed");
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 5, sizeof(cl_mem), &randomBuffer_), "SetKernelArg failed");
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 6, sizeof(cl_mem), &pathBuffer_), "SetKernelArg failed");
-	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 7, sizeof(cl_mem), &materialBuffer_), "SetKernelArg failed");
-	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 8, sizeof(cl_mem), &intermediateBuffer_), "SetKernelArg failed");
+    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 7, sizeof(cl_mem), &materialBuffer_), "SetKernelArg failed");
+    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 8, sizeof(cl_mem), &intermediateBuffer_), "SetKernelArg failed");
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 9, sizeof(cl_mem), &textureDescBuffer_), "SetKernelArg failed");
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 10, sizeof(cl_mem), &textureBuffer_), "SetKernelArg failed");
-	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 11, sizeof(cl_mem), &areaLightsBuffer_), "SetKernelArg failed");
-	CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 12, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
-	//CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 5, sizeof(cl_int) * localWorkSize[0] * localWorkSize[1] * 64, nullptr), "SetKernelArg failed");
+    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 11, sizeof(cl_mem), &areaLightsBuffer_), "SetKernelArg failed");
+    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 12, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
+    //CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 5, sizeof(cl_int) * localWorkSize[0] * localWorkSize[1] * 64, nullptr), "SetKernelArg failed");
 
-	cl_int status = clEnqueueNDRangeKernel(commandQueue_, traceDepthKernel_, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, &kernelExecutionEvent);
-	CHECK_ERROR(status, "Raytracing kernel launch failed");
+    cl_int status = clEnqueueNDRangeKernel(commandQueue_, traceDepthKernel_, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, &kernelExecutionEvent);
+    CHECK_ERROR(status, "Raytracing kernel launch failed");
 
-	CHECK_ERROR(clEnqueueReleaseGLObjects(commandQueue_, 1, gl_objects, 0,0,0), "Cannot release OpenGL objects");
-	CHECK_ERROR(clFinish(commandQueue_), "Cannot flush command queue");
+    CHECK_ERROR(clEnqueueReleaseGLObjects(commandQueue_, 1, gl_objects, 0,0,0), "Cannot release OpenGL objects");
+    CHECK_ERROR(clFinish(commandQueue_), "Cannot flush command queue");
 
-	CHECK_ERROR(clWaitForEvents(1, &kernelExecutionEvent), "Wait for events failed");
+    CHECK_ERROR(clWaitForEvents(1, &kernelExecutionEvent), "Wait for events failed");
 
-	cl_ulong startTime, endTime;
-	double totalTime;
+    cl_ulong startTime, endTime;
+    double totalTime;
 
-	clGetEventProfilingInfo(kernelExecutionEvent, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
-	clGetEventProfilingInfo(kernelExecutionEvent, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
-	totalTime = (double)(endTime - startTime)/1000000.0;
+    clGetEventProfilingInfo(kernelExecutionEvent, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
+    clGetEventProfilingInfo(kernelExecutionEvent, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
+    totalTime = (double)(endTime - startTime)/1000000.0;
 
-	std::cout << "Ray tracing time " << totalTime << " msec\n";
-    
+    std::cout << "Ray tracing time " << totalTime << " msec\n";
+
     ++frameCount_;
 }
 
@@ -441,38 +428,38 @@ void OCLRender::CompileTextures()
 {
     cl_int status = CL_SUCCESS;
     std::vector<DevTextureDesc> textureDescs;
-    
+
     float* data = (float*)clEnqueueMapBuffer(commandQueue_, textureBuffer_, CL_TRUE, CL_MAP_WRITE, 0, TEXTURE_BUFFER_SIZE * sizeof(cl_float), 0, nullptr, nullptr, &status);
     CHECK_ERROR(status, "Cannot map buffer");
-    
+
     unsigned offset = 0;
-    
-    for (auto iter = textures_cbegin(); iter != textures_cend(); ++iter)
+
+    for (auto iter = TexturesCBegin(); iter != TexturesCEnd(); ++iter)
     {
         DevTextureDesc desc;
         desc.uWidth = iter->second->GetWidth();
         desc.uHeight = iter->second->GetHeight();
         desc.uPoolOffset = offset;
-        
+
         float const* texData = iter->second->GetData();
-        
+
         unsigned texDataSize = desc.uWidth * desc.uHeight * 4;
         for (int i = 0; i < texDataSize; ++i)
         {
             data[offset + i] = texData[i];
         }
-        
+
         offset += desc.uWidth * desc.uHeight;
-        
+
         textureDescs.push_back(desc);
     }
-    
+
     CHECK_ERROR(clEnqueueUnmapMemObject(commandQueue_, textureBuffer_, data, 0, nullptr, nullptr), "Cannot unmap buffer");
-    
+
     CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, textureDescBuffer_, CL_TRUE, 0, sizeof(DevTextureDesc) * textureDescs.size(), &textureDescs[0], 0, nullptr, nullptr), "Cannot update texture desc buffer");
-    
+
     configData_.uTextureCount = static_cast<unsigned>(textureDescs.size());
-    
+
 }
 
 

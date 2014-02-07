@@ -18,68 +18,66 @@
 class BVHAccelerator
 {
 public:
-	static std::shared_ptr<BVHAccelerator> CreateFromScene(SceneBase const& scene);
-	
-	template <typename T> BVHAccelerator(std::vector<T> const& vertices, std::vector<unsigned> const& indices, std::vector<unsigned> const& materials, unsigned max_node_prims);
-	~BVHAccelerator();
-	
-	struct Node
-	{
-		BBox box;
-		unsigned primStartIdx;
-		unsigned right;
-		unsigned parent;
-		unsigned primCount;
-	};
-	
-	struct Triangle
-	{
-		unsigned i1,i2,i3,m;
-	};
-	
-	//std::vector<vector3> const& GetVertices() const;
-	std::vector<Triangle> const& GetPrimitives() const;
-	std::vector<Node> const& GetNodes() const;
-	int GetRootNode() const;
-	
-	//bool Intersect(ray const& r, float& t);
-	
+    static std::shared_ptr<BVHAccelerator> CreateFromScene(SceneBase const& scene);
+
+    template <typename T> BVHAccelerator(T const* vertices, unsigned int vertexCount, unsigned const* indices, unsigned indexCount, unsigned const* materials, unsigned maxPrimsPerNode);
+    ~BVHAccelerator();
+
+    struct Node
+    {
+        BBox box;
+        unsigned primStartIdx;
+        unsigned right;
+        unsigned parent;
+        unsigned primCount;
+    };
+
+    struct Triangle
+    {
+        unsigned i1,i2,i3,m;
+    };
+
+    Triangle const* GetPrimitives() const;
+    unsigned int    GetPrimitiveCount() const;
+
+    Node const*  GetNodes() const;
+    unsigned int GetNodeCount() const;
+    int GetRootNode() const;
+
 private:
-	struct BuildNode
-	{
-		BBox box;
-		unsigned primStartIdx;
-		unsigned left;
-		unsigned right;
-		unsigned parent;
-		unsigned primCount;
-	};
+    struct BuildNode
+    {
+        BBox box;
+        unsigned primStartIdx;
+        unsigned left;
+        unsigned right;
+        unsigned parent;
+        unsigned primCount;
+    };
 
-	struct BuildInfo
-	{
-		BBox box;
-		unsigned primIdx;
-	};
+    struct BuildInfo
+    {
+        BBox box;
+        unsigned primIdx;
+    };
 
-	unsigned CreateLeafNode(std::vector<BuildNode>& buildNodes, unsigned begin, unsigned end, BBox const& b);
-	unsigned FindBestSplit(unsigned begin, unsigned end, BBox const& box, BBox const& centroidBounds, float& sahValue);
-	unsigned BuildHierarchy(unsigned begin, unsigned end, std::vector<BuildNode>& buildNodes);
-	unsigned Linearize(unsigned build_node_idx, unsigned parent, std::vector<BuildNode> const& buildNodes);
-	bool     Intersect(int idx, ray const& r, float& t);
-	
-	template <typename T> BBox CalcBbox(Triangle const& t, std::vector<T> const& vertices);
-	
-	// temporary solution to keep geometry here
-	//std::vector<vector3> vertices_;
-	std::vector<Triangle> primsReordered_;
-	std::vector<Triangle> prims_;
-	std::vector<BuildInfo> buildInfo_;
-	std::vector<Node> nodes_;
-	
-	unsigned maxNodePrims_;
-	int root_;
+    unsigned CreateLeafNode(std::vector<BuildNode>& buildNodes, unsigned begin, unsigned end, BBox const& b);
+    unsigned FindBestSplit(unsigned begin, unsigned end, BBox const& box, BBox const& centroidBounds, float& sahValue);
+    unsigned BuildHierarchy(unsigned begin, unsigned end, std::vector<BuildNode>& buildNodes);
+    unsigned Linearize(unsigned build_node_idx, unsigned parent, std::vector<BuildNode> const& buildNodes);
+    bool     Intersect(int idx, ray const& r, float& t);
+
+    template <typename T> BBox CalcBbox(Triangle const& t, std::vector<T> const& vertices);
+
+    // temporary solution to keep geometry here
+    //std::vector<vector3> vertices_;
+    std::vector<Triangle> primsReordered_;
+    std::vector<Triangle> prims_;
+    std::vector<BuildInfo> buildInfo_;
+    std::vector<Node> nodes_;
+
+    unsigned maxNodePrims_;
+    int root_;
 };
-
-
 
 #endif // BVHACCELERATOR_H

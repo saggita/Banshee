@@ -69,24 +69,28 @@ MassiveScene::~MassiveScene()
 
 }
 
-std::vector<SceneBase::Vertex> const& MassiveScene::GetVertices() const
+MassiveScene::Vertex const*       MassiveScene::GetVertices() const
 {
-	return	vertices_;
+    return &vertices_[0];
+}
+unsigned int        MassiveScene::GetVertexCount() const
+{
+    return (unsigned int)vertices_.size();
 }
 
-std::vector<unsigned int> const& MassiveScene::GetIndices() const
+unsigned int const* MassiveScene::GetIndices() const
 {
-	return indices_;
+    return &indices_[0];
 }
 
-std::shared_ptr<MassiveScene> MassiveScene::Create()
+unsigned int        MassiveScene::GetIndexCount() const
 {
-	return std::make_shared<MassiveScene>();
+    return (unsigned int)indices_.size();
 }
 
-std::vector<unsigned int> const& MassiveScene::GetMaterials() const
+unsigned int const* MassiveScene::GetMaterials() const
 {
-    return materials_;
+    return &materials_[0];
 }
 
 

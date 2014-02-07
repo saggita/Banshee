@@ -12,26 +12,41 @@
 #include "Common.h"
 #include "CommonTypes.h"
 
+// SceneBase defines the interface which is 
+// used by the RenderBase to access scene data
+// such as
+// -- geometry
+// -- material representations
+// -- textures
 class SceneBase
 {
 public:
+    // SceneBase vertex type
+    struct Vertex;
 
-    struct Vertex
-    {
-        vector3 position;
-		vector2 texcoord;
-		vector3 normal;
-    };
+    // SceneBase public methods
+    SceneBase();
+    virtual ~SceneBase() = 0;
+    virtual Vertex const*       GetVertices() const = 0;
+    virtual unsigned int        GetVertexCount() const = 0;
+    virtual unsigned int const* GetIndices() const = 0;
+    virtual unsigned int        GetIndexCount() const = 0;
+    virtual unsigned int const* GetMaterials() const = 0;
 
-	virtual ~SceneBase() = 0;
-	virtual std::vector<Vertex> const& GetVertices() const = 0;
-	virtual std::vector<unsigned int> const& GetIndices() const = 0;
-    virtual std::vector<unsigned int> const& GetMaterials() const = 0;
-	
 private:
-	SceneBase& operator= (SceneBase const&);
+    SceneBase(SceneBase const&);
+    SceneBase& operator= (SceneBase const&);
 };
 
+inline SceneBase::SceneBase(){}
 inline SceneBase::~SceneBase(){}
+
+
+struct SceneBase::Vertex
+{
+    vector3 position;
+    vector2 texcoord;
+    vector3 normal;
+};
 
 #endif //SCENEBASE_H

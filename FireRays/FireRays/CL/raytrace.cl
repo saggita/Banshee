@@ -17,7 +17,7 @@ DEFINES
 //#define TRAVERSAL_STACKLESS
 #define TRAVERSAL_STACKED
 //#define LOCAL_STACK
-#define NODE_STACK_SIZE 40
+#define NODE_STACK_SIZE 32
 #define MAX_PATH_LENGTH 2
 
 #define RAY_EPSILON 0.01f
@@ -380,8 +380,8 @@ bool IntersectLeaf(__global Vertex* vertices, __global uint4* indices, uint idx,
 			shadingData->vNormal = normalize((1.f - a - b) * n1.xyz + a * n2.xyz + b * n3.xyz);
             shadingData->vTex = (1.f - a - b) * t1.xy + a * t2.xy + b * t3.xy;
             
-			if (dot(-r->d, shadingData->vNormal) < 0)
-				shadingData->vNormal = - shadingData->vNormal;
+			//if (dot(-r->d, shadingData->vNormal) < 0)
+				//shadingData->vNormal = - shadingData->vNormal;
 
 			shadingData->uMaterialIdx = triangle.w;
 		}
@@ -602,21 +602,14 @@ bool TraverseBVHStackless(__global BVHNode* nodes, __global Vertex* vertices, __
 
 }
 
-float myabs(float v)
-{
-	return v < 0 ? -v : v;
-}
-
 float3 GetOrthoVector(float3 n)
 {
 	float3 p;
-	if (myabs(n.z) > 0.707106781186547524401f) {
-        // choose p in y-z plane
+	if (fabs(n.z) > 0.707106781186547524401f) {
         float k = sqrt(n.y*n.y + n.z*n.z);
         p.x = 0; p.y = -n.z/k; p.z = n.y/k;
     }
     else {
-        // choose p in x-y plane
         float k = sqrt(n.x*n.x + n.y*n.y);
         p.x = -n.y/k; p.y = n.x/k; p.z = 0;
     }

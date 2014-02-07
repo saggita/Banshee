@@ -27,7 +27,6 @@
 
 #include "ShaderManager.h"
 #include "QuatCamera.h"
-#include "SimpleScene.h"
 #include "MassiveScene.h"
 #include "TestScene.h"
 
@@ -49,7 +48,7 @@ GLuint gIndexBufferId;
 
 #define WINDOW_WIDTH  800
 #define WINDOW_HEIGHT 600
-#define CAMERA_POSITION vector3(6,6,6)
+#define CAMERA_POSITION vector3(15,15,15)
 #define CAMERA_AT vector3(0,0,0)
 #define CAMERA_UP vector3(0,1,0)
 #define CAMERA_NEAR_PLANE 0.01f

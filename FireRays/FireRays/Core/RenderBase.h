@@ -38,11 +38,11 @@ public:
 protected:
     typedef     std::map<std::string, std::shared_ptr<TextureBase> > TextureMap;
     
-    TextureMap::const_iterator textures_cbegin();
-    TextureMap::const_iterator textures_cend();
+    TextureMap::const_iterator TexturesCBegin();
+    TextureMap::const_iterator TexturesCEnd();
     
-    bool is_textures_dirty() const;
-    void reset_textures_dirty();
+    bool TexturesDirty() const;
+    void ResetTexturesDirty();
 
 private:
 	RenderBase& operator = (RenderBase const& other);
@@ -50,12 +50,12 @@ private:
 	std::shared_ptr<SceneBase>	scene_;
 	std::shared_ptr<CameraBase>	camera_;
 
-    bool        textures_dirty_;
+    bool        texturesDirty_;
     TextureMap  textures_;
 };
 
 inline RenderBase::RenderBase()
-: textures_dirty_(false)
+	: texturesDirty_(false)
 {
 }
 
@@ -83,24 +83,24 @@ inline std::shared_ptr<CameraBase> RenderBase::GetCamera() const
 	return camera_;
 }
 
-inline RenderBase::TextureMap::const_iterator RenderBase::textures_cbegin()
+inline RenderBase::TextureMap::const_iterator RenderBase::TexturesCBegin()
 {
     return textures_.cbegin();
 }
 
-inline RenderBase::TextureMap::const_iterator RenderBase::textures_cend()
+inline RenderBase::TextureMap::const_iterator RenderBase::TexturesCEnd()
 {
     return textures_.cend();
 }
 
-inline bool RenderBase::is_textures_dirty() const
+inline bool RenderBase::TexturesDirty() const
 {
-    return textures_dirty_;
+	return texturesDirty_;
 }
 
-inline void RenderBase::reset_textures_dirty()
+inline void RenderBase::ResetTexturesDirty()
 {
-    textures_dirty_ = false;
+	texturesDirty_ = false;
 }
 
 #endif // RENDERBASE_H

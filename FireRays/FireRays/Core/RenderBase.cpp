@@ -15,7 +15,7 @@
 void RenderBase::AttachTexture(std::string const& name, std::shared_ptr<TextureBase> texture)
 {
     textures_.insert(std::make_pair(name, texture));
-    textures_dirty_ = true;
+	texturesDirty_ = true;
 }
 
 void RenderBase::DetachTexture(std::string const& name)
@@ -23,5 +23,5 @@ void RenderBase::DetachTexture(std::string const& name)
     TextureMap::const_iterator citer = textures_.find(name);
     if (citer != textures_.cend())
         textures_.erase(citer);
-    textures_dirty_ = true;
+    texturesDirty_ = true;
 }

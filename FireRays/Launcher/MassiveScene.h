@@ -23,9 +23,11 @@ public:
 	MassiveScene();
 	~MassiveScene();
 	
-	std::vector<Vertex> const& GetVertices() const;
-	std::vector<unsigned int> const& GetIndices() const;
-    std::vector<unsigned int> const& GetMaterials() const;
+    Vertex const*       GetVertices() const;
+    unsigned int        GetVertexCount() const;
+    unsigned int const* GetIndices() const;
+    unsigned int        GetIndexCount() const;
+    unsigned int const* GetMaterials() const;
 	
 private:
 

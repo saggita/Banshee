@@ -23,6 +23,9 @@ class SceneBase
 public:
     // SceneBase vertex type
     struct Vertex;
+    
+    // SceneBase material type
+    struct MaterialRep;
 
     // SceneBase public methods
     SceneBase();
@@ -32,6 +35,9 @@ public:
     virtual unsigned int const* GetIndices() const = 0;
     virtual unsigned int        GetIndexCount() const = 0;
     virtual unsigned int const* GetMaterials() const = 0;
+    
+    virtual unsigned int        GetMaterialRepCount() const = 0;
+    virtual MaterialRep const*  GetMaterialReps() const = 0;
 
 private:
     SceneBase(SceneBase const&);
@@ -47,6 +53,16 @@ struct SceneBase::Vertex
     vector3 position;
     vector2 texcoord;
     vector3 normal;
+};
+
+struct SceneBase::MaterialRep
+{
+    vector4  vKe;
+    vector4  vKd;
+    vector4  vKs;
+    float    fEs;
+    unsigned eBsdf;
+    unsigned uTd;
 };
 
 #endif //SCENEBASE_H

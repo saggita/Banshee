@@ -27,6 +27,8 @@ std::shared_ptr<TestScene> TestScene::Create()
 
 TestScene::TestScene()
 {
+    BuildMaterials();
+    
     // Add monkey w/ glossy material
     {
         std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/sphere.objm");
@@ -52,7 +54,7 @@ TestScene::TestScene()
 
     unsigned startIdx = vertices_.size();
 
-    // Add monkey w/ glossy material
+    // Add monkey w/ diffuse material
     {
         std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/sphere.objm");
         mesh_ptr->Rescale(2.5f);
@@ -113,8 +115,8 @@ TestScene::TestScene()
     indices_.push_back(startIdx + 1);
     indices_.push_back(startIdx + 2);
 
-    materials_.push_back(1);
-    materials_.push_back(1);
+    materials_.push_back(3);
+    materials_.push_back(3);
 
     startIdx = vertices_.size();
 
@@ -179,6 +181,57 @@ unsigned int        TestScene::GetIndexCount() const
 unsigned int const* TestScene::GetMaterials() const
 {
     return &materials_[0];
+}
+
+void TestScene::BuildMaterials()
+{
+    MaterialRep materialRep;
+    
+    materialRep.eBsdf = 2;
+    materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 0;
+    materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0;
+    materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 1.0;
+    materialRep.fEs = 128.f;
+    materialRep.uTd = -1;
+    materialReps_.push_back(materialRep);
+    
+    materialRep.eBsdf = 1;
+    materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 0;
+    materialRep.vKd.x() = 0.6f;
+    materialRep.vKd.y() = 0.1f;
+    materialRep.vKd.z() = materialRep.vKd.w() = 0.f;
+    materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.0;
+    materialRep.fEs = 0.f;
+    materialRep.uTd = -1;
+    materialReps_.push_back(materialRep);
+    
+    materialRep.eBsdf = 3;
+    materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 7.5;
+    materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0.0;
+    materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.0;
+    materialRep.fEs = 0.f;
+    materialRep.uTd = -1;
+    materialReps_.push_back(materialRep);
+    
+    materialRep.eBsdf = 1;
+    materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 0;
+    materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0.6;
+    materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.0;
+    materialRep.fEs = 0.f;
+    materialRep.uTd = 0;
+    materialReps_.push_back(materialRep);
+}
+
+unsigned int TestScene::GetMaterialRepCount() const
+{
+    return (unsigned int)materialReps_.size();
+    
+    
+}
+
+TestScene::MaterialRep const*  TestScene::GetMaterialReps() const
+{
+    return &materialReps_[0];
 }
 
 

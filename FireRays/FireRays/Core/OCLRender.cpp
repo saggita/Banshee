@@ -262,29 +262,33 @@ void OCLRender::Init(unsigned width, unsigned height)
     intermediateBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_float4) * outputSize_.s[0] * outputSize_.s[1], nullptr, &status);
     CHECK_ERROR(status, "Cannot create intermediate buffer");
 
-    std::vector<DevMaterialRep> materials;
+    std::vector<DevMaterialRep> materials(GetScene()->GetMaterialRepCount());
 
-    DevMaterialRep materialRep;
+    SceneBase::MaterialRep const* sceneMaterials = GetScene()->GetMaterialReps();
+    
+    for (int i = 0; i < materials.size(); ++i)
+    {
+        materials[i].eBsdf = sceneMaterials[i].eBsdf;
+        materials[i].vKe.s[0] = sceneMaterials[i].vKe.x();
+        materials[i].vKe.s[1] = sceneMaterials[i].vKe.y();
+        materials[i].vKe.s[2] = sceneMaterials[i].vKe.z();
+        materials[i].vKe.s[3] = sceneMaterials[i].vKe.w();
+        
+        materials[i].vKd.s[0] = sceneMaterials[i].vKd.x();
+        materials[i].vKd.s[1] = sceneMaterials[i].vKd.y();
+        materials[i].vKd.s[2] = sceneMaterials[i].vKd.z();
+        materials[i].vKd.s[3] = sceneMaterials[i].vKd.w();
+        
+        materials[i].vKs.s[0] = sceneMaterials[i].vKs.x();
+        materials[i].vKs.s[1] = sceneMaterials[i].vKs.y();
+        materials[i].vKs.s[2] = sceneMaterials[i].vKs.z();
+        materials[i].vKs.s[3] = sceneMaterials[i].vKs.w();
+        
+        materials[i].fEs = sceneMaterials[i].fEs;
+        materials[i].uTd = sceneMaterials[i].uTd;
+    }
 
-    materialRep.eBsdf = 2;
-    materialRep.vKe.s[0] = materialRep.vKe.s[1] = materialRep.vKe.s[2] = materialRep.vKe.s[3] = 0;
-    materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0;
-    materialRep.vKs.s[0] = materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.8;
-    materials.push_back(materialRep);
-
-    materialRep.eBsdf = 1;
-    materialRep.vKe.s[0] = materialRep.vKe.s[1] = materialRep.vKe.s[2] = materialRep.vKe.s[3] = 0;
-    materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0.6;
-    materialRep.vKs.s[0] = materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.0;
-    materials.push_back(materialRep);
-
-    materialRep.eBsdf = 3;
-    materialRep.vKe.s[0] = materialRep.vKe.s[1] = materialRep.vKe.s[2] = materialRep.vKe.s[3] = 15.5;
-    materialRep.vKd.s[0] = materialRep.vKd.s[1] = materialRep.vKd.s[2] = materialRep.vKd.s[3] = 0.0;
-    materialRep.vKs.s[0] = materialRep.vKs.s[1] = materialRep.vKs.s[2] = materialRep.vKs.s[3] = 0.0;
-    materials.push_back(materialRep);
-
-    materialBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevMaterialRep) * 3, (void*)&materials[0], &status);
+    materialBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevMaterialRep) * materials.size(), (void*)&materials[0], &status);
     CHECK_ERROR(status, "Cannot create material buffer");
 
     textureBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(cl_float) * TEXTURE_BUFFER_SIZE, nullptr, &status);
@@ -315,13 +319,13 @@ void OCLRender::Commit()
     configData_.vCameraUp.s[2] = GetCamera()->GetUpVector().z();
     configData_.fCameraNearZ = GetCamera()->GetNearZ();
     configData_.fCameraPixelSize = GetCamera()->GetPixelSize();
-    configData_.uNumPointLights = 1;
+    configData_.uNumPointLights = 0;
     configData_.uNumRandomNumbers = RANDOM_BUFFER_SIZE;
     configData_.uFrameCount = frameCount_;
 
-    configData_.vBackgroundColor.s[0] = 0.2f;
-    configData_.vBackgroundColor.s[1] = 0.2f;
-    configData_.vBackgroundColor.s[2] = 0.3f;
+    configData_.vBackgroundColor.s[0] = 1.f;
+    configData_.vBackgroundColor.s[1] = 1.f;
+    configData_.vBackgroundColor.s[2] = 1.2f;
     configData_.vBackgroundColor.s[3] = 1.0f;
 
     configData_.uNumAreaLights = 2;

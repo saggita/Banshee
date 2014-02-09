@@ -16,6 +16,8 @@ static SceneBase::Vertex MeshVertexToSceneVertex(Mesh::Vertex const& v)
 	
 MassiveScene::MassiveScene()
 {
+    BuildMaterials();
+    
     {
         std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/monkey.objm");
         //mesh_ptr->Rescale(0.5f);
@@ -91,6 +93,41 @@ unsigned int        MassiveScene::GetIndexCount() const
 unsigned int const* MassiveScene::GetMaterials() const
 {
     return &materials_[0];
+}
+
+void MassiveScene::BuildMaterials()
+{
+    MaterialRep materialRep;
+    
+    materialRep.eBsdf = 2;
+    materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 0;
+    materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0;
+    materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 1.0;
+    materialReps_.push_back(materialRep);
+    
+    materialRep.eBsdf = 1;
+    materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 0;
+    materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0.6;
+    materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.0;
+    materialReps_.push_back(materialRep);
+    
+    materialRep.eBsdf = 3;
+    materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 7.5;
+    materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0.0;
+    materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.0;
+    materialReps_.push_back(materialRep);
+}
+
+unsigned int MassiveScene::GetMaterialRepCount() const
+{
+    return (unsigned int)materialReps_.size();
+    
+    
+}
+
+MassiveScene::MaterialRep const*  MassiveScene::GetMaterialReps() const
+{
+    return &materialReps_[0];
 }
 
 

@@ -18,7 +18,7 @@ DEFINES
 #define TRAVERSAL_STACKED
 //#define LOCAL_STACK
 #define NODE_STACK_SIZE 32
-#define MAX_PATH_LENGTH 2
+#define MAX_PATH_LENGTH 3
 
 #define RAY_EPSILON 0.01f
 #define NUM_SAMPLES 1.f
@@ -144,7 +144,9 @@ typedef struct
 	float4 vKe;
 	float4 vKd;
 	float4 vKs;
+    float  fEs;
 	uint eBsdf;
+    uint uTd;
 } MaterialRep;
 
 typedef struct
@@ -239,25 +241,25 @@ float4 TransformPoint(float16 mWVP, float4 vPoint)
 	return vRes;
 }
 
-float4 make_float4(float x, float y, float z, float w)
-{
-	float4 res;
-	res.x = x;
-	res.y = y;
-	res.z = z;
-	res.w = w;
-	return res;
-}
-
-
-float3 make_float3(float x, float y, float z)
-{
-	float3 res;
-	res.x = x;
-	res.y = y;
-	res.z = z;
-	return res;
-}
+//float4 make_float4(float x, float y, float z, float w)
+//{
+//	float4 res;
+//	res.x = x;
+//	res.y = y;
+//	res.z = z;
+//	res.w = w;
+//	return res;
+//}
+//
+//
+//float3 make_float3(float x, float y, float z)
+//{
+//	float3 res;
+//	res.x = x;
+//	res.y = y;
+//	res.z = z;
+//	return res;
+//}
 
 float4 tex2d(SceneData* sSceneData, uint texIdx, float2 uv)
 {
@@ -697,7 +699,20 @@ bool SampleMaterial(MaterialRep* sMaterialRep, ShadingData* sShadingData, float3
 				float3 vReflDir = -vWo + 2*dot(vWo, sShadingData->vNormal) * sShadingData->vNormal;
 
 				sRay->o = sShadingData->vPos + RAY_EPSILON * vReflDir;
-				sRay->d = normalize(GetHemisphereSample(vReflDir, 256.f, sRNG));
+                
+                
+				sRay->d = normalize(GetHemisphereSample(vReflDir, sMaterialRep->fEs, sRNG));
+                
+                // As we generate the sample in the solid angle around reflection vector
+                // there is a chance of generating a ray under the tangent plane
+                // resulting in a darker image near reflective sphere silhouette for example
+                // So we reflect the ray against the tangent plane in this case
+                float fProj = dot(sShadingData->vNormal, sRay->d);
+                if ( fProj < 0.f )
+                {
+                    sRay->d += 2 * sShadingData->vNormal * fabs(fProj);
+                }
+                
 				sRay->mint = 0.f;
 				sRay->maxt = 10000.f;
 				return true;
@@ -713,13 +728,14 @@ float4 EvaluateMaterial(SceneData* sSceneData, MaterialRep* sMaterialRep, Shadin
 	case BSDF_TYPE_LAMBERT:
 		{
 			float  fInvPi = 1.f /  M_PI;
-			return /*sMaterialRep->vKd */ fInvPi * vRadiance * tex2d(sSceneData, 0, sShadingData->vTex);
+            float4 vColor = (sMaterialRep->uTd == -1) ? sMaterialRep->vKd : tex2d(sSceneData, sMaterialRep->uTd, sShadingData->vTex);
+			return fInvPi * vRadiance * vColor;
 		}
 
 	case BSDF_TYPE_SPECULAR:
 		{
 			float3 vReflDir = normalize(-vWi + 2.f*dot(vWi, sShadingData->vNormal) * sShadingData->vNormal);
-			return vRadiance * sMaterialRep->vKs * pow(max(0.f, dot(vReflDir, vWo)), 256.f);
+			return vRadiance * sMaterialRep->vKs * pow(max(0.f, dot(vReflDir, vWo)), sMaterialRep->fEs) / (dot(sShadingData->vNormal, vWi));
 		}
 	case BSDF_TYPE_EMISSIVE:
 		{
@@ -777,8 +793,6 @@ float4 SampleDirectIllumination(
 //			}
 //		}
 
-		float fW = 1.f / (sSceneData->sParams->uNumAreaLights + 1);
-
 		for (uint i=0;i<sSceneData->sParams->uNumAreaLights;++i)
 		{
 			float3 vLightSample, vLightNormal;
@@ -809,7 +823,7 @@ float4 SampleDirectIllumination(
 
 				float4 vDirectContribution = fNdotL * EvaluateMaterial(sSceneData, sMaterialRep, sShadingData, vLight, vWo, GetMaterial(MATERIAL3, sSceneData, sRNG).vKe) *
 					fNdotWo * GetMaterial(MATERIAL3, sSceneData, sRNG).vKe / (fDist * fDist * fPDF);
-				vRes += fW * ((fShadow * vDirectContribution) * (1.f - fOcclusion) + vDirectContribution * AO_MIN);
+				vRes += ((fShadow * vDirectContribution) * (1.f - fOcclusion) + vDirectContribution * AO_MIN);
 			}
 		}
 
@@ -821,8 +835,6 @@ float4 SampleDirectIllumination(
 			sRay.maxt = 10000.f;
 			sRay.mint = 0.f;
 
-			float fNdotL = dot(sShadingData->vNormal, sRay.d);
-
 			ShadingData sTempData;
 			float fShadow = TraverseBVHStacked(
 #if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
@@ -830,7 +842,9 @@ float4 SampleDirectIllumination(
 #endif
 					sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
 
-				vRes += fW * fShadow * fNdotL * EvaluateMaterial(sSceneData, sMaterialRep, sShadingData, sRay.d, vWo, sSceneData->sParams->vBackgroundColor);
+            // TODO: account for PDF 1/M_PI -- done
+            // there is no NdotL term here as it is canceled by cos(Theta)/M_PI pdf
+            vRes += fShadow * EvaluateMaterial(sSceneData, sMaterialRep, sShadingData, sRay.d, vWo, sSceneData->sParams->vBackgroundColor) / M_PI;
 		}
 	}
 	else
@@ -892,7 +906,7 @@ float4 TraceRay(
 			}
 		}
 
-		if (!bHit && iNumPoolItems < MAX_PATH_LENGTH)
+		if (!bHit & iNumPoolItems < MAX_PATH_LENGTH)
 		{
 			sPath[iNumPoolItems].vIncidentDir = sThisRay.d;
 			sPath[iNumPoolItems].vRadiance = sSceneData->sParams->vBackgroundColor;
@@ -908,9 +922,9 @@ float4 TraceRay(
 		sMaterial = GetMaterial(sPath[iNumPoolItems - 2].uMaterialIdx, sSceneData, sRNG);
 		ShadingData sShadingData = sPath[iNumPoolItems - 2].sShadingData;
 
+        // TODO: handle specular correctly
 		float fNdotL = dot(sPath[iNumPoolItems - 1].vIncidentDir, sPath[iNumPoolItems - 2].sShadingData.vNormal);
-
-		/// TODO: add NdotL term
+    
 		sPath[iNumPoolItems - 2].vRadiance += fNdotL * EvaluateMaterial(sSceneData, &sMaterial, &sShadingData, sPath[iNumPoolItems - 1].vIncidentDir, -sPath[iNumPoolItems - 2].vIncidentDir,  sPath[iNumPoolItems - 1].vRadiance);
 
 		--(iNumPoolItems);
@@ -970,7 +984,7 @@ __kernel void TraceDepth(
 		int yc = globalId.y - (height >> 1);
 
 		float4 res = make_float4(0,0,0,0);
-		RNG sRNG = CreateRNG((get_global_id(0) + 133) * (get_global_id(1) + 17) * (params->uFrameCount + 57));
+		RNG sRNG = CreateRNG((get_global_id(0) + 133) * (get_global_id(1) + 177) * (params->uFrameCount + 57));
 
 		for (int i = 0; i < NUM_SAMPLES; ++i)
 			for (int j = 0; j < NUM_SAMPLES; ++j)

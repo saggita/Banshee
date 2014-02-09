@@ -28,12 +28,17 @@ public:
     unsigned int const* GetIndices() const;
     unsigned int        GetIndexCount() const;
     unsigned int const* GetMaterials() const;
+    
+    unsigned int        GetMaterialRepCount() const;
+    MaterialRep const*  GetMaterialReps() const;
 	
 private:
+    void BuildMaterials();
 
 	std::vector<Vertex> vertices_;
 	std::vector<unsigned int> indices_;
     std::vector<unsigned int> materials_;
+    std::vector<MaterialRep>  materialReps_;
 };
 
 

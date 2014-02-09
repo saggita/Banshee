@@ -123,7 +123,9 @@ private:
 		cl_float4 vKe;
 		cl_float4 vKd;
 		cl_float4 vKs;
+        cl_float  fEs;
 		cl_uint   eBsdf;
+        cl_uint   uTd;
 	} ;
     
     struct __declspec(align(16)) DevTextureDesc

@@ -153,6 +153,43 @@ TestScene::TestScene()
 
     materials_.push_back(2);
     materials_.push_back(2);
+
+    startIdx = vertices_.size();
+
+
+    v.position = vector3(-20, -3, -5);
+    v.normal   = vector3(0, 0, 1);
+    v.texcoord = vector2(0, 0);
+
+    vertices_.push_back(v);
+
+    v.position = vector3(20, -3, -5);
+    v.normal   = vector3(0, 0, 1);
+    v.texcoord = vector2(1, 0);
+
+    vertices_.push_back(v);
+
+    v.position = vector3(20, 3,  -5);
+    v.normal   = vector3(0, 0, 1);
+    v.texcoord = vector2(1, 1);
+
+    vertices_.push_back(v);
+
+    v.position = vector3(-20, 3, -5);
+    v.normal   = vector3(0, 0, 1);
+    v.texcoord = vector2(0, 1);
+
+    vertices_.push_back(v);
+
+    indices_.push_back(startIdx);
+    indices_.push_back(startIdx + 1);
+    indices_.push_back(startIdx + 3);
+    indices_.push_back(startIdx + 3);
+    indices_.push_back(startIdx + 1);
+    indices_.push_back(startIdx + 2);
+
+    materials_.push_back(4);
+    materials_.push_back(4);
 }
 
 TestScene::~TestScene()
@@ -199,14 +236,14 @@ void TestScene::BuildMaterials()
     materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 0;
     materialRep.vKd.x() = 0.6f;
     materialRep.vKd.y() = 0.1f;
-    materialRep.vKd.z() = materialRep.vKd.w() = 0.f;
+    materialRep.vKd.z() = materialRep.vKd.w() = 0.1f;
     materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.0;
     materialRep.fEs = 0.f;
     materialRep.uTd = -1;
     materialReps_.push_back(materialRep);
     
     materialRep.eBsdf = 3;
-    materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 7.5;
+    materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 7.5f;
     materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0.0;
     materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.0;
     materialRep.fEs = 0.f;
@@ -215,10 +252,23 @@ void TestScene::BuildMaterials()
     
     materialRep.eBsdf = 1;
     materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 0;
-    materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0.6;
+    materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0.f;
     materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.0;
     materialRep.fEs = 0.f;
     materialRep.uTd = 0;
+    materialReps_.push_back(materialRep);
+
+    materialRep.eBsdf = 1;
+    materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 0;
+
+    materialRep.vKd.x() = 0.2f;
+    materialRep.vKd.y() = 0.9f;
+    materialRep.vKd.z() = 0.2f;
+    materialRep.vKd.w() = 0.0;
+
+    materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.0;
+    materialRep.fEs = 0.f;
+    materialRep.uTd = -1;
     materialReps_.push_back(materialRep);
 }
 

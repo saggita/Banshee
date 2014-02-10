@@ -24,7 +24,7 @@
 
 #define MAX_BOUNDS 1000
 #define RANDOM_BUFFER_SIZE 1000
-#define MAX_PATH_LENGTH 3
+#define MAX_PATH_LENGTH 4
 #define TEXTURE_BUFFER_SIZE (134217728 >> 2)
 #define MAX_TEXTURE_HANDLES 100
 #define MAX_AREA_LIGHTS 100
@@ -323,9 +323,9 @@ void OCLRender::Commit()
     configData_.uNumRandomNumbers = RANDOM_BUFFER_SIZE;
     configData_.uFrameCount = frameCount_;
 
-    configData_.vBackgroundColor.s[0] = 1.f;
-    configData_.vBackgroundColor.s[1] = 1.f;
-    configData_.vBackgroundColor.s[2] = 1.2f;
+    configData_.vBackgroundColor.s[0] = 2.f;
+    configData_.vBackgroundColor.s[1] = 2.f;
+    configData_.vBackgroundColor.s[2] = 2.f;
     configData_.vBackgroundColor.s[3] = 1.0f;
 
     configData_.uNumAreaLights = 2;

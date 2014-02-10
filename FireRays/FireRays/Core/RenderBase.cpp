@@ -15,7 +15,7 @@
 void RenderBase::AttachTexture(std::string const& name, std::shared_ptr<TextureBase> texture)
 {
     textures_.insert(std::make_pair(name, texture));
-	texturesDirty_ = true;
+    texturesDirty_ = true;
 }
 
 void RenderBase::DetachTexture(std::string const& name)

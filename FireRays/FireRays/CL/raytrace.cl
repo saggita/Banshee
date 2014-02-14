@@ -41,6 +41,9 @@ DEFINES
 #define  AO_RADIUS  0.1f
 #define  AO_MIN     0.2f
 
+#define NUM_SAMPLES_X 1
+#define NUM_SAMPLES_Y 1
+
 /*************************************************************************
 TYPE DEFINITIONS
 **************************************************************************/
@@ -173,6 +176,12 @@ typedef struct {
     __global uint*          uAreaLights;
 } SceneData;
 
+typedef struct 
+{
+    Ray  sRay;
+    int  iId;
+} PathStart;
+
 /*************************************************************************
 HELPER FUNCTIONS
 **************************************************************************/
@@ -258,6 +267,14 @@ float3 make_float3(float x, float y, float z)
     res.x = x;
     res.y = y;
     res.z = z;
+    return res;
+}
+
+int2 make_int2(int x, int y)
+{
+    int2 res;
+    res.x = x;
+    res.y = y;
     return res;
 }
 
@@ -930,6 +947,114 @@ float4 TraceRay(
 
     return iPathLength > 0 ? sPath[0].vRadiance : sSceneData->sParams->vBackgroundColor;
 }
+
+
+
+
+
+__kernel void GeneratePath(__global Config*       params,
+                          __global PathStart*    pathStartBuffer)
+{
+    int2 globalId;
+    globalId.x = get_global_id(0);
+    globalId.y = get_global_id(1);
+    int flatGlobalId = globalId.y * params->uOutputWidth + globalId.x;
+
+    unsigned uWidth  = params->uOutputWidth;
+    unsigned uHeight = params->uOutputHeight;
+
+    int  iSubsample = flatGlobalId % (NUM_SAMPLES_X * NUM_SAMPLES_Y);
+    int  iPixel = flatGlobalId / (NUM_SAMPLES_X * NUM_SAMPLES_Y);
+    int2 iSubsampleIdx = make_int2(iSubsample % NUM_SAMPLES_X, iSubsample / NUM_SAMPLES_X);
+    int2 iPixelCoords = make_int2(iPixel % uWidth, iPixel / uWidth);
+
+
+    // 1. Calculate pixel coordinates
+    // 2. Calculate sample index
+    // 3. Construct path start
+    // 4. Add it into the buffer
+    RNG sRNG = CreateRNG((get_global_id(0) + 133) * (get_global_id(1) + 177) * (params->uFrameCount + 57));
+
+    float fPixelSize = params->fCameraPixelSize;
+    float fNearZ     = params->fCameraNearZ;
+
+    int iX = iPixelCoords.x - (uWidth >> 1);
+    int iY = iPixelCoords.y - (uHeight >> 1);
+
+    float fY = iX + (iSubsampleIdx.x + RandFloat(&sRNG))/NUM_SAMPLES_Y;
+    float fX = iY + (iSubsampleIdx.y + RandFloat(&sRNG))/NUM_SAMPLES_X;
+
+    Ray rr;
+    rr.o = params->vCameraPos;
+    rr.d.x = params->vCameraDir.x * fNearZ + params->vCameraUp.x * fY * fPixelSize + params->vCameraRight.x * fX * fPixelSize;
+    rr.d.y = params->vCameraDir.y * fNearZ + params->vCameraUp.y * fY * fPixelSize + params->vCameraRight.y * fX * fPixelSize;
+    rr.d.z = params->vCameraDir.z * fNearZ + params->vCameraUp.z * fY * fPixelSize + params->vCameraRight.z * fX * fPixelSize;
+
+    rr.d = normalize(rr.d);
+
+    rr.mint = 0.f;
+    rr.maxt = DEFAULT_DEPTH;
+
+    pathStartBuffer[flatGlobalId].sRay = rr;
+    pathStartBuffer[flatGlobalId].iId = flatGlobalId;
+}
+
+#define WORK_SIZE 20000000
+
+__kernel void TracePath(__global Config*       params,
+                        __global PathStart*    pathStartBuffer,
+                        __global BVHNode*      bvh,
+                        __global Vertex*       vertices,
+                        __global uint4*        indices,
+                        __global MaterialRep*  materials,
+                        __global TextureDesc*  textureDescBuffer,
+                        __global float4*       textureBuffer,
+                        __global PathVertex*   residentPool,
+                        __global int*          iTaskCounter
+                        )
+{
+    int2 globalId;
+    globalId.x = get_global_id(0);
+    globalId.y = get_global_id(1);
+
+    int flatGlobalId = globalId.y * params->uOutputWidth + globalId.x;
+    int iTaskIdx     = flatGlobalId;
+
+    __global PathVertex* sPathStack = residentPool + flatGlobalId * MAX_PATH_LENGTH;
+
+    while (iTaskIdx < WORK_SIZE)
+    {
+        Ray sThisRay = pathStartBuffer[iTaskIdx].sRay;
+        int iNumPoolItems = 0;
+        bool bHit = false;
+        ShadingData sShadingData;
+        while (bHit = TraverseBVHStacked(bvh, vertices, indices, &sThisRay, &sShadingData))
+        {
+            sPathStack[iNumPoolItems].vIncidentDir = sThisRay.d;
+            sPathStack[iNumPoolItems].sShadingData = sShadingData;
+
+            //MaterialRep sMaterial;
+            //sMaterial = GetMaterial(sShadingData.uMaterialIdx, sSceneData, sRNG);
+            ++(iNumPoolItems);
+
+            if (iNumPoolItems >= MAX_PATH_LENGTH)
+                break;
+
+            //if (!SampleMaterial(&sMaterial, &sShadingData, -sThisRay.d, sRNG, &sThisRay))
+            //{
+                //break;
+            //}
+        }
+
+        //if (!bHit & iNumPoolItems < MAX_PATH_LENGTH)
+        //{
+            //sPath[iNumPoolItems].vIncidentDir = sThisRay.d;
+            //sPath[iNumPoolItems].vRadiance = sSceneData->sParams->vBackgroundColor;
+            //++iNumPoolItems;
+        //}
+    }
+}
+
 
 
 /// Raytrace depth kernel

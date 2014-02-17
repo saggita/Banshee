@@ -137,6 +137,12 @@ void OCLRender::Init(unsigned width, unsigned height)
 
     traceDepthKernel_ = clCreateKernel(program_, "TraceDepth", &status);
     CHECK_ERROR(status, "Cannot create TraceDepth kernel");
+    
+    pathGenerationKernel_ = clCreateKernel(program_, "GeneratePath", &status);
+    CHECK_ERROR(status, "Cannot create GeneratePath kernel");
+    
+    pathTraceKernel_ = clCreateKernel(program_, "TracePath", &status);
+    CHECK_ERROR(status, "Cannot create TracePath kernel");
 
     accel_ = BVHAccelerator::CreateFromScene(*GetScene());
 
@@ -299,6 +305,14 @@ void OCLRender::Init(unsigned width, unsigned height)
 
     areaLightsBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint) * MAX_AREA_LIGHTS, &areaLights[0], &status);
     CHECK_ERROR(status, "Cannot create area lights buffer");
+    
+    /// new architecture
+    pathStartBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(DevPathStart) * outputSize_.s[0] * outputSize_.s[1], NULL, &status);
+    CHECK_ERROR(status, "Cannot create path start buffer");
+    
+    taskCounterBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_int), NULL, &status);
+    CHECK_ERROR(status, "Cannot create task counter buffer");
+    
 }
 
 void OCLRender::Commit()
@@ -343,6 +357,9 @@ OCLRender::~OCLRender()
 {
     /// TODO: implement RAII for CL objects
     glDeleteTextures(1, &glDepthTexture_);
+
+    clReleaseMemObject(taskCounterBuffer_);
+    clReleaseMemObject(pathStartBuffer_);
     clReleaseMemObject(areaLightsBuffer_);
     clReleaseMemObject(textureBuffer_);
     clReleaseMemObject(textureDescBuffer_);
@@ -360,17 +377,13 @@ OCLRender::~OCLRender()
     clReleaseProgram(program_);
     clReleaseCommandQueue(commandQueue_);
     clReleaseKernel(traceDepthKernel_);
+    clReleaseKernel(pathGenerationKernel_);
+    clReleaseKernel(pathTraceKernel_);
 }
 
 void OCLRender::Render()
 {
     cl_event kernelExecutionEvent;
-
-    glFinish();
-
-    cl_mem gl_objects[] = {outputDepthTexture_};
-
-    CHECK_ERROR(clEnqueueAcquireGLObjects(commandQueue_, 1, gl_objects, 0,0,0), "Cannot acquire OpenGL objects");
 
     size_t localWorkSize[2];
 
@@ -387,6 +400,51 @@ void OCLRender::Render()
         (outputSize_.s[0] + localWorkSize[0] - 1)/(localWorkSize[0]) * localWorkSize[0] , 
         (outputSize_.s[1] + localWorkSize[1] - 1)/(localWorkSize[1]) * localWorkSize[1]
     };
+    
+    // new architecture
+    {
+        CHECK_ERROR(clSetKernelArg(pathGenerationKernel_, 0, sizeof(cl_mem), &configBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathGenerationKernel_, 1, sizeof(cl_mem), &pathStartBuffer_), "SetKernelArg failed");
+        
+        cl_int status = clEnqueueNDRangeKernel(commandQueue_, pathGenerationKernel_, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, nullptr);
+        CHECK_ERROR(status, "Path generation kernel launch failed");
+        
+        
+        int numTasks = globalWorkSize[0] * globalWorkSize[1];
+        localWorkSize[0] = 64;
+        globalWorkSize[0] = 32 * 40 * localWorkSize[0];
+        
+        cl_int initialTaskCount = globalWorkSize[0];
+        status = clEnqueueFillBuffer(commandQueue_, taskCounterBuffer_, &initialTaskCount, sizeof(cl_int), 0, sizeof(cl_int), 0, nullptr, nullptr);
+        CHECK_ERROR(status, "Fill buffer failed");
+        
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 0, sizeof(cl_mem), &configBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 1, sizeof(cl_mem), &pathStartBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 2, sizeof(cl_mem), &bvhBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 3, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 4, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 5, sizeof(cl_mem), &materialBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 6, sizeof(cl_mem), &textureDescBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 7, sizeof(cl_mem), &textureBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 8, sizeof(cl_mem), &pathBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 9, sizeof(cl_mem), &taskCounterBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 10, sizeof(cl_int), &numTasks), "SetKernelArg failed");
+        
+        status = clEnqueueNDRangeKernel(commandQueue_, pathTraceKernel_, 1, nullptr, globalWorkSize, localWorkSize, 0, nullptr, nullptr);
+        CHECK_ERROR(status, "Path tracing kernel launch failed");
+        
+        cl_int numTasksCompleted = 0;
+        CHECK_ERROR(clEnqueueReadBuffer(commandQueue_, taskCounterBuffer_, CL_TRUE, 0, sizeof(cl_int), &numTasksCompleted, 0, nullptr, nullptr), "Cannot read task counter");
+        
+        std::cout <<"\n Tasks generated " << numTasks <<" completed " << numTasksCompleted << "\n";
+    }
+    
+    glFinish();
+    
+    cl_mem gl_objects[] = {outputDepthTexture_};
+    
+    CHECK_ERROR(clEnqueueAcquireGLObjects(commandQueue_, 1, gl_objects, 0,0,0), "Cannot acquire OpenGL objects");
+    
 
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 0, sizeof(cl_mem), &bvhBuffer_), "SetKernelArg failed");
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 1, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");

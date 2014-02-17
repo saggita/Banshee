@@ -134,6 +134,24 @@ private:
         cl_uint uHeight;
         cl_uint uPoolOffset;
     };
+    
+    /// new architecture
+    struct __declspec(align(16)) DevRay
+    {
+        cl_float3 vO;
+        cl_float3 vD;
+        cl_float  fMinT;
+        cl_float  fMaxT;
+    };
+    
+    struct __declspec(align(16)) DevPathStart
+    {
+        DevRay sRay;
+        cl_int    iId;
+        cl_uint   uPathLength;
+        cl_uint   uPathOffset;
+        cl_uint   uLastMiss;
+    };
 
 
 	cl_platform_id      platform_;
@@ -143,6 +161,7 @@ private:
 	cl_command_queue    commandQueue_;
 	cl_program          program_;
 	cl_kernel           traceDepthKernel_;
+    
 
 	cl_mem		vertexBuffer_;
 	cl_mem		indexBuffer_;
@@ -157,6 +176,15 @@ private:
     cl_mem      textureBuffer_;
     cl_mem      textureDescBuffer_;
 	cl_mem      areaLightsBuffer_;
+    
+    
+    /// new architecture
+    cl_kernel pathGenerationKernel_;
+    cl_kernel pathTraceKernel_;
+    cl_mem pathStartBuffer_;
+    cl_mem pathCounterBuffer_;
+    cl_mem taskCounterBuffer_;
+    
 
 	GLuint		glDepthTexture_;
 

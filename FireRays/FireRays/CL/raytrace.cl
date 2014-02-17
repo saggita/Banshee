@@ -1067,9 +1067,9 @@ __kernel void TracePath(__global Config*       params,
         pathStartBuffer[iTaskIdx].uPathLength = iNumPoolItems;
         
         // Get next task
-        iTaskIdx += get_global_size(0);
+        iTaskIdx = atomic_inc(iTaskCounter);
         // Get next stack pointer
-        uPathOffset += get_global_size(0) * MAX_PATH_LENGTH;
+        uPathOffset = iTaskIdx * MAX_PATH_LENGTH;
     }
 }
 
@@ -1158,7 +1158,7 @@ __kernel void ShadeAndExport(
         write_imagef(output, iPixelCoords, fVal);
 
         //get to the next task
-        iTaskIdx += get_global_size(0);
+        iTaskIdx = atomic_inc(iTaskCounter);
     }
 }
 

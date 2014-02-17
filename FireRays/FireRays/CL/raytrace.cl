@@ -1124,8 +1124,9 @@ __kernel void ShadeAndExport(
         while (iNumPoolItems > 0)
         {
             // Sample direct, account for indirect
-            MaterialRep sMaterial = GetMaterial(sPathStack->uMaterialIdx, &sSceneData, &sRNG);
             ShadingData sShadingData = sPathStack->sShadingData;
+            MaterialRep sMaterial = GetMaterial(sShadingData.uMaterialIdx, &sSceneData, &sRNG);
+
 
             sPathStack->vRadiance = SampleDirectIllumination(&sSceneData, &sMaterial, &sShadingData, -sPathStack->vIncidentDir, &sRNG);
 
@@ -1137,6 +1138,7 @@ __kernel void ShadeAndExport(
             }
 
             --iNumPoolItems;
+            --sPathStack;
         }
 
         int iId = pathStartBuffer[iTaskIdx].iId;
@@ -1144,7 +1146,7 @@ __kernel void ShadeAndExport(
         int2 iPixelCoords = make_int2(iPixel % params->uOutputWidth, iPixel / params->uOutputWidth); 
         
         //Export
-        float4 fVal = sPathStack->vRadiance / (NUM_SAMPLES_X * NUM_SAMPLES_Y);
+        float4 fVal = (sPathStack + 1)->vRadiance / (NUM_SAMPLES_X * NUM_SAMPLES_Y);
         uint uFrameCount = params->uFrameCount;
         if (uFrameCount)
         {

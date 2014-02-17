@@ -340,9 +340,9 @@ void OCLRender::Commit()
     configData_.uNumRandomNumbers = RANDOM_BUFFER_SIZE;
     configData_.uFrameCount = frameCount_;
 
-    configData_.vBackgroundColor.s[0] = 3.1f;
-    configData_.vBackgroundColor.s[1] = 3.1f;
-    configData_.vBackgroundColor.s[2] = 3.1f;
+    configData_.vBackgroundColor.s[0] = 0.1f;
+    configData_.vBackgroundColor.s[1] = 0.1f;
+    configData_.vBackgroundColor.s[2] = 0.1f;
     configData_.vBackgroundColor.s[3] = 1.0f;
 
     configData_.uNumAreaLights = 2;
@@ -422,7 +422,7 @@ void OCLRender::Render()
         int numTasks = outputSize_.s[0] * outputSize_.s[1];
 
         size_t localWorkSize1 = 64;
-        size_t globalWorkSize1 = 32 * 40 * localWorkSize1;
+        size_t globalWorkSize1 = 32 * 40 * localWorkSize1 * 10;
 
         cl_int initialTaskCount = globalWorkSize1;
         CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, taskCounterBuffer_, CL_FALSE, 0, sizeof(cl_int), &initialTaskCount, 0, nullptr, nullptr), "Cannot update task counter buffer");

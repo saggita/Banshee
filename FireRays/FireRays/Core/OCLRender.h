@@ -161,7 +161,7 @@ private:
 	cl_command_queue    commandQueue_;
 	cl_program          program_;
 	cl_kernel           traceDepthKernel_;
-    
+
 
 	cl_mem		vertexBuffer_;
 	cl_mem		indexBuffer_;
@@ -181,10 +181,10 @@ private:
     /// new architecture
     cl_kernel pathGenerationKernel_;
     cl_kernel pathTraceKernel_;
+    cl_kernel pathShadeAndExportKernel_;
     cl_mem pathStartBuffer_;
     cl_mem pathCounterBuffer_;
     cl_mem taskCounterBuffer_;
-    
 
 	GLuint		glDepthTexture_;
 

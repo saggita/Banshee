@@ -253,34 +253,34 @@ float4 TransformPoint(float16 mWVP, float4 vPoint)
     vRes.z = mWVP.s8 * vPoint.x + mWVP.s9 * vPoint.y + mWVP.sa * vPoint.z + mWVP.sb * vPoint.w;
     return vRes;
 }
-//
-//float4 make_float4(float x, float y, float z, float w)
-//{
-//    float4 res;
-//    res.x = x;
-//    res.y = y;
-//    res.z = z;
-//    res.w = w;
-//    return res;
-//}
-//
-//
-//float3 make_float3(float x, float y, float z)
-//{
-//    float3 res;
-//    res.x = x;
-//    res.y = y;
-//    res.z = z;
-//    return res;
-//}
-//
-//int2 make_int2(int x, int y)
-//{
-//    int2 res;
-//    res.x = x;
-//    res.y = y;
-//    return res;
-//}
+
+float4 make_float4(float x, float y, float z, float w)
+{
+    float4 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    res.w = w;
+    return res;
+}
+
+
+float3 make_float3(float x, float y, float z)
+{
+    float3 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    return res;
+}
+
+int2 make_int2(int x, int y)
+{
+    int2 res;
+    res.x = x;
+    res.y = y;
+    return res;
+}
 
 float4 tex2d(SceneData* sSceneData, uint texIdx, float2 uv)
 {
@@ -986,8 +986,8 @@ __kernel void GeneratePath(__global Config*       sParams,
         int iX = iPixelCoords.x - (uWidth >> 1);
         int iY = iPixelCoords.y - (uHeight >> 1);
         
-        float fY = iX + (iSubsampleIdx.x + RandFloat(&sRNG))/NUM_SAMPLES_Y;
-        float fX = iY + (iSubsampleIdx.y + RandFloat(&sRNG))/NUM_SAMPLES_X;
+        float fY = iY + (iSubsampleIdx.y + RandFloat(&sRNG))/NUM_SAMPLES_Y;
+        float fX = iX + (iSubsampleIdx.x + RandFloat(&sRNG))/NUM_SAMPLES_X;
         
         Ray rr;
         rr.o = sParams->vCameraPos;
@@ -1030,9 +1030,9 @@ __kernel void TracePath(__global Config*       params,
         int iNumPoolItems = 0;
         bool bHit = false;
         ShadingData sShadingData;
-        
+
         __global PathVertex* sPathStack = residentPool + uPathOffset;
-        
+
         Ray sThisRay = pathStartBuffer[iTaskIdx].sRay;
         while (bHit = TraverseBVHStacked(bvh, vertices, indices, &sThisRay, &sShadingData))
         {
@@ -1053,7 +1053,7 @@ __kernel void TracePath(__global Config*       params,
         
         if (!bHit & iNumPoolItems < MAX_PATH_LENGTH)
         {
-            sPath[iNumPoolItems].vIncidentDir = sThisRay.d;
+            sPathStack[iNumPoolItems].vIncidentDir = sThisRay.d;
             pathStartBuffer[iTaskIdx].uLastMiss = 1;
             ++iNumPoolItems;
         }
@@ -1061,21 +1061,13 @@ __kernel void TracePath(__global Config*       params,
         {
             pathStartBuffer[iTaskIdx].uLastMiss = 0;
         }
-        
-        //if (!bHit & iNumPoolItems < MAX_PATH_LENGTH)
-        //{
-        //sPathStack[iNumPoolItems].vIncidentDir = sThisRay.d;
-        //sPathStack[iNumPoolItems].vRadiance = sSceneData->sParams->vBackgroundColor;
-        //++iNumPoolItems;
-        //}
 
         // Export stack
-        
         pathStartBuffer[iTaskIdx].uPathOffset = uPathOffset;
         pathStartBuffer[iTaskIdx].uPathLength = iNumPoolItems;
         
         // Get next task
-        iTaskIdx = atomic_inc(iTaskCounter);
+        iTaskIdx += get_global_size(0);
         // Get next stack pointer
         uPathOffset += get_global_size(0) * MAX_PATH_LENGTH;
     }
@@ -1083,11 +1075,18 @@ __kernel void TracePath(__global Config*       params,
 
 __kernel void ShadeAndExport(
                              __global Config*       params,
+                              __global BVHNode*     bvh,
+                             __global Vertex*       vertices,
+                             __global uint4*        indices,
                              __global PathStart*    pathStartBuffer,
                              __global MaterialRep*  materials,
                              __global TextureDesc*  textureDescBuffer,
                              __global float4*       textureBuffer,
+                             __global uint*         areaLights,
                              __global PathVertex*   residentPool,
+                             __global float4*       intermediateBuffer,
+                             __write_only image2d_t output,
+                             __global int*          iTaskCounter,
                              int iNumTasks
                              )
 {
@@ -1095,42 +1094,69 @@ __kernel void ShadeAndExport(
     int iTaskIdx = globalId;
     
     RNG sRNG = CreateRNG((get_global_id(0) + 133) * (get_global_id(1) + 177) * (params->uFrameCount + 57));
-    
+
+    SceneData sSceneData;
+    sSceneData.sBVH         = bvh;
+    sSceneData.sVertices    = vertices,
+    sSceneData.sIndices     = indices;
+    sSceneData.sPointLights = NULL;
+    sSceneData.sParams      = params;
+    sSceneData.sMaterials   = materials;
+    sSceneData.sTextureDesc = textureDescBuffer;
+    sSceneData.vTextures    = textureBuffer;
+    sSceneData.uAreaLights  = areaLights;
+
     while (iTaskIdx < iNumTasks )
     {
         int iNumPoolItems = pathStartBuffer[iTaskIdx].uPathLength;
-        uint uLastMiss = pathStartBuffer[iTaskIdx].uLastMiss;
-        
-        float4 vRadiance = make_float4(0, 0, 0, 0);
+        uint uLastMiss    = pathStartBuffer[iTaskIdx].uLastMiss;
+        uint uPathOffset  = pathStartBuffer[iTaskIdx].uPathOffset;
+
+        __global PathVertex* sPathStack = residentPool + uPathOffset + iNumPoolItems - 1;
         
         if (uLastMiss)
         {
+            sPathStack->vRadiance = params->vBackgroundColor;
             --iNumPoolItems;
-            vRadiance = //background;
+            --sPathStack;
         }
         
         while (iNumPoolItems > 0)
         {
-            uint uPathOffset = pathStartBuffer[iTaskIdx].uPathOffset;
-            __global PathVertex* sPathStack = residentPool + uPathOffset;
-            
             // Sample direct, account for indirect
-            MaterialRep sMaterial = GetMaterial(sPathStack[iNumPoolItems - 1].uMaterialIdx, sSceneData, sRNG);
-            ShadingData sShadingData = sPath[iNumPoolItems - 2].sShadingData;
-                
-            float fNdotL = dot(sPath[iNumPoolItems - 1].vIncidentDir, sPath[iNumPoolItems - 2].sShadingData.vNormal);
-                
-            sPath[iNumPoolItems - 2].vRadiance += fNdotL * EvaluateMaterial(sSceneData, &sMaterial, &sShadingData, sPath[iNumPoolItems - 1].vIncidentDir, -sPath[iNumPoolItems - 2].vIncidentDir,  sPath[iNumPoolItems - 1].vRadiance);
-                
-            --(iNumPoolItems);
-            
+            MaterialRep sMaterial = GetMaterial(sPathStack->uMaterialIdx, &sSceneData, &sRNG);
+            ShadingData sShadingData = sPathStack->sShadingData;
+
+            sPathStack->vRadiance = SampleDirectIllumination(&sSceneData, &sMaterial, &sShadingData, -sPathStack->vIncidentDir, &sRNG);
+
+            if (iNumPoolItems < pathStartBuffer[iTaskIdx].uPathLength)
+            {
+                float3 vWi = (sPathStack + 1)->vIncidentDir;
+                float fNdotL = dot(vWi, sShadingData.vNormal);
+                sPathStack->vRadiance += fNdotL * EvaluateMaterial(&sSceneData, &sMaterial, &sShadingData, vWi, -sPathStack->vIncidentDir,  (sPathStack+1)->vRadiance);
+            }
+
+            --iNumPoolItems;
         }
-        
+
+        int iId = pathStartBuffer[iTaskIdx].iId;
+        int iPixel = iId / (NUM_SAMPLES_X * NUM_SAMPLES_Y);
+        int2 iPixelCoords = make_int2(iPixel % params->uOutputWidth, iPixel / params->uOutputWidth); 
         
         //Export
-        
-        
+        float4 fVal = sPathStack->vRadiance / (NUM_SAMPLES_X * NUM_SAMPLES_Y);
+        uint uFrameCount = params->uFrameCount;
+        if (uFrameCount)
+        {
+            float4 vPrevValue =  intermediateBuffer[iPixel];
+            fVal = vPrevValue * ((float)(uFrameCount - 1.f)/uFrameCount) + fVal * (1.f/uFrameCount);
+        }
+
+        intermediateBuffer[iPixel] = fVal;
+        write_imagef(output, iPixelCoords, fVal);
+
         //get to the next task
+        iTaskIdx += get_global_size(0);
     }
 }
 

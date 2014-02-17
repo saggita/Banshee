@@ -227,7 +227,7 @@ void TestScene::BuildMaterials()
     materialRep.eBsdf = 2;
     materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 0;
     materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0;
-    materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 1.0;
+    materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.6;
     materialRep.fEs = 128.f;
     materialRep.uTd = -1;
     materialReps_.push_back(materialRep);

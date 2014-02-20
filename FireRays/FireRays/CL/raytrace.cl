@@ -17,7 +17,7 @@ DEFINES
 //#define TRAVERSAL_STACKLESS
 #define TRAVERSAL_STACKED
 //#define LOCAL_STACK
-#define NODE_STACK_SIZE 32
+#define NODE_STACK_SIZE 40
 #define MAX_PATH_LENGTH 3
 
 #define RAY_EPSILON 0.01f
@@ -43,6 +43,10 @@ DEFINES
 
 #define NUM_SAMPLES_X 1
 #define NUM_SAMPLES_Y 1
+
+#define PATH_TYPE_DIRECT 0
+#define PATH_TYPE_INDIRECT 1
+#define PATH_TYPE_AO 2
 
 /*************************************************************************
 TYPE DEFINITIONS
@@ -184,6 +188,7 @@ typedef struct
     uint  uPathLength;
     uint  uPathOffset;
     uint  uLastMiss;
+    uint  ePathType;
 } PathStart;
 
 /*************************************************************************
@@ -788,34 +793,11 @@ float4 SampleDirectIllumination(
         float fMinAmount = 0.f;
 #endif
 
-        //		for (uint i=0;i<sSceneData->sParams->uNumPointLights;++i)
-        //		{
-        //			float3 vLight = normalize(sSceneData->sPointLights[i].vPos.xyz - sShadingData->vPos);
-        //
-        //			Ray sRay;
-        //			sRay.o = sShadingData->vPos + RAY_EPSILON * vLight;
-        //			sRay.d = vLight;
-        //			sRay.maxt = length(sSceneData->sPointLights[i].vPos.xyz - sShadingData->vPos);
-        //			sRay.mint = 0.f;
-        //
-        //			ShadingData sTempData;
-        //
-        //			float fNdotL = dot(sShadingData->vNormal, vLight);
-        //
-        //			if (fNdotL > 0)
-        //			{
-        //				float fShadow = TraverseBVHStacked(
-        //#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
-        //					iThreadStack,
-        //#endif
-        //					sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
-        //				float4 vDirectContribution = fNdotL * EvaluateMaterial(sSceneData, sMaterialRep, sShadingData, vLight, vWo, sSceneData->sPointLights[i].vColor);
-        //				vRes += (fShadow * vDirectContribution) * (1.f - fOcclusion) + vDirectContribution * AO_MIN;
-        //			}
-        //		}
 
-        for (uint i=0;i<sSceneData->sParams->uNumAreaLights;++i)
+        if (RandFloat(sRNG) > 0.5f)
         {
+            uint i = (uint)(RandFloat(sRNG) * (sSceneData->sParams->uNumAreaLights + 1));
+            if (i == sSceneData->sParams->uNumAreaLights) --i;
             float3 vLightSample, vLightNormal;
             float fPDF;
             SampleTriangleUniform(sSceneData->sVertices, sSceneData->sIndices, sSceneData->uAreaLights[i], sRNG, &vLightSample, &vLightNormal, &fPDF);
@@ -847,7 +829,7 @@ float4 SampleDirectIllumination(
                 vRes += ((fShadow * vDirectContribution) * (1.f - fOcclusion) + vDirectContribution * AO_MIN);
             }
         }
-
+        else
         /// Environment light sampling
         {
             Ray sRay;
@@ -919,6 +901,8 @@ float4 TraceRay(
 
             if (iNumPoolItems >= MAX_PATH_LENGTH)
                 break;
+
+            // Decide where to proceed
 
             if (!SampleMaterial(&sMaterial, &sShadingData, -sThisRay.d, sRNG, &sThisRay))
             {
@@ -1002,8 +986,53 @@ __kernel void GeneratePath(__global Config*       sParams,
         
         sPathStartBuffer[flatGlobalId].sRay = rr;
         sPathStartBuffer[flatGlobalId].iId = flatGlobalId;
+        sPathStartBuffer[flatGlobalId].ePathType = sParams->uFrameCount % 3;
     }
 }
+
+//bool  AdvancePath(uint ePathType, __global Vertex* vertices, __global uint4* indices, __global uint* areaLights, uint numAreaLights, MaterialRep* sMaterialRep, ShadingData* sShadingData, float3 vWo, RNG* sRNG, Ray* sRay)
+//{
+//    if (IsEmissive(sMaterialRep))
+//    {
+//        return false;
+//    }
+//    else
+//    {
+//        switch (ePathType)
+//        {
+//            case PATH_TYPE_DIRECT:
+//                {
+//                uint uLightIdx = numAreaLights * RandFloat(sRNG);
+//                float3 vLightSample, vLightNormal;
+//                float fPDF;
+//                SampleTriangleUniform(vertices, indices, areaLights[uLightIdx], sRNG, &vLightSample, &vLightNormal, &fPDF);
+//
+//                float3 vLight = normalize(vLightSample - sShadingData->vPos);
+//                float  fDist = length(vLightSample - sShadingData->vPos);
+//
+//                sRay->o = sShadingData->vPos + RAY_EPSILON * vLight;
+//                sRay->d = vLight;
+//                sRay->maxt = (1.f - RAY_EPSILON) * fDist;
+//                sRay->mint = 0.f;
+//                return true;
+//                }
+//
+//            case PATH_TYPE_INDIRECT:
+//                return SampleMaterial(sMaterialRep, sShadingData, vWo, sRNG, sRay);
+//
+//            case PATH_TYPE_AO:
+//                {
+//                    sRay->d = GetHemisphereSample(sShadingData->vNormal, 1.f, sRNG);
+//                    sRay->o = sShadingData->vPos + RAY_EPSILON * sRay->d;
+//                    sRay->maxt = 10000.f;
+//                    sRay->mint = 0.f;
+//                    return true;
+//                }
+//
+//        }
+//    }
+//}
+
 
 __kernel void TracePath(__global Config*       params,
                         __global PathStart*    pathStartBuffer,
@@ -1011,6 +1040,7 @@ __kernel void TracePath(__global Config*       params,
                         __global Vertex*       vertices,
                         __global uint4*        indices,
                         __global MaterialRep*  materials,
+                        __global uint*  areaLights,
                         __global TextureDesc*  textureDescBuffer,
                         __global float4*       textureBuffer,
                         __global PathVertex*   residentPool,
@@ -1025,6 +1055,17 @@ __kernel void TracePath(__global Config*       params,
     
     RNG sRNG = CreateRNG((get_global_id(0) + 133) * (get_global_id(1) + 177) * (params->uFrameCount + 57));
 
+    SceneData sSceneData;
+    sSceneData.sBVH         = bvh;
+    sSceneData.sVertices    = vertices,
+    sSceneData.sIndices     = indices;
+    sSceneData.sPointLights = NULL;
+    sSceneData.sParams      = params;
+    sSceneData.sMaterials   = materials;
+    sSceneData.sTextureDesc = textureDescBuffer;
+    sSceneData.vTextures    = textureBuffer;
+    sSceneData.uAreaLights  = areaLights;
+
     while (iTaskIdx < iNumTasks )
     {
         int iNumPoolItems = 0;
@@ -1036,10 +1077,11 @@ __kernel void TracePath(__global Config*       params,
         Ray sThisRay = pathStartBuffer[iTaskIdx].sRay;
         while (bHit = TraverseBVHStacked(bvh, vertices, indices, &sThisRay, &sShadingData))
         {
+            MaterialRep sMaterial = materials[sShadingData.uMaterialIdx];
             sPathStack[iNumPoolItems].vIncidentDir = sThisRay.d;
             sPathStack[iNumPoolItems].sShadingData = sShadingData;
+            sPathStack[iNumPoolItems].vRadiance = SampleDirectIllumination(&sSceneData, &sMaterial, &sShadingData, -sThisRay.d, &sRNG);
 
-            MaterialRep sMaterial = materials[sShadingData.uMaterialIdx];
             ++(iNumPoolItems);
 
             if (iNumPoolItems >= MAX_PATH_LENGTH)
@@ -1128,7 +1170,7 @@ __kernel void ShadeAndExport(
             MaterialRep sMaterial = GetMaterial(sShadingData.uMaterialIdx, &sSceneData, &sRNG);
 
 
-            sPathStack->vRadiance = SampleDirectIllumination(&sSceneData, &sMaterial, &sShadingData, -sPathStack->vIncidentDir, &sRNG);
+            //sPathStack->vRadiance = 0;//SampleDirectIllumination(&sSceneData, &sMaterial, &sShadingData, -sPathStack->vIncidentDir, &sRNG);
 
             if (iNumPoolItems < pathStartBuffer[iTaskIdx].uPathLength)
             {

@@ -151,6 +151,7 @@ private:
         cl_uint   uPathLength;
         cl_uint   uPathOffset;
         cl_uint   uLastMiss;
+        cl_uint   ePathType;
     };
 
 

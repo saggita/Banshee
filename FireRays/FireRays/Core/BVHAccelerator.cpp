@@ -200,11 +200,10 @@ unsigned BVHAccelerator::BuildHierarchy(unsigned begin, unsigned end, std::vecto
     {
         BuildNode n = {b, static_cast<unsigned int>(axis), 0, 0, 0};
 
-        //unsigned mid = find_best_split(begin, end, b, centroidBounds);
-        n.left = BuildHierarchy(begin, mid, buildNodes);
+        n.left  = BuildHierarchy(begin, mid, buildNodes);
         n.right = BuildHierarchy(mid, end, buildNodes);
 
-        buildNodes[n.left].parent = (unsigned)buildNodes.size();
+        buildNodes[n.left].parent  = (unsigned)buildNodes.size();
         buildNodes[n.right].parent = (unsigned)buildNodes.size();
 
         buildNodes.push_back(n);
@@ -282,7 +281,7 @@ unsigned   BVHAccelerator::FindBestSplit(unsigned begin, unsigned end, BBox cons
             h1Count += bins[j].count;
         }
 
-        sahCost[i] = 500.0f + (h1Count * h1Box.GetSurfaceArea() + h2Count * h2Box.GetSurfaceArea())/box.GetSurfaceArea();
+        sahCost[i] = 1.0f + (h1Count * h1Box.GetSurfaceArea() + h2Count * h2Box.GetSurfaceArea())/box.GetSurfaceArea();
     }
 
     float minSahCost = sahCost[0];

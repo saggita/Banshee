@@ -47,7 +47,7 @@ void OCLRender::Init(unsigned width, unsigned height)
     outputSize_.s[1] = height;
 
     cl_int status = CL_SUCCESS;
-    CHECK_ERROR(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_GPU, 1, &device_, nullptr), "GetDeviceIDs failed");
+    CHECK_ERROR(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_ALL, 1, &device_, nullptr), "GetDeviceIDs failed");
 
     char device_name[2048];
     clGetDeviceInfo(device_, CL_DEVICE_NAME, 2048, device_name, nullptr);
@@ -340,9 +340,9 @@ void OCLRender::Commit()
     configData_.uNumRandomNumbers = RANDOM_BUFFER_SIZE;
     configData_.uFrameCount = frameCount_;
 
-    configData_.vBackgroundColor.s[0] = 0.1f;
-    configData_.vBackgroundColor.s[1] = 0.1f;
-    configData_.vBackgroundColor.s[2] = 0.1f;
+    configData_.vBackgroundColor.s[0] = 2.1f;
+    configData_.vBackgroundColor.s[1] = 2.1f;
+    configData_.vBackgroundColor.s[2] = 2.1f;
     configData_.vBackgroundColor.s[3] = 1.0f;
 
     configData_.uNumAreaLights = 2;
@@ -422,7 +422,7 @@ void OCLRender::Render()
         int numTasks = outputSize_.s[0] * outputSize_.s[1];
 
         size_t localWorkSize1 = 64;
-        size_t globalWorkSize1 = 32 * 40 * localWorkSize1 * 10;
+        size_t globalWorkSize1 = 32 * 40 * localWorkSize1;
 
         cl_int initialTaskCount = globalWorkSize1;
         CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, taskCounterBuffer_, CL_FALSE, 0, sizeof(cl_int), &initialTaskCount, 0, nullptr, nullptr), "Cannot update task counter buffer");
@@ -433,11 +433,12 @@ void OCLRender::Render()
         CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 3, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
         CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 4, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
         CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 5, sizeof(cl_mem), &materialBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 6, sizeof(cl_mem), &textureDescBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 7, sizeof(cl_mem), &textureBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 8, sizeof(cl_mem), &pathBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 9, sizeof(cl_mem), &taskCounterBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 10, sizeof(cl_int), &numTasks), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 6, sizeof(cl_mem), &areaLightsBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 7, sizeof(cl_mem), &textureDescBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 8, sizeof(cl_mem), &textureBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 9, sizeof(cl_mem), &pathBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 10, sizeof(cl_mem), &taskCounterBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 11, sizeof(cl_int), &numTasks), "SetKernelArg failed");
         
         status = clEnqueueNDRangeKernel(commandQueue_, pathTraceKernel_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent2);
         CHECK_ERROR(status, "Path tracing kernel launch failed");
@@ -478,8 +479,8 @@ void OCLRender::Render()
     CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 12, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
     //CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 5, sizeof(cl_int) * localWorkSize[0] * localWorkSize[1] * 64, nullptr), "SetKernelArg failed");
 
-    //cl_int status = clEnqueueNDRangeKernel(commandQueue_, traceDepthKernel_, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, &kernelExecutionEvent);
-    // CHECK_ERROR(status, "Raytracing kernel launch failed");
+    //cl_int status = clEnqueueNDRangeKernel(commandQueue_, traceDepthKernel_, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, nullptr);
+    //CHECK_ERROR(status, "Raytracing kernel launch failed");
 
     CHECK_ERROR(clEnqueueReleaseGLObjects(commandQueue_, 1, gl_objects, 0,0,0), "Cannot release OpenGL objects");
     CHECK_ERROR(clFinish(commandQueue_), "Cannot flush command queue");
@@ -489,7 +490,7 @@ void OCLRender::Render()
     cl_ulong startTime, endTime;
     double totalTime;
 
-    clGetEventProfilingInfo(kernelExecutionEvent1, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
+    /*clGetEventProfilingInfo(kernelExecutionEvent1, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
     clGetEventProfilingInfo(kernelExecutionEvent1, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
     totalTime = (double)(endTime - startTime)/1000000.0;
 
@@ -505,7 +506,7 @@ void OCLRender::Render()
     clGetEventProfilingInfo(kernelExecutionEvent3, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
     totalTime = (double)(endTime - startTime)/1000000.0;
 
-    std::cout << "Shading time " << totalTime << " msec\n";
+    std::cout << "Shading time " << totalTime << " msec\n";*/
 
     ++frameCount_;
 }

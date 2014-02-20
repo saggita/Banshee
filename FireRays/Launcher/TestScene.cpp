@@ -157,7 +157,7 @@ TestScene::TestScene()
     startIdx = vertices_.size();
 
 
-    v.position = vector3(-20, -3, -5);
+   /* v.position = vector3(-20, -3, -5);
     v.normal   = vector3(0, 0, 1);
     v.texcoord = vector2(0, 0);
 
@@ -189,7 +189,7 @@ TestScene::TestScene()
     indices_.push_back(startIdx + 2);
 
     materials_.push_back(4);
-    materials_.push_back(4);
+    materials_.push_back(4);*/
 }
 
 TestScene::~TestScene()
@@ -227,8 +227,8 @@ void TestScene::BuildMaterials()
     materialRep.eBsdf = 2;
     materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 0;
     materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0;
-    materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.9;
-    materialRep.fEs = 128.f;
+    materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 1.0;
+    materialRep.fEs = 1280.f;
     materialRep.uTd = -1;
     materialReps_.push_back(materialRep);
     
@@ -243,7 +243,7 @@ void TestScene::BuildMaterials()
     materialReps_.push_back(materialRep);
     
     materialRep.eBsdf = 3;
-    materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 9.0f;
+    materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 15.0f;
     materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0.0;
     materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.0;
     materialRep.fEs = 0.f;

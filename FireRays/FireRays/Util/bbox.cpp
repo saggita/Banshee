@@ -7,6 +7,19 @@
 //
 
 #include "BBox.h"
+#include <limits>
+
+BBox::BBox()
+: minPoint_(vector3(std::numeric_limits<float>::max(),
+                    std::numeric_limits<float>::max(),
+                    std::numeric_limits<float>::max()))
+, maxPoint_(vector3(-std::numeric_limits<float>::max(),
+                    -std::numeric_limits<float>::max(),
+                    -std::numeric_limits<float>::max()))
+{
+    
+}
+
 BBox::BBox(vector3 const& p)
 : minPoint_(p)
 , maxPoint_(p)
@@ -53,9 +66,9 @@ vector3 BBox::GetCenter() const
 bool BBox::Contains(vector3 const& p) const
 {
 	vector3 radius = 0.5f * GetExtents();
-	return abs(GetCenter().x() - p.x()) < radius.x() &&
-		   abs(GetCenter().y() - p.y()) < radius.y() &&
-		   abs(GetCenter().z() - p.z()) < radius.z();
+	return abs(GetCenter().x() - p.x()) <= radius.x() &&
+		   abs(GetCenter().y() - p.y()) <= radius.y() &&
+		   abs(GetCenter().z() - p.z()) <= radius.z();
 }
 
 int BBox::GetMaxDim() const

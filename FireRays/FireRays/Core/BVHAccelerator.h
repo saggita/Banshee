@@ -14,6 +14,7 @@
 
 #include "SceneBase.h"
 #include "BBox.h"
+#include "BVH.h"
 
 class BVHAccelerator
 {
@@ -45,6 +46,9 @@ public:
     int GetRootNode() const;
 
 private:
+    BVHAccelerator(BVHAccelerator const&);
+    BVHAccelerator& operator = (BVHAccelerator const&);
+    
     struct BuildNode
     {
         BBox box;
@@ -65,6 +69,7 @@ private:
     unsigned FindBestSplit(unsigned begin, unsigned end, BBox const& box, BBox const& centroidBounds, float& sahValue);
     unsigned BuildHierarchy(unsigned begin, unsigned end, std::vector<BuildNode>& buildNodes);
     unsigned Linearize(unsigned build_node_idx, unsigned parent, std::vector<BuildNode> const& buildNodes);
+    void     Traverse(unsigned build_node_idx, std::vector<BuildNode> const& buildNodes, BVH::NodeId id, BVH::ChildRel rel);
     bool     Intersect(int idx, ray const& r, float& t);
 
     template <typename T> BBox CalcBbox(Triangle const& t, std::vector<T> const& vertices);
@@ -78,6 +83,9 @@ private:
 
     unsigned maxNodePrims_;
     int root_;
+    
+public:
+    BVH bvh_;
 };
 
 #endif // BVHACCELERATOR_H

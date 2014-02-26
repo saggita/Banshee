@@ -138,6 +138,9 @@ template <typename T> BVHAccelerator::BVHAccelerator(T const* vertices, unsigned
     nodes_.reserve(buildNodes.size());
     Linearize(root_, 0, buildNodes);
     std::cout << "BVH Contains " << nodes_.size() << " nodes\n";
+    
+    
+    Traverse(root_, buildNodes, bvh_.GetPreRootNode(), BVH::CR_LEFT/*this arg doesn't matter*/);
 }
 
 
@@ -177,6 +180,11 @@ unsigned BVHAccelerator::BuildHierarchy(unsigned begin, unsigned end, std::vecto
     int primCount = end - begin;
     int axis = centroidBounds.GetMaxDim();
     int mid = 0;
+    
+    std::sort(&buildInfo_[0] + begin, &buildInfo_[0] + end, [axis](BuildInfo const& i1, BuildInfo const& i2)
+              {
+                  return i1.box.GetCenter()[axis] < i2.box.GetCenter()[axis];
+              });
 
     if (centroidBounds.GetMinPoint()[axis] == centroidBounds.GetMaxPoint()[axis])
     {
@@ -277,8 +285,8 @@ unsigned   BVHAccelerator::FindBestSplit(unsigned begin, unsigned end, BBox cons
 
         for(unsigned j = i + 2; j < kNumBins; ++j)
         {
-            h1Box = BBoxUnion(h1Box, bins[j].box);
-            h1Count += bins[j].count;
+            h2Box = BBoxUnion(h1Box, bins[j].box);
+            h2Count += bins[j].count;
         }
 
         sahCost[i] = 1.0f + (h1Count * h1Box.GetSurfaceArea() + h2Count * h2Box.GetSurfaceArea())/box.GetSurfaceArea();
@@ -354,4 +362,26 @@ unsigned BVHAccelerator::Linearize(unsigned buildNodeIdx, unsigned parent, std::
     }
 
     return index;
+}
+
+void BVHAccelerator::Traverse(unsigned buildNodeIdx, std::vector<BuildNode> const& buildNodes, BVH::NodeId id, BVH::ChildRel rel)
+{
+    if (buildNodes[buildNodeIdx].primCount == 0)
+    {
+        BVH::SplitAxis axis = buildNodes[buildNodeIdx].primStartIdx == 0 ? BVH::SplitAxis::SA_X :
+                             (buildNodes[buildNodeIdx].primStartIdx == 1 ? BVH::SplitAxis::SA_Y :
+                                                                           BVH::SplitAxis::SA_Z);
+        
+        
+        id = bvh_.CreateInternalNode(id, rel, axis, buildNodes[buildNodeIdx].box);
+        Traverse(buildNodes[buildNodeIdx].left, buildNodes, id, BVH::CR_LEFT);
+        Traverse(buildNodes[buildNodeIdx].right, buildNodes, id, BVH::CR_RIGHT);
+    }
+    else
+    {
+        std::vector<unsigned> indices;
+        for (int i = 0; i < buildNodes[buildNodeIdx].primCount; ++i)
+            indices.push_back(buildNodes[buildNodeIdx].primStartIdx + i);
+        bvh_.CreateLeafNode(id, rel, buildNodes[buildNodeIdx].box, &indices[0], buildNodes[buildNodeIdx].primCount);
+    }
 }

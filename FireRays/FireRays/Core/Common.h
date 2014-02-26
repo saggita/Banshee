@@ -16,5 +16,8 @@
 #include <vector>
 #include <list>
 #include <algorithm>
+#include <set>
+#include <stack>
+#include <queue>
 
 #endif

@@ -77,3 +77,7 @@ solution "FireRays"
 	if fileExists("./Launcher/Launcher.lua") then
 		dofile("./Launcher/Launcher.lua")
 	end
+	
+	if fileExists("./Experiments/Experiments.lua") then
+		dofile("./Experiments/Experiments.lua")
+	end

@@ -259,33 +259,33 @@ float4 TransformPoint(float16 mWVP, float4 vPoint)
     return vRes;
 }
 
-float4 make_float4(float x, float y, float z, float w)
-{
-    float4 res;
-    res.x = x;
-    res.y = y;
-    res.z = z;
-    res.w = w;
-    return res;
-}
-
-
-float3 make_float3(float x, float y, float z)
-{
-    float3 res;
-    res.x = x;
-    res.y = y;
-    res.z = z;
-    return res;
-}
-
-int2 make_int2(int x, int y)
-{
-    int2 res;
-    res.x = x;
-    res.y = y;
-    return res;
-}
+//float4 make_float4(float x, float y, float z, float w)
+//{
+//    float4 res;
+//    res.x = x;
+//    res.y = y;
+//    res.z = z;
+//    res.w = w;
+//    return res;
+//}
+//
+//
+//float3 make_float3(float x, float y, float z)
+//{
+//    float3 res;
+//    res.x = x;
+//    res.y = y;
+//    res.z = z;
+//    return res;
+//}
+//
+//int2 make_int2(int x, int y)
+//{
+//    int2 res;
+//    res.x = x;
+//    res.y = y;
+//    return res;
+//}
 
 float4 tex2d(SceneData* sSceneData, uint texIdx, float2 uv)
 {

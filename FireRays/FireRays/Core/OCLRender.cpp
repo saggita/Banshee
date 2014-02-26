@@ -47,7 +47,7 @@ void OCLRender::Init(unsigned width, unsigned height)
     outputSize_.s[1] = height;
 
     cl_int status = CL_SUCCESS;
-    CHECK_ERROR(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_ALL, 1, &device_, nullptr), "GetDeviceIDs failed");
+    CHECK_ERROR(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_GPU, 1, &device_, nullptr), "GetDeviceIDs failed");
 
     char device_name[2048];
     clGetDeviceInfo(device_, CL_DEVICE_NAME, 2048, device_name, nullptr);
@@ -490,7 +490,7 @@ void OCLRender::Render()
     cl_ulong startTime, endTime;
     double totalTime;
 
-    /*clGetEventProfilingInfo(kernelExecutionEvent1, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
+    clGetEventProfilingInfo(kernelExecutionEvent1, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
     clGetEventProfilingInfo(kernelExecutionEvent1, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
     totalTime = (double)(endTime - startTime)/1000000.0;
 
@@ -506,7 +506,7 @@ void OCLRender::Render()
     clGetEventProfilingInfo(kernelExecutionEvent3, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
     totalTime = (double)(endTime - startTime)/1000000.0;
 
-    std::cout << "Shading time " << totalTime << " msec\n";*/
+    std::cout << "Shading time " << totalTime << " msec\n";
 
     ++frameCount_;
 }

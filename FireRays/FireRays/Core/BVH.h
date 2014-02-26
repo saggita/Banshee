@@ -17,36 +17,107 @@ class BVH
 public:
     BVH();
     ~BVH();
+    
+    // Common node identifier, can be cast to Node* iternally
+    typedef void* NodeId;
+    
+    // Node type
+    enum class NodeType
+    {
+        NT_INTERNAL,
+        NT_LEAF
+    };
+    
+    // Split axis
+    enum class SplitAxis
+    {
+        SA_X,
+        SA_Y,
+        SA_Z
+    };
+    
+    struct Iterator;
+    // Traversal interface
+    // Breadth and depth first traversals are supported
+    Iterator*   CreateBreadthFirstIterator();
+    Iterator*   CreateDepthFirstIterator();
+    // You need to destroy your iterator after you have done with traversal
+    void        DestroyIterator(Iterator* );
+    
+    // Node data access methods
+    BBox const& GetNodeBbox(NodeId id) const;
+    NodeType    GetNodeType(NodeId id) const;
+    SplitAxis   GetNodeSplitAxis(NodeId id) const;
+    unsigned    GetLeafPrimitiveCount(NodeId id) const;
+    void        GetLeafPrimitives(NodeId id, std::vector<unsigned>& v) const;
+    void        GetLeafPrimitives(NodeId id, unsigned* prims) const;
+    void        GetLeafPrimitives(NodeId id, unsigned& primStartIdx, unsigned& primCount) const;
+    NodeId      GetRightChild(NodeId id) const;
+    NodeId      GetLeftChild(NodeId id) const;
+    
+    unsigned const*   GetPrimitiveIndices() const;
+    unsigned          GetPrimitiveIndexCount() const;
 
 protected:
-    // interface for the builders
-    typedef unsigned NodeId;
-    struct NodeDesc;
-
-    NodeId GetRootId() const;
-    NodeId AttachInternalNode(NodeId id, BBox& b);
-    NodeId AttachLeaf(NodeId id, BBox& b, unsigned primStartIdx, unsigned primCount); 
-    bool   CheckInvariant();
+    // Interface for the builders, make them friends here
+    friend class BVHAccelerator;
+    friend class SplitBVHBuilder;
+    // Iterators are also friends
+    friend struct DepthFirstIterator;
+    friend struct BreadthFirstIterator;
+    // Relation to parent: right or left child
+    // left child has lesser coordinate values along the split axis
+    enum ChildRel
+    {
+        CR_LEFT,
+        CR_RIGHT
+    };
+    
+    // Main builder interface
+    // Get the id preceeding to root node, this is needed to initialize root
+    NodeId GetPreRootNode() const;
+    // Create internal node and attach to the node identified by id to the side
+    // identified by rel (left or right)
+    NodeId CreateInternalNode(NodeId id, ChildRel rel, SplitAxis axis, BBox const& b);
+    // Create leaf node and attach along with a list of primitive indices
+    NodeId CreateLeafNode(NodeId id, ChildRel rel, BBox const& b, unsigned* primIndices, unsigned idxCount);
+    // Check whether node childrens' bboxes are contained within its own bounding box
+    bool   CheckInvariant(NodeId id);
 
 
 private:
     BVH(BVH const&);
     BVH& operator = (BVH const&);
 
-
+    // Node descriptor
     struct Node;
-    std::unique_ptr<Node> root_;
+    
+    // Root node
+    Node*                   root_;
+    // Node cache to check an eistence, should be removed later on
+    std::set<NodeId>        nodeCache_;
+    // Packed primitive indices, leafs reference prim indices in this array
+    // by specifying start index and number of primitives in the leaf
+    std::vector<unsigned>   primIndices_;
 };
 
-struct BVH::NodeDesc
+// Iterator interface
+struct BVH::Iterator
 {
-    BBox box;
-    unsigned primStartIdx;
-    unsigned primCount;
+    virtual ~Iterator(){}
+    virtual NodeId GetNodeId() = 0;
+    virtual void   Reset() = 0;
+    virtual bool   HasNext() = 0;
+    virtual void   Next() = 0;
 };
 
-inline BVH::BVH(){}
-inline BVH::~BVH(){}
+inline BVH::NodeId BVH::GetPreRootNode() const
+{
+    return nullptr;
+}
+
+
+
 
 
 #endif

@@ -325,6 +325,8 @@ public:
         return nodesToProcess_.size() > 0;
     }
     
+    
+    
     void   Next()
     {
         current_ = nodesToProcess_.front();

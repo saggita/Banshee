@@ -17,6 +17,10 @@
 #include "CameraBase.h"
 #include "TextureBase.h"
 
+#include "BVH.h"
+#include "SplitBVHBuilder.h"
+#include "OCLBVHBackEnd.h"
+
 #include "utils.h"
 #include "bbox.h"
 
@@ -146,8 +150,14 @@ void OCLRender::Init(unsigned width, unsigned height)
 
     pathShadeAndExportKernel_ = clCreateKernel(program_, "ShadeAndExport", &status);
     CHECK_ERROR(status, "Cannot create shade kernel");
-
-    accel_ = BVHAccelerator::CreateFromScene(*GetScene());
+    
+    BVH bvh;
+    SplitBVHBuilder builder(GetScene()->GetVertices(), GetScene()->GetVertexCount(), GetScene()->GetIndices(), GetScene()->GetIndexCount(), GetScene()->GetMaterials(), 32U, 4U, 10.f, 1.f);
+    builder.SetBVH(&bvh);
+    builder.Build();
+    
+    OCLBVHBackEnd backEnd(bvh);
+    backEnd.Generate();
 
     std::vector<DevVertex> vertices(GetScene()->GetVertexCount());
     SceneBase::Vertex const* sceneVertices = GetScene()->GetVertices(); 
@@ -170,11 +180,11 @@ void OCLRender::Init(unsigned width, unsigned height)
     vertexBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevVertex) * vertices.size(), (void*)&vertices[0], &status);
     CHECK_ERROR(status, "Cannot create vertex buffer");
 
-    std::vector<cl_uint4> triangles(accel_->GetPrimitiveCount());
+    std::vector<cl_uint4> triangles(builder.GetPrimitiveCount());
     std::vector<cl_uint>  areaLights;
 
-    BVHAccelerator::Triangle const* sceneTriangles = accel_->GetPrimitives();
-    for (int i = 0; i < accel_->GetPrimitiveCount(); ++i)
+    SplitBVHBuilder::Primitive const* sceneTriangles = builder.GetPrimitives();
+    for (int i = 0; i < builder.GetPrimitiveCount(); ++i)
     {
         triangles[i].s[0] = sceneTriangles[i].i1;
         triangles[i].s[1] = sceneTriangles[i].i2;
@@ -188,9 +198,9 @@ void OCLRender::Init(unsigned width, unsigned height)
     indexBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint4) * triangles.size(), (void*)&triangles[0], &status);
     CHECK_ERROR(status, "Cannot create index buffer");
 
-    std::vector<DevBVHNode> nodes(accel_->GetNodeCount());
-    BVHAccelerator::Node const* accelNodes = accel_->GetNodes();
-    for (int i = 0; i < accel_->GetNodeCount(); ++i)
+    std::vector<DevBVHNode> nodes(backEnd.GetNodeCount());
+    OCLBVHBackEnd::Node const* accelNodes = backEnd.GetNodes();
+    for (int i = 0; i < backEnd.GetNodeCount(); ++i)
     {
         
         nodes[i].sBox.vMin.s[0] = accelNodes[i].box.GetMinPoint().x();

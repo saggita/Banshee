@@ -204,10 +204,10 @@ unsigned BVHAccelerator::BuildHierarchy(unsigned begin, unsigned end, std::vecto
     }
 
     // Decide whether to split or to create new leaf
-    if (primCount > maxNodePrims_ || (sahValue > primCount && primCount > 1))
+    if (primCount > maxNodePrims_ || (sahValue < primCount && primCount > 1))
     {
         BuildNode n = {b, static_cast<unsigned int>(axis), 0, 0, 0};
-
+        
         n.left  = BuildHierarchy(begin, mid, buildNodes);
         n.right = BuildHierarchy(mid, end, buildNodes);
 
@@ -285,7 +285,7 @@ unsigned   BVHAccelerator::FindBestSplit(unsigned begin, unsigned end, BBox cons
 
         for(unsigned j = i + 2; j < kNumBins; ++j)
         {
-            h2Box = BBoxUnion(h1Box, bins[j].box);
+            h2Box = BBoxUnion(h2Box, bins[j].box);
             h2Count += bins[j].count;
         }
 

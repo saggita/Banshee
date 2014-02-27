@@ -15,16 +15,21 @@
 class SplitBVHBuilder : public BVHBuilderBase
 {
 public:
+    struct Primitive;
+    
     // Construct BVH from an indexed vertex list
     template <typename T> SplitBVHBuilder(T const* vertices, unsigned int vertexCount, unsigned const* indices, unsigned indexCount, unsigned const* materials, unsigned primsPerLeaf, unsigned minPrimsPerLeaf, float triSahCost, float nodeSahCost);
     
     // Start building process
     void Build();
     
+    unsigned         GetPrimitiveCount() const;
+    Primitive const* GetPrimitives() const;
+    
+    
 private:
     // Reference to a primitive
     struct PrimitiveRef;
-    struct Primitive;
     typedef std::list<PrimitiveRef>::iterator PrimitiveRefIterator;
     
     // Build node from [first, last) prim refs range and attach it to parent from rel-side
@@ -38,6 +43,9 @@ private:
     
     // Test if the prim ref intersects the plane and return adjusted primitve refs for right and left
     bool SplitPrimRef(PrimitiveRef primRef, int splitAxis, float splitValue, PrimitiveRef& r1, PrimitiveRef& r2);
+    
+    // Reorder primitive array to conform to BVH representation
+    void ReorderPrimitives();
     
     // Data members
     std::vector<Primitive>  prims_;

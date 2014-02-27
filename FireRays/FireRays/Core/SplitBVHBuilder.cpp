@@ -15,6 +15,8 @@ void SplitBVHBuilder::Build()
     // Build the nodes over all primitive references
     BuildNodeObjectSplitOnly(GetBVH().GetPreRootNode(), BVH::ChildRel::CR_LEFT, refs_.begin(), refs_.end(), maxLevel_);
     
+    ReorderPrimitives();
+    
     std::cout << "\n" << maxLevel_ << " levels in the tree";
 }
 
@@ -199,13 +201,18 @@ BVH::NodeId SplitBVHBuilder::BuildNodeObjectSplitOnly(BVH::NodeId parentNode, BV
         
         std::vector<PrimitiveRef> refs(first, last);
         
+        std::sort(refs.begin(), refs.end(), [splitAxis](PrimitiveRef const& r1, PrimitiveRef const& r2)
+                  {
+                      return r1.bbox.GetCenter()[splitAxis] < r2.bbox.GetCenter()[splitAxis];
+                  });
+
         // Spatial split
         float splitValue = nodeCentersBbox.GetCenter()[splitAxis];
         
         float splitSahValue = 0.f;
-        unsigned splitIdx = FindObjectSplit(refs, splitAxis, nodesBbox, nodeCentersBbox, splitSahValue);
+        unsigned splitIdx =  FindObjectSplit(refs, splitAxis, nodesBbox, nodeCentersBbox, splitSahValue);
         
-        std::copy(first, last, refs.begin());
+        last = std::copy(refs.begin(), refs.end(), first);
         
         if ((splitSahValue > refs.size() * triSahCost_ && refs.size() < primsPerLeaf_))
         {
@@ -381,4 +388,28 @@ unsigned SplitBVHBuilder::FindObjectSplit(std::vector<PrimitiveRef>& refs, int s
                                });
     
     return std::distance(refs.begin(), iter);
+}
+
+unsigned         SplitBVHBuilder::GetPrimitiveCount() const
+{
+    return prims_.size();
+}
+
+SplitBVHBuilder::Primitive const* SplitBVHBuilder::GetPrimitives() const
+{
+    return &prims_[0];
+}
+
+void SplitBVHBuilder::ReorderPrimitives()
+{
+    std::vector<Primitive> tempPrims(prims_.begin(), prims_.end());
+    
+    unsigned idxCount = bvh_->GetPrimitiveIndexCount();
+    unsigned const* indices = bvh_->GetPrimitiveIndices();
+    
+    
+    for( int i = 0; i < idxCount; ++i)
+    {
+        prims_[i] = tempPrims[indices[i]];
+    }
 }

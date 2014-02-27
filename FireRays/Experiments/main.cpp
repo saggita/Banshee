@@ -23,7 +23,7 @@ int main(int argc, const char * argv[])
     auto scene  = TestScene::Create();
     
     BVH bvh;
-    SplitBVHBuilder builder(scene->GetVertices(), scene->GetVertexCount(), scene->GetIndices(), scene->GetIndexCount(), scene->GetMaterials(), 16U, 2U, 1.f, 10.f);
+    SplitBVHBuilder builder(scene->GetVertices(), scene->GetVertexCount(), scene->GetIndices(), scene->GetIndexCount(), scene->GetMaterials(), 8U, 8U, 1.f, 1.f);
     
 	static auto prevTime = std::chrono::high_resolution_clock::now();
     

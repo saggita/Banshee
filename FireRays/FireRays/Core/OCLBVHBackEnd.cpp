@@ -22,9 +22,8 @@ void OCLBVHBackEnd::Generate()
     std::map<BVH::NodeId, unsigned> indices;
     std::vector<BVH::NodeId>  rightChildren;
     
-    for (BVH::Iterator* dfi = bvh_.CreateDepthFirstIterator(); dfi->HasNext(); dfi->Next())
+    for (BVH::Iterator* dfi = bvh_.CreateDepthFirstIterator();; dfi->Next())
     {
-        
         Node newNode;
         BVH::NodeId rightChild;
         newNode.box = bvh_.GetNodeBbox(dfi->GetNodeId());
@@ -47,12 +46,18 @@ void OCLBVHBackEnd::Generate()
         nodes_.push_back(newNode);
         rightChildren.push_back(rightChild);
         indices[dfi->GetNodeId()] = nodes_.size() - 1;
+        
+        
+        if (!dfi->HasNext())
+            break;
     }
     
     for(int i = 0; i < nodes_.size(); ++i)
     {
-        nodes_[i].right = nodes_[i].primCount == 0 ? (indices[rightChildren[i]]) : 0;
+        nodes_[i].right = nodes_[i].primCount == 0 ? (indices[rightChildren[i]]) : 0xFFFFFFFF;
     }
+    
+    std::cout << "\nBVH has " << nodes_.size() << " nodes\n";
 }
 
 OCLBVHBackEnd::Node const*  OCLBVHBackEnd::GetNodes() const

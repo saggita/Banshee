@@ -74,7 +74,7 @@ BVH::NodeId BVH::CreateInternalNode(NodeId id, ChildRel rel, SplitAxis axis, BBo
         node->child[rel]->splitAxis = axis;
         
         // Chech invariant
-        assert(CheckInvariant(node));
+        //assert(CheckInvariant(node));
         
         // Cache node
         nodeCache_.emplace(node->child[rel]);

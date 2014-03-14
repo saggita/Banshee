@@ -17,7 +17,7 @@ DEFINES
 //#define TRAVERSAL_STACKLESS
 #define TRAVERSAL_STACKED
 //#define LOCAL_STACK
-#define NODE_STACK_SIZE 44
+#define NODE_STACK_SIZE 32
 #define MAX_PATH_LENGTH 3
 
 #define RAY_EPSILON 0.01f
@@ -178,6 +178,7 @@ typedef struct {
     __global TextureDesc*   sTextureDesc;
     __global float4*        vTextures;
     __global uint*          uAreaLights;
+    __global uint*          uBVHIndices;
 } SceneData;
 
 typedef struct 
@@ -259,33 +260,33 @@ float4 TransformPoint(float16 mWVP, float4 vPoint)
     return vRes;
 }
 
-//float4 make_float4(float x, float y, float z, float w)
-//{
-//    float4 res;
-//    res.x = x;
-//    res.y = y;
-//    res.z = z;
-//    res.w = w;
-//    return res;
-//}
-//
-//
-//float3 make_float3(float x, float y, float z)
-//{
-//    float3 res;
-//    res.x = x;
-//    res.y = y;
-//    res.z = z;
-//    return res;
-//}
-//
-//int2 make_int2(int x, int y)
-//{
-//    int2 res;
-//    res.x = x;
-//    res.y = y;
-//    return res;
-//}
+float4 make_float4(float x, float y, float z, float w)
+{
+    float4 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    res.w = w;
+    return res;
+}
+
+
+float3 make_float3(float x, float y, float z)
+{
+    float3 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    return res;
+}
+
+int2 make_int2(int x, int y)
+{
+    int2 res;
+    res.x = x;
+    res.y = y;
+    return res;
+}
 
 float4 tex2d(SceneData* sSceneData, uint texIdx, float2 uv)
 {
@@ -379,12 +380,12 @@ bool IntersectBox(Ray* sRay, BBox sBox)
 BVH FUNCTIONS
 **************************************************************************/
 //  intersect a Ray with BVH leaf
-bool IntersectLeaf(__global Vertex* vertices, __global uint4* indices, uint idx, int uNumPrims, Ray* r, ShadingData* shadingData)
+bool IntersectLeaf(__global uint* uBVHIndices, __global Vertex* vertices, __global uint4* indices, uint idx, int uNumPrims, Ray* r, ShadingData* shadingData)
 {
     bool hit = false;
     for (int i = 0; i < uNumPrims; ++i)
     {
-        uint4 triangle = indices[idx + i];
+        uint4 triangle = indices[uBVHIndices[idx + i]];
 
         float4 v1 = vertices[triangle.x].vPos;
         float4 v2 = vertices[triangle.y].vPos;
@@ -464,7 +465,7 @@ bool TraverseBVHStacked(
 #ifdef LOCAL_STACK
     __local int* stack,
 #endif
-    __global BVHNode* nodes, __global Vertex* vertices, __global uint4* indices, Ray* r, ShadingData* shadingData)
+    __global BVHNode* nodes, __global uint* uBVHIndices, __global Vertex* vertices, __global uint4* indices, Ray* r, ShadingData* shadingData)
 {
     // init node stack
     NODE_STACK_INIT(NODE_STACK_SIZE);
@@ -488,7 +489,7 @@ bool TraverseBVHStacked(
         // if this is the leaf try to intersect against contained triangle
         if (uNumPrims != 0)
         {
-            hit |= IntersectLeaf(vertices, indices, uPrimStartIdx, uNumPrims, r, shadingData);
+            hit |= IntersectLeaf(uBVHIndices, vertices, indices, uPrimStartIdx, uNumPrims, r, shadingData);
         }
         // traverse child nodes otherwise
         else
@@ -536,99 +537,99 @@ bool TraverseBVHStacked(
     return hit;
 }
 
-#define FROM_PARENT  1
-#define FROM_CHILD   2
-#define FROM_SIBLING 3
-
-#define uParent(x) (nodes[(x)].uParent)
-#define LEFT_CHILD(x) ((x)+1)
-#define RIGHT_CHILD(x) (nodes[(x)].uRight)
-
-#define IS_LEAF(x) (nodes[(x)].uNumPrims != 0)
-
-bool TraverseBVHStackless(__global BVHNode* nodes, __global Vertex* vertices, __global uint4* indices, Ray* r, ShadingData* shadingData)
-{
-    uint current = 1;
-    int  state   = FROM_PARENT;
-
-    bool hit = false;
-
-    while (true)
-    {
-        switch (state)
-        {
-        case FROM_CHILD:
-            {
-                if (current == 0)
-                {
-                    return hit;
-                }
-
-                else if (current == LEFT_CHILD(uParent(current)))
-                {
-                    current = RIGHT_CHILD(uParent(current));
-                    state = FROM_SIBLING;
-                }
-                else
-                {
-                    current = uParent(current);
-                    state = FROM_CHILD;
-                }
-                break;
-            }
-
-        case FROM_SIBLING:
-            {
-                BBox box = nodes[current].box;
-                if (!IntersectBox(r, box))
-                {
-                    current = uParent(current);
-                    state = FROM_CHILD;
-                }
-                else if (IS_LEAF(current))
-                {
-                    hit |= IntersectLeaf(vertices, indices, nodes[current].uPrimStartIdx, nodes[current].uNumPrims, r, shadingData);
-                    current = uParent(current);
-                    state = FROM_CHILD;
-                }
-                else
-                {
-                    current = LEFT_CHILD(current);
-                    state = FROM_PARENT;
-                }
-
-                break;
-            }
-
-        case FROM_PARENT:
-            {
-                BBox box = nodes[current].box;
-                if (!IntersectBox(r, box))
-                {
-                    current = RIGHT_CHILD(uParent(current));
-                    state = FROM_SIBLING;
-                }
-                else if (IS_LEAF(current))
-                {
-                    hit |= IntersectLeaf(vertices, indices, nodes[current].uPrimStartIdx, nodes[current].uNumPrims, r, shadingData);
-                    current = RIGHT_CHILD(uParent(current));
-                    state = FROM_SIBLING;
-                }
-                else
-                {
-                    current = LEFT_CHILD(current);
-                    state = FROM_PARENT;
-                }
-
-                break;
-            }
-        }
-
-    }
-
-    return false;
-
-}
+//#define FROM_PARENT  1
+//#define FROM_CHILD   2
+//#define FROM_SIBLING 3
+//
+//#define uParent(x) (nodes[(x)].uParent)
+//#define LEFT_CHILD(x) ((x)+1)
+//#define RIGHT_CHILD(x) (nodes[(x)].uRight)
+//
+//#define IS_LEAF(x) (nodes[(x)].uNumPrims != 0)
+//
+//bool TraverseBVHStackless(__global BVHNode* nodes, __global Vertex* vertices, __global uint4* indices, Ray* r, ShadingData* shadingData)
+//{
+//    uint current = 1;
+//    int  state   = FROM_PARENT;
+//
+//    bool hit = false;
+//
+//    while (true)
+//    {
+//        switch (state)
+//        {
+//        case FROM_CHILD:
+//            {
+//                if (current == 0)
+//                {
+//                    return hit;
+//                }
+//
+//                else if (current == LEFT_CHILD(uParent(current)))
+//                {
+//                    current = RIGHT_CHILD(uParent(current));
+//                    state = FROM_SIBLING;
+//                }
+//                else
+//                {
+//                    current = uParent(current);
+//                    state = FROM_CHILD;
+//                }
+//                break;
+//            }
+//
+//        case FROM_SIBLING:
+//            {
+//                BBox box = nodes[current].box;
+//                if (!IntersectBox(r, box))
+//                {
+//                    current = uParent(current);
+//                    state = FROM_CHILD;
+//                }
+//                else if (IS_LEAF(current))
+//                {
+//                    hit |= IntersectLeaf(vertices, indices, nodes[current].uPrimStartIdx, nodes[current].uNumPrims, r, shadingData);
+//                    current = uParent(current);
+//                    state = FROM_CHILD;
+//                }
+//                else
+//                {
+//                    current = LEFT_CHILD(current);
+//                    state = FROM_PARENT;
+//                }
+//
+//                break;
+//            }
+//
+//        case FROM_PARENT:
+//            {
+//                BBox box = nodes[current].box;
+//                if (!IntersectBox(r, box))
+//                {
+//                    current = RIGHT_CHILD(uParent(current));
+//                    state = FROM_SIBLING;
+//                }
+//                else if (IS_LEAF(current))
+//                {
+//                    hit |= IntersectLeaf(vertices, indices, nodes[current].uPrimStartIdx, nodes[current].uNumPrims, r, shadingData);
+//                    current = RIGHT_CHILD(uParent(current));
+//                    state = FROM_SIBLING;
+//                }
+//                else
+//                {
+//                    current = LEFT_CHILD(current);
+//                    state = FROM_PARENT;
+//                }
+//
+//                break;
+//            }
+//        }
+//
+//    }
+//
+//    return false;
+//
+//}
 
 float3 GetOrthoVector(float3 n)
 {
@@ -663,36 +664,9 @@ float3 GetHemisphereSample(float3 vNormal, float e, RNG* sRNG)
     return vU * fSinTheta * fCosPsi + vV * fSinTheta * fSinPsi + vNormal * fCosTheta;
 }
 
-float EstimateOcclusion(SceneData* sSceneData, ShadingData* sShadingData, RNG* sRNG, float fKernelRadius)
-{
-    Ray sRay;
-    sRay.o = sShadingData->vPos + RAY_EPSILON * sShadingData->vNormal;
-
-    uint uNumOccluded = 0;
-    ShadingData sTempData;
-
-    for (int i = 0; i < AO_SAMPLES; ++i)
-    {
-        sRay.d = GetHemisphereSample(sShadingData->vNormal, 1.f, sRNG);
-        sRay.maxt = 10000.f;
-        sRay.mint = 0.f;
-        if (TraverseBVHStacked(
-#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
-            iThreadStack,
-#endif
-            sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) && sRay.maxt < fKernelRadius)
-        {
-            ++uNumOccluded;
-        }
-    }
-
-    return (float)uNumOccluded/AO_SAMPLES;
-}
-
-
 MaterialRep GetMaterial(uint uMaterialIdx, SceneData* sSceneData, RNG* sRNG)
 {
-        return sSceneData->sMaterials[uMaterialIdx];
+   return sSceneData->sMaterials[uMaterialIdx];
 }
 
 bool IsEmissive(MaterialRep* sMaterial)
@@ -822,7 +796,7 @@ float4 SampleDirectIllumination(
 #if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
                     iThreadStack,
 #endif
-                    sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
+                    sSceneData->sBVH, sSceneData->uBVHIndices, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
 
                 float4 vDirectContribution = fNdotL * EvaluateMaterial(sSceneData, sMaterialRep, sShadingData, vLight, vWo, GetMaterial(MATERIAL3, sSceneData, sRNG).vKe) *
                     fNdotWo * GetMaterial(MATERIAL3, sSceneData, sRNG).vKe / (fDist * fDist * fPDF);
@@ -843,7 +817,7 @@ float4 SampleDirectIllumination(
 #if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
                 iThreadStack,
 #endif
-                sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
+                sSceneData->sBVH, sSceneData->uBVHIndices, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
 
             // there is no NdotL term here as it is canceled by cos(Theta)/M_PI pdf
             vRes += fShadow * EvaluateMaterial(sSceneData, sMaterialRep, sShadingData, sRay.d, vWo, sSceneData->sParams->vBackgroundColor) / M_PI;
@@ -860,85 +834,6 @@ float4 SampleDirectIllumination(
 
     return vRes;
 }
-
-float4 TraceRay(
-    SceneData*              sSceneData,
-    RNG*                    sRNG,
-    Ray*                    sRay,
-    __global PathVertex*    sPath
-#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
-    ,   __local int* iThreadStack
-#endif
-
-    )
-{
-    Ray sThisRay = *sRay;
-    int iNumPoolItems = 0;
-
-    {
-        bool bHit = false;
-        ShadingData sShadingData;
-        while (bHit = TraverseBVHStacked(
-#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
-            iThreadStack,
-#endif
-            sSceneData->sBVH, sSceneData->sVertices, sSceneData->sIndices, &sThisRay, &sShadingData))
-        {
-            sPath[iNumPoolItems].vIncidentDir = sThisRay.d;
-            sPath[iNumPoolItems].sShadingData = sShadingData;
-            sPath[iNumPoolItems].uMaterialIdx = sShadingData.uMaterialIdx;
-
-            MaterialRep sMaterial;
-            sMaterial = GetMaterial(sShadingData.uMaterialIdx, sSceneData, sRNG);
-
-            sPath[iNumPoolItems].vRadiance = SampleDirectIllumination(
-#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
-                iThreadStack,
-#endif
-                sSceneData, &sMaterial, &sShadingData, -sThisRay.d, sRNG);
-
-            ++(iNumPoolItems);
-
-            if (iNumPoolItems >= MAX_PATH_LENGTH)
-                break;
-
-            // Decide where to proceed
-
-            if (!SampleMaterial(&sMaterial, &sShadingData, -sThisRay.d, sRNG, &sThisRay))
-            {
-                break;
-            }
-        }
-
-        if (!bHit & iNumPoolItems < MAX_PATH_LENGTH)
-        {
-            sPath[iNumPoolItems].vIncidentDir = sThisRay.d;
-            sPath[iNumPoolItems].vRadiance = sSceneData->sParams->vBackgroundColor;
-            ++iNumPoolItems;
-        }
-    }
-
-    int iPathLength = iNumPoolItems;
-
-    while(iNumPoolItems > 1)
-    {
-        MaterialRep sMaterial;
-        sMaterial = GetMaterial(sPath[iNumPoolItems - 2].uMaterialIdx, sSceneData, sRNG);
-        ShadingData sShadingData = sPath[iNumPoolItems - 2].sShadingData;
-
-        float fNdotL = dot(sPath[iNumPoolItems - 1].vIncidentDir, sPath[iNumPoolItems - 2].sShadingData.vNormal);
-
-        sPath[iNumPoolItems - 2].vRadiance += fNdotL * EvaluateMaterial(sSceneData, &sMaterial, &sShadingData, sPath[iNumPoolItems - 1].vIncidentDir, -sPath[iNumPoolItems - 2].vIncidentDir,  sPath[iNumPoolItems - 1].vRadiance);
-
-        --(iNumPoolItems);
-    }
-
-    return iPathLength > 0 ? sPath[0].vRadiance : sSceneData->sParams->vBackgroundColor;
-}
-
-
-
-
 
 __kernel void GeneratePath(__global Config*       sParams,
                            __global PathStart*    sPathStartBuffer)
@@ -1037,6 +932,7 @@ __kernel void GeneratePath(__global Config*       sParams,
 __kernel void TracePath(__global Config*       params,
                         __global PathStart*    pathStartBuffer,
                         __global BVHNode*      bvh,
+                        __global uint*         bvhIdxBuffer,
                         __global Vertex*       vertices,
                         __global uint4*        indices,
                         __global MaterialRep*  materials,
@@ -1057,6 +953,7 @@ __kernel void TracePath(__global Config*       params,
 
     SceneData sSceneData;
     sSceneData.sBVH         = bvh;
+    sSceneData.uBVHIndices  = bvhIdxBuffer;
     sSceneData.sVertices    = vertices,
     sSceneData.sIndices     = indices;
     sSceneData.sPointLights = NULL;
@@ -1075,7 +972,7 @@ __kernel void TracePath(__global Config*       params,
         __global PathVertex* sPathStack = residentPool + uPathOffset;
 
         Ray sThisRay = pathStartBuffer[iTaskIdx].sRay;
-        while (bHit = TraverseBVHStacked(bvh, vertices, indices, &sThisRay, &sShadingData))
+        while (bHit = TraverseBVHStacked(bvh, bvhIdxBuffer, vertices, indices, &sThisRay, &sShadingData))
         {
             MaterialRep sMaterial = materials[sShadingData.uMaterialIdx];
             sPathStack[iNumPoolItems].vIncidentDir = sThisRay.d;
@@ -1117,7 +1014,7 @@ __kernel void TracePath(__global Config*       params,
 
 __kernel void ShadeAndExport(
                              __global Config*       params,
-                              __global BVHNode*     bvh,
+                             __global BVHNode*     bvh,
                              __global Vertex*       vertices,
                              __global uint4*        indices,
                              __global PathStart*    pathStartBuffer,
@@ -1169,9 +1066,6 @@ __kernel void ShadeAndExport(
             ShadingData sShadingData = sPathStack->sShadingData;
             MaterialRep sMaterial = GetMaterial(sShadingData.uMaterialIdx, &sSceneData, &sRNG);
 
-
-            //sPathStack->vRadiance = 0;//SampleDirectIllumination(&sSceneData, &sMaterial, &sShadingData, -sPathStack->vIncidentDir, &sRNG);
-
             if (iNumPoolItems < pathStartBuffer[iTaskIdx].uPathLength)
             {
                 float3 vWi = (sPathStack + 1)->vIncidentDir;
@@ -1206,105 +1100,137 @@ __kernel void ShadeAndExport(
 
 
 
-/// Raytrace depth kernel
-__kernel void TraceDepth(
-    __global BVHNode*      bvh,
-    __global Vertex*       vertices,
-    __global uint4*        indices,
-    __global Config*       params,
-    __global PointLight*   lights,
-    __global float*        rand,
-    __global PathVertex*   pathPool,
-    __global MaterialRep*  materials,
-    __global float4*       intermediateBuffer,
-    __global TextureDesc*  textureDescBuffer,
-    __global float4*       textureBuffer,
-    __global uint*         areaLights,
-    __write_only image2d_t output
-    )
+
+
+
+
+/// EXPERIMENTAL AREA
+
+uchar group_reduce(int localId, int groupSize, __local uchar* shmem)
 {
-    int2 localId;
-    localId.x = get_local_id(0);
-    localId.y = get_local_id(1);
-
-    int flatLocalId = localId.y * get_local_size(0) + localId.x;
-
-#if defined (TRAVERSAL_PACKET)
-    __local int stack[NODE_SHARED_STACK_SIZE];
-    __local int flag;
-#elif defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
-    __local int stack[NODE_STACK_SIZE * 64];
-    __local int* iThreadStack = stack + NODE_STACK_SIZE * flatLocalId;
-#else
-#endif
-
-    int2 globalId;
-    globalId.x = get_global_id(0);
-    globalId.y = get_global_id(1);
-
-    int flatGlobalId = globalId.y * params->uOutputWidth + globalId.x;
-    __global PathVertex* thisThreadPool = pathPool + flatGlobalId * MAX_PATH_LENGTH;
-
-    if (globalId.x < params->uOutputWidth && globalId.y < params->uOutputHeight)
+    for (int stride = 1; stride <= (groupSize >> 1); stride <<= 1)
     {
-        unsigned width  = params->uOutputWidth;
-        unsigned height = params->uOutputHeight;
-        float pixelSize = params->fCameraPixelSize;
-        float nearZ     = params->fCameraNearZ;
+        if (localId < groupSize/(2*stride))
+        {
+            shmem[2*(localId + 1)*stride-1] += shmem[(2*localId + 1)*stride-1];
+        }
 
-        int xc = globalId.x - (width >> 1);
-        int yc = globalId.y - (height >> 1);
-
-        float4 res = make_float4(0,0,0,0);
-        RNG sRNG = CreateRNG((get_global_id(0) + 133) * (get_global_id(1) + 177) * (params->uFrameCount + 57));
-
-        for (int i = 0; i < NUM_SAMPLES; ++i)
-            for (int j = 0; j < NUM_SAMPLES; ++j)
-            {
-                float fY = yc + (i + RandFloat(&sRNG))/NUM_SAMPLES;
-                float fX = xc + (j + RandFloat(&sRNG))/NUM_SAMPLES;
-
-                Ray rr;
-                rr.o = params->vCameraPos;
-                rr.d.x = params->vCameraDir.x * nearZ + params->vCameraUp.x * fY * pixelSize + params->vCameraRight.x * fX * pixelSize;
-                rr.d.y = params->vCameraDir.y * nearZ + params->vCameraUp.y * fY * pixelSize + params->vCameraRight.y * fX * pixelSize;
-                rr.d.z = params->vCameraDir.z * nearZ + params->vCameraUp.z * fY * pixelSize + params->vCameraRight.z * fX * pixelSize;
-
-                rr.d = normalize(rr.d);
-
-                rr.mint = 0.f;
-                rr.maxt = DEFAULT_DEPTH;
-
-                SceneData sSceneData;
-                sSceneData.sBVH         = bvh;
-                sSceneData.sVertices    = vertices,
-                    sSceneData.sIndices     = indices;
-                sSceneData.sPointLights = lights;
-                sSceneData.sParams      = params;
-                sSceneData.sMaterials   = materials;
-                sSceneData.sTextureDesc = textureDescBuffer;
-                sSceneData.vTextures    = textureBuffer;
-                sSceneData.uAreaLights  = areaLights;
-
-                res += TraceRay(&sSceneData, &sRNG, &rr, thisThreadPool
-#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
-                    , iThreadStack
-#endif
-                    );
-            }
-
-            res /= (NUM_SAMPLES*NUM_SAMPLES);
-
-            uint uFrameCount = params->uFrameCount;
-            if (uFrameCount)
-            {
-                float4 vPrevValue =  intermediateBuffer[flatGlobalId];
-                res = vPrevValue * ((float)(uFrameCount - 1.f)/uFrameCount) + res * (1.f/uFrameCount);
-            }
-
-            intermediateBuffer[globalId.y * params->uOutputWidth + globalId.x] = res;
-            write_imagef(output, globalId, res);
+        barrier(CLK_LOCAL_MEM_FENCE);
     }
+
+    return shmem[groupSize - 1];
+}
+
+
+// intersect Ray against the whole BVH structure
+bool TraverseBVHPacket(int localId, __local int* iSharedStack, __local uchar* bThreadVotes, __global BVHNode* nodes, __global uint* uBVHIndices, __global Vertex* vertices, __global uint4* indices, Ray* r, ShadingData* shadingData)
+{
+    __local int* stack_ptr = iSharedStack;
+
+    if (localId == 0)
+        *stack_ptr = -1;
+    ++stack_ptr;
+
+    //barrier(CLK_LOCAL_MEM_FENCE);
+
+    bool hit = false;
+
+    // start from the root
+    uint idx = 0;
+    do
+    {
+        //barrier(CLK_LOCAL_MEM_FENCE);
+        // load current node
+        BBox box = nodes[idx].box;
+        uint  uLeft  = idx + 1;
+        uint  uRight = nodes[idx].uRight;
+        uint  uPrimStartIdx = nodes[idx].uPrimStartIdx;
+        uint  uNumPrims = nodes[idx].uNumPrims;
+
+        // try intersecting against current node's bounding box
+        // if this is the leaf try to intersect against contained triangle
+        if (uNumPrims != 0)
+        {
+            hit |= IntersectLeaf(uBVHIndices, vertices, indices, uPrimStartIdx, uNumPrims, r, shadingData);
+        }
+        // traverse child nodes otherwise
+        else
+        {
+            BBox lbox = nodes[uLeft].box;
+            BBox rbox = nodes[uRight].box;
+
+            uchar radd = IntersectBox(r, rbox) ? 1 : 0;
+            uchar ladd = IntersectBox(r, lbox) ? 1 : 0;
+
+            bThreadVotes[localId] = radd;
+            barrier(CLK_LOCAL_MEM_FENCE);
+            radd = group_reduce(localId, 64, bThreadVotes) > 0 ? 1 : 0;
+
+            bThreadVotes[localId] = ladd;
+            barrier(CLK_LOCAL_MEM_FENCE);
+            ladd = group_reduce(localId, 64, bThreadVotes) > 0 ? 1 : 0;
+
+            if (radd)
+            {
+                if (ladd)
+                {
+                    if (localId == 0)
+                    *stack_ptr = uRight;
+
+                    ++stack_ptr;
+                }
+                else
+                {
+
+                    idx = uRight;
+                    continue;
+                }
+                //barrier(CLK_LOCAL_MEM_FENCE);
+            }
+
+            if (ladd)
+            {
+                idx = uLeft;
+                continue;
+                //barrier(CLK_LOCAL_MEM_FENCE);
+            }
+        }
+
+        idx = *--stack_ptr;
+    }
+    while (idx != -1);
+
+    return hit;
+}
+
+__kernel void TraceExperiments(__global PathStart*    sPathStartBuffer,
+                               __global BVHNode*      sBvh,
+                               __global uint*         uBvhIdxBuffer,
+                               __global Vertex*       sVertices,
+                               __global uint4*        uIndices,
+                               __global ShadingData*  sShadingData,
+                               __write_only image2d_t tOutput)
+{
+    __local uchar bThreadVotes[64];
+    __local int   iSharedStack[64];
+
+    int globalId  = get_global_id(0);
+    int localId   = get_local_id(0);
+    int groupSize = get_local_size(0);
+
+    Ray r = sPathStartBuffer[globalId].sRay;
+
+    ShadingData sTempShadingData;
+    //bool hit = TraverseBVHPacket(localId, iSharedStack, bThreadVotes, sBvh, uBvhIdxBuffer, sVertices, uIndices, &r, &sTempShadingData);
+
+    bool hit = TraverseBVHStacked(sBvh, uBvhIdxBuffer, sVertices, uIndices, &r, &sTempShadingData);
+
+    float4 fVal = r.maxt / 100;
+
+    //sShadingData[globalId] = sTempShadingData;
+    int  iId = sPathStartBuffer[globalId].iId;
+    int2 iPixelCoords = make_int2(globalId % 960, globalId / 960); 
+    write_imagef(tOutput, iPixelCoords, fVal);
 }
 
 

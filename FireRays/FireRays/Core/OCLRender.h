@@ -163,6 +163,9 @@ private:
 	cl_program          program_;
 	cl_kernel           traceDepthKernel_;
 
+    /// EXPERIMENTAL
+    cl_kernel           traceExperiments_;
+    cl_mem              traceShadingData_;
 
 	cl_mem		vertexBuffer_;
 	cl_mem		indexBuffer_;
@@ -177,6 +180,7 @@ private:
     cl_mem      textureBuffer_;
     cl_mem      textureDescBuffer_;
 	cl_mem      areaLightsBuffer_;
+    cl_mem      bvhIndicesBuffer_;
     
     
     /// new architecture

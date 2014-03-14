@@ -138,9 +138,6 @@ void OCLRender::Init(unsigned width, unsigned height)
 
         throw std::runtime_error(&buildLog[0]);
     };
-
-    traceDepthKernel_ = clCreateKernel(program_, "TraceDepth", &status);
-    CHECK_ERROR(status, "Cannot create TraceDepth kernel");
     
     pathGenerationKernel_ = clCreateKernel(program_, "GeneratePath", &status);
     CHECK_ERROR(status, "Cannot create GeneratePath kernel");
@@ -150,9 +147,12 @@ void OCLRender::Init(unsigned width, unsigned height)
 
     pathShadeAndExportKernel_ = clCreateKernel(program_, "ShadeAndExport", &status);
     CHECK_ERROR(status, "Cannot create shade kernel");
+
+    traceExperiments_ = clCreateKernel(program_, "TraceExperiments", &status);
+    CHECK_ERROR(status, "Cannot create trace experiments kernel");
     
     BVH bvh;
-    SplitBVHBuilder builder(GetScene()->GetVertices(), GetScene()->GetVertexCount(), GetScene()->GetIndices(), GetScene()->GetIndexCount(), GetScene()->GetMaterials(), 32U, 4U, 10.f, 1.f);
+    SplitBVHBuilder builder(GetScene()->GetVertices(), GetScene()->GetVertexCount(), GetScene()->GetIndices(), GetScene()->GetIndexCount(), GetScene()->GetMaterials(), 128U, 1U, 2.f, 1.f);
     builder.SetBVH(&bvh);
     builder.Build();
     
@@ -325,7 +325,12 @@ void OCLRender::Init(unsigned width, unsigned height)
     
     taskCounterBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_int), NULL, &status);
     CHECK_ERROR(status, "Cannot create task counter buffer");
-    
+
+    bvhIndicesBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint) * bvh.GetPrimitiveIndexCount(), (void*)bvh.GetPrimitiveIndices(), &status);
+    CHECK_ERROR(status, "Cannot create area lights buffer");
+
+    traceShadingData_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(DevShadingData) * width * height, nullptr, &status);
+    CHECK_ERROR(status, "Cannot create trace shading data buffer");
 }
 
 void OCLRender::Commit()
@@ -350,9 +355,9 @@ void OCLRender::Commit()
     configData_.uNumRandomNumbers = RANDOM_BUFFER_SIZE;
     configData_.uFrameCount = frameCount_;
 
-    configData_.vBackgroundColor.s[0] = 2.1f;
-    configData_.vBackgroundColor.s[1] = 2.1f;
-    configData_.vBackgroundColor.s[2] = 2.1f;
+    configData_.vBackgroundColor.s[0] = 5.f;
+    configData_.vBackgroundColor.s[1] = 5.f;
+    configData_.vBackgroundColor.s[2] = 5.1f;
     configData_.vBackgroundColor.s[3] = 1.0f;
 
     configData_.uNumAreaLights = 2;
@@ -371,6 +376,8 @@ OCLRender::~OCLRender()
     /// TODO: implement RAII for CL objects
     glDeleteTextures(1, &glDepthTexture_);
 
+    clReleaseMemObject(traceShadingData_);
+    clReleaseMemObject(bvhIndicesBuffer_);
     clReleaseMemObject(taskCounterBuffer_);
     clReleaseMemObject(pathStartBuffer_);
     clReleaseMemObject(areaLightsBuffer_);
@@ -390,15 +397,15 @@ OCLRender::~OCLRender()
     clReleaseProgram(program_);
     clReleaseCommandQueue(commandQueue_);
 
+    clReleaseKernel(traceExperiments_);
     clReleaseKernel(pathShadeAndExportKernel_);
-    clReleaseKernel(traceDepthKernel_);
     clReleaseKernel(pathGenerationKernel_);
     clReleaseKernel(pathTraceKernel_);
 }
 
 void OCLRender::Render()
 {
-    cl_event kernelExecutionEvent1, kernelExecutionEvent2, kernelExecutionEvent3 ;
+    cl_event kernelExecutionEvent1, kernelExecutionEvent2, kernelExecutionEvent3, kernelExecutionEvent4 ;
 
     glFinish();
     cl_mem gl_objects[] = {outputDepthTexture_};
@@ -440,17 +447,18 @@ void OCLRender::Render()
         CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 0, sizeof(cl_mem), &configBuffer_), "SetKernelArg failed");
         CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 1, sizeof(cl_mem), &pathStartBuffer_), "SetKernelArg failed");
         CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 2, sizeof(cl_mem), &bvhBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 3, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 4, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 5, sizeof(cl_mem), &materialBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 6, sizeof(cl_mem), &areaLightsBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 7, sizeof(cl_mem), &textureDescBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 8, sizeof(cl_mem), &textureBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 9, sizeof(cl_mem), &pathBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 10, sizeof(cl_mem), &taskCounterBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 11, sizeof(cl_int), &numTasks), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 3, sizeof(cl_mem), &bvhIndicesBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 4, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 5, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 6, sizeof(cl_mem), &materialBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 7, sizeof(cl_mem), &areaLightsBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 8, sizeof(cl_mem), &textureDescBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 9, sizeof(cl_mem), &textureBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 10, sizeof(cl_mem), &pathBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 11, sizeof(cl_mem), &taskCounterBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 12, sizeof(cl_int), &numTasks), "SetKernelArg failed");
         
-        status = clEnqueueNDRangeKernel(commandQueue_, pathTraceKernel_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent2);
+       // status = clEnqueueNDRangeKernel(commandQueue_, pathTraceKernel_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent2);
         CHECK_ERROR(status, "Path tracing kernel launch failed");
 
         CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, taskCounterBuffer_, CL_FALSE, 0, sizeof(cl_int), &initialTaskCount, 0, nullptr, nullptr), "Cannot update task counter buffer");
@@ -470,29 +478,25 @@ void OCLRender::Render()
         CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 12, sizeof(cl_mem), &taskCounterBuffer_), "SetKernelArg failed");
         CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 13, sizeof(cl_int), &numTasks), "SetKernelArg failed");
 
-        status = clEnqueueNDRangeKernel(commandQueue_, pathShadeAndExportKernel_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent3);
+        //status = clEnqueueNDRangeKernel(commandQueue_, pathShadeAndExportKernel_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent3);
+        CHECK_ERROR(status, "Shade kernel launch failed");
+
+        CHECK_ERROR(clSetKernelArg(traceExperiments_, 0, sizeof(cl_mem), &pathStartBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(traceExperiments_, 1, sizeof(cl_mem), &bvhBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(traceExperiments_, 2, sizeof(cl_mem), &bvhIndicesBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(traceExperiments_, 3, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(traceExperiments_, 4, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(traceExperiments_, 5, sizeof(cl_mem), &traceShadingData_), "SetKernelArg failed");
+        CHECK_ERROR(clSetKernelArg(traceExperiments_, 6, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
+
+        localWorkSize1 = 64;
+        globalWorkSize1 = configData_.uOutputHeight * configData_.uOutputWidth;
+        status = clEnqueueNDRangeKernel(commandQueue_, traceExperiments_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent4);
         CHECK_ERROR(status, "Shade kernel launch failed");
     }
 
-    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 0, sizeof(cl_mem), &bvhBuffer_), "SetKernelArg failed");
-    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 1, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
-    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 2, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
-    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 3, sizeof(cl_mem), &configBuffer_), "SetKernelArg failed");
-    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 4, sizeof(cl_mem), &pointLights_), "SetKernelArg failed");
-    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 5, sizeof(cl_mem), &randomBuffer_), "SetKernelArg failed");
-    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 6, sizeof(cl_mem), &pathBuffer_), "SetKernelArg failed");
-    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 7, sizeof(cl_mem), &materialBuffer_), "SetKernelArg failed");
-    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 8, sizeof(cl_mem), &intermediateBuffer_), "SetKernelArg failed");
-    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 9, sizeof(cl_mem), &textureDescBuffer_), "SetKernelArg failed");
-    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 10, sizeof(cl_mem), &textureBuffer_), "SetKernelArg failed");
-    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 11, sizeof(cl_mem), &areaLightsBuffer_), "SetKernelArg failed");
-    CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 12, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
-    //CHECK_ERROR(clSetKernelArg(traceDepthKernel_, 5, sizeof(cl_int) * localWorkSize[0] * localWorkSize[1] * 64, nullptr), "SetKernelArg failed");
-
-    //cl_int status = clEnqueueNDRangeKernel(commandQueue_, traceDepthKernel_, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, nullptr);
-    //CHECK_ERROR(status, "Raytracing kernel launch failed");
-
     CHECK_ERROR(clEnqueueReleaseGLObjects(commandQueue_, 1, gl_objects, 0,0,0), "Cannot release OpenGL objects");
+
     CHECK_ERROR(clFinish(commandQueue_), "Cannot flush command queue");
 
     //CHECK_ERROR(clWaitForEvents(1, &kernelExecutionEvent), "Wait for events failed");
@@ -506,7 +510,7 @@ void OCLRender::Render()
 
     std::cout << "Ray generation time " << totalTime << " msec\n";
 
-    clGetEventProfilingInfo(kernelExecutionEvent2, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
+    /*clGetEventProfilingInfo(kernelExecutionEvent2, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
     clGetEventProfilingInfo(kernelExecutionEvent2, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
     totalTime = (double)(endTime - startTime)/1000000.0;
 
@@ -514,10 +518,13 @@ void OCLRender::Render()
 
     clGetEventProfilingInfo(kernelExecutionEvent3, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
     clGetEventProfilingInfo(kernelExecutionEvent3, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
+    totalTime = (double)(endTime - startTime)/1000000.0;*/
+
+    clGetEventProfilingInfo(kernelExecutionEvent4, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
+    clGetEventProfilingInfo(kernelExecutionEvent4, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
     totalTime = (double)(endTime - startTime)/1000000.0;
 
-    std::cout << "Shading time " << totalTime << " msec\n";
-
+    std::cout << "Primary time " << totalTime << " msec\n";
     ++frameCount_;
 }
 

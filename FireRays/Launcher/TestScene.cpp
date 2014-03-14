@@ -56,7 +56,7 @@ TestScene::TestScene()
 
     // Add monkey w/ diffuse material
     {
-        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/sphere.objm");
+        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/bunny.objm");
         mesh_ptr->Rescale(2.5f);
         Mesh::Vertex const* vertexData = mesh_ptr->GetVertexArrayPtr();
         unsigned const* indexData = mesh_ptr->GetIndexArrayPtr();
@@ -157,7 +157,7 @@ TestScene::TestScene()
     startIdx = vertices_.size();
 
 
-   /* v.position = vector3(-20, -3, -5);
+    v.position = vector3(-20, -3, -5);
     v.normal   = vector3(0, 0, 1);
     v.texcoord = vector2(0, 0);
 
@@ -189,7 +189,7 @@ TestScene::TestScene()
     indices_.push_back(startIdx + 2);
 
     materials_.push_back(4);
-    materials_.push_back(4);*/
+    materials_.push_back(4);
 }
 
 TestScene::~TestScene()
@@ -243,7 +243,7 @@ void TestScene::BuildMaterials()
     materialReps_.push_back(materialRep);
     
     materialRep.eBsdf = 3;
-    materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 15.0f;
+    materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 20.0f;
     materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0.0;
     materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.0;
     materialRep.fEs = 0.f;

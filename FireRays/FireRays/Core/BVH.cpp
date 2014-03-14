@@ -248,6 +248,7 @@ unsigned          BVH::GetPrimitiveIndexCount() const
     return primIndices_.size();
 }
 
+
 class DepthFirstIterator: public BVH::Iterator
 {
 public:
@@ -262,7 +263,7 @@ public:
     {
         return current_;
     }
-    
+
     void   Reset()
     {
         // Clear the stack: call optimized move constructor
@@ -362,4 +363,66 @@ BVH::Iterator*   BVH::CreateDepthFirstIterator()
 void BVH::DestroyIterator(Iterator* iter)
 {
     delete iter;
+}
+
+
+
+// Intersect ray with the axis-aligned box
+static bool Intersects(BVH::RayQuery const& sRay, BBox const& sBox)
+{
+    vector3 vRayDir = vector3(1.f / sRay.d.x(), 1.f / sRay.d.y(), 1.f / sRay.d.z());
+    float lo = vRayDir.x()*(sBox.GetMinPoint().x() - sRay.o.x());
+    float hi = vRayDir.x()*(sBox.GetMaxPoint().x() - sRay.o.x());
+
+    float tmin = fmin(lo, hi);
+    float tmax = fmax(lo, hi);
+
+    float lo1 = vRayDir.y()*(sBox.GetMinPoint().y() - sRay.o.y());
+    float hi1 = vRayDir.y()*(sBox.GetMaxPoint().y() - sRay.o.y());
+
+    tmin = fmax(tmin, fmin(lo1, hi1));
+    tmax = fmin(tmax, fmax(lo1, hi1));
+
+    float lo2 = vRayDir.z()*(sBox.GetMinPoint().z() - sRay.o.z());
+    float hi2 = vRayDir.z()*(sBox.GetMaxPoint().z() - sRay.o.z());
+
+    tmin = fmax(tmin, fmin(lo2, hi2));
+    tmax = fmin(tmax, fmax(lo2, hi2));
+
+    return (tmin <= tmax) && (tmax > 0.f);
+}
+
+
+void        BVH::CastRay(RayQuery const& q, RayQueryStatistics& stat) const
+{
+    std::stack<BVH::Node*> nodesToProcess_;
+    nodesToProcess_.push(root_);
+
+    stat.hitBvh = false;
+    stat.maxDepthVisited = 0;
+    stat.numNodesVisited = 0;
+    stat.numTrianglesTested = 0;
+
+    while (nodesToProcess_.size() > 0)
+    {
+        BVH::Node* node = nodesToProcess_.top();
+        nodesToProcess_.pop();
+
+        if (Intersects(q, node->box))
+        {
+            stat.hitBvh = true;
+            stat.numNodesVisited++;
+            stat.maxDepthVisited = std::max(stat.maxDepthVisited, nodesToProcess_.size());
+
+            if (node->type == BVH::NodeType::NT_LEAF)
+            {
+                stat.numTrianglesTested += node->primCount;
+            }
+            else
+            {
+                nodesToProcess_.push(node->child[BVH::CR_RIGHT]);
+                nodesToProcess_.push(node->child[BVH::CR_LEFT]);
+            }
+        }
+    }
 }

@@ -18,6 +18,7 @@ public:
     BVH();
     ~BVH();
     
+    /// TYPES
     // Common node identifier, can be cast to Node* iternally
     typedef void* NodeId;
     
@@ -35,15 +36,20 @@ public:
         SA_Y,
         SA_Z
     };
-    
+
+    // Iterator interface
     struct Iterator;
-    // Traversal interface
+    
+    // TRAVERSAL INTERFACE
     // Breadth and depth first traversals are supported
     Iterator*   CreateBreadthFirstIterator();
     Iterator*   CreateDepthFirstIterator();
-    // You need to destroy your iterator after you have done with traversal
+
+    // You need to destroy your iterator after you have done with it
     void        DestroyIterator(Iterator* );
     
+
+    /// NODE DATA ACCESS
     // Node data access methods
     BBox const& GetNodeBbox(NodeId id) const;
     NodeType    GetNodeType(NodeId id) const;
@@ -55,16 +61,22 @@ public:
     NodeId      GetRightChild(NodeId id) const;
     NodeId      GetLeftChild(NodeId id) const;
     
+    /// BVH DATA ACCESS
     unsigned const*   GetPrimitiveIndices() const;
     unsigned          GetPrimitiveIndexCount() const;
+
+    /// QUALITY CHECK : raycast query
+    struct RayQuery;
+    struct RayQueryStatistics;
+    void        CastRay(RayQuery const& q, RayQueryStatistics& stat) const;
 
 protected:
     // Interface for the builders, make them friends here
     friend class BVHAccelerator;
     friend class SplitBVHBuilder;
     // Iterators are also friends
-    friend struct DepthFirstIterator;
-    friend struct BreadthFirstIterator;
+    friend class DepthFirstIterator;
+    friend class BreadthFirstIterator;
     // Relation to parent: right or left child
     // left child has lesser coordinate values along the split axis
     enum ChildRel
@@ -109,6 +121,21 @@ struct BVH::Iterator
     virtual void   Reset() = 0;
     virtual bool   HasNext() = 0;
     virtual void   Next() = 0;
+};
+
+struct BVH::RayQuery
+{
+    vector3 o;
+    vector3 d;
+};
+
+
+struct BVH::RayQueryStatistics
+{
+    bool            hitBvh;
+    unsigned int    numNodesVisited;
+    unsigned int    numTrianglesTested;
+    unsigned int    maxDepthVisited;
 };
 
 inline BVH::NodeId BVH::GetPreRootNode() const

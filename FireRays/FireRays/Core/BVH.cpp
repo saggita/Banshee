@@ -1,5 +1,7 @@
 #include "BVH.h"
 
+#include <algorithm>
+
 struct BVH::Node
 {
     BBox        box;
@@ -368,37 +370,74 @@ void BVH::DestroyIterator(Iterator* iter)
 
 
 // Intersect ray with the axis-aligned box
-static bool Intersects(BVH::RayQuery const& sRay, BBox const& sBox)
+static bool Intersects(BVH::RayQuery& q, BBox const& sBox)
 {
-    vector3 vRayDir = vector3(1.f / sRay.d.x(), 1.f / sRay.d.y(), 1.f / sRay.d.z());
-    float lo = vRayDir.x()*(sBox.GetMinPoint().x() - sRay.o.x());
-    float hi = vRayDir.x()*(sBox.GetMaxPoint().x() - sRay.o.x());
+    vector3 vRayDir = vector3(1.f / q.d.x(), 1.f / q.d.y(), 1.f / q.d.z());
+    float lo = vRayDir.x()*(sBox.GetMinPoint().x() - q.o.x());
+    float hi = vRayDir.x()*(sBox.GetMaxPoint().x() - q.o.x());
 
     float tmin = fmin(lo, hi);
     float tmax = fmax(lo, hi);
 
-    float lo1 = vRayDir.y()*(sBox.GetMinPoint().y() - sRay.o.y());
-    float hi1 = vRayDir.y()*(sBox.GetMaxPoint().y() - sRay.o.y());
+    float lo1 = vRayDir.y()*(sBox.GetMinPoint().y() - q.o.y());
+    float hi1 = vRayDir.y()*(sBox.GetMaxPoint().y() - q.o.y());
 
     tmin = fmax(tmin, fmin(lo1, hi1));
     tmax = fmin(tmax, fmax(lo1, hi1));
 
-    float lo2 = vRayDir.z()*(sBox.GetMinPoint().z() - sRay.o.z());
-    float hi2 = vRayDir.z()*(sBox.GetMaxPoint().z() - sRay.o.z());
+    float lo2 = vRayDir.z()*(sBox.GetMinPoint().z() - q.o.z());
+    float hi2 = vRayDir.z()*(sBox.GetMaxPoint().z() - q.o.z());
 
     tmin = fmax(tmin, fmin(lo2, hi2));
     tmax = fmin(tmax, fmax(lo2, hi2));
 
-    return (tmin <= tmax) && (tmax > 0.f);
+    if ((tmin <= tmax) && (tmax > 0.f))
+    {
+        return (tmin >= 0) ? (tmin < q.t) : (tmax < q.t);
+    }
+    else
+        return false;
+}
+
+bool Intersects(BVH::RayQuery& q, vector3 vP1, vector3 vP2, vector3 vP3)
+{
+    vector3 vE1 = vP2 - vP1;
+    vector3 vE2 = vP3 - vP1;
+    
+    vector3 vS1 = cross(q.d, vE2);
+    float  fInvDir = 1.0/dot(vS1, vE1);
+    
+    vector3 vD = q.o - vP1;
+    float  fB1 = dot(vD, vS1) * fInvDir;
+    
+    if (fB1 < 0.0 || fB1 > 1.0)
+        return false;
+    
+    vector3 vS2 = cross(vD, vE1);
+    float  fB2 = dot(q.d, vS2) * fInvDir;
+    
+    if (fB2 < 0.0 || fB1 + fB2 > 1.0)
+        return false;
+    
+    float fTemp = dot(vE2, vS2) * fInvDir;
+    
+    if (fTemp > 0 && fTemp <= q.t)
+    {
+        q.t = fTemp;
+        return true;
+    }
+    
+    return false;
 }
 
 
-void        BVH::CastRay(RayQuery const& q, RayQueryStatistics& stat) const
+void        BVH::CastRay(RayQuery& q, RayQueryStatistics& stat, SceneBase::Vertex const* vertices, unsigned const* indices) const
 {
     std::stack<BVH::Node*> nodesToProcess_;
     nodesToProcess_.push(root_);
 
     stat.hitBvh = false;
+    stat.hitPrim = false;
     stat.maxDepthVisited = 0;
     stat.numNodesVisited = 0;
     stat.numTrianglesTested = 0;
@@ -412,16 +451,34 @@ void        BVH::CastRay(RayQuery const& q, RayQueryStatistics& stat) const
         {
             stat.hitBvh = true;
             stat.numNodesVisited++;
-            stat.maxDepthVisited = std::max(stat.maxDepthVisited, nodesToProcess_.size());
+            stat.maxDepthVisited = std::max(stat.maxDepthVisited, (unsigned)nodesToProcess_.size());
 
             if (node->type == BVH::NodeType::NT_LEAF)
             {
                 stat.numTrianglesTested += node->primCount;
+                for (int i = 0; i < node->primCount; ++i)
+                {
+                    vector3 v1, v2, v3;
+                    unsigned primIdx = primIndices_[node->primStartIdx + i];
+                    v1 = vertices[indices[primIdx * 3]].position;
+                    v2 = vertices[indices[primIdx * 3 + 1]].position;
+                    v3 = vertices[indices[primIdx * 3 + 2]].position;
+                    
+                    stat.hitPrim = stat.hitPrim || Intersects(q, v1, v2, v3);
+                }
             }
             else
             {
-                nodesToProcess_.push(node->child[BVH::CR_RIGHT]);
-                nodesToProcess_.push(node->child[BVH::CR_LEFT]);
+                if ( q.d[(int)node->splitAxis] > 0 )
+                {
+                    nodesToProcess_.push(node->child[BVH::CR_RIGHT]);
+                    nodesToProcess_.push(node->child[BVH::CR_LEFT]);
+                }
+                else
+                {
+                    nodesToProcess_.push(node->child[BVH::CR_LEFT]);
+                    nodesToProcess_.push(node->child[BVH::CR_RIGHT]);
+                }
             }
         }
     }

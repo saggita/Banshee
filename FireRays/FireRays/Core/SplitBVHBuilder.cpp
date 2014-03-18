@@ -8,6 +8,10 @@
 
 #include "SplitBVHBuilder.h"
 
+#include "utils.h"
+#include <cmath>
+
+
 void SplitBVHBuilder::Build()
 {
     maxLevel_ = 0;
@@ -22,256 +26,354 @@ void SplitBVHBuilder::Build()
 
 BVH::NodeId SplitBVHBuilder::BuildNode(BVH::NodeId parentNode, BVH::ChildRel rel, PrimitiveRefIterator first, PrimitiveRefIterator last, unsigned level)
 {
+    // Remove empty refs
+    last = RemoveEmptyRefs(first, last);
+    
     // Check if we have a valid iterator range
-    assert(std::distance(first, last) > 0);
+    unsigned primCount = std::distance(first, last);
+    
+    assert( primCount > 0);
     
     maxLevel_ = std::max(level, maxLevel_);
     
-    // Start expanding form the first node bbox
-    // and its center
-    BBox nodesBbox = first->bbox;
-    BBox nodeCentersBbox(nodesBbox.GetCenter());
-    // calc number of nodes for later use
-    unsigned primCount = 0;
+    std::vector<PrimitiveRef> refs(first, last);
+        
+    last = refs_.erase(first, last);
+
+    NodeDesc desc;
+    CreateNodeDesc(refs.begin(), refs.end(), desc);
     
-    // Calculate bounding box of all the nodes
-    // and all the node centers
-    // The former is used to create the node itself
-    // the latter is to choose principal direction to split along
-    std::for_each(first, last, [&nodesBbox, &nodeCentersBbox, &primCount](PrimitiveRef const& info)
-                  {
-                      nodesBbox = BBoxUnion(nodesBbox, info.bbox);
-                      nodeCentersBbox = BBoxUnion(nodeCentersBbox, info.bbox.GetCenter());
-                      ++primCount;
-                  }
-                  );
+    SplitDesc objectSplit;
+    FindObjectSplit(desc, refs.begin(), refs.end(), objectSplit);
     
-    // Create leaf node if there is only one primitive
-    if (primCount <= minPrimsPerLeaf_)
+    SplitDesc spatialSplit;
+    FindSpatialSplit(desc, refs.begin(), refs.end(), spatialSplit);
+    
+    float leafSah = primCount * triSahCost_;
+    
+    float minSah = std::min(std::min(leafSah, objectSplit.sah), spatialSplit.sah);
+    
+    if ( (minSah == leafSah && primCount < primsPerLeaf_) || primCount == 1)
     {
+        
         std::vector<unsigned> primIndices;
-        std::for_each(first, last, [&primIndices](PrimitiveRef const& r)
+        std::for_each(refs.begin(), refs.end(), [&primIndices](PrimitiveRef const& r)
                       {
                           primIndices.push_back(r.idx);
                       });
         
-        return GetBVH().CreateLeafNode(parentNode, rel, nodesBbox, &primIndices[0], primIndices.size());
+        return GetBVH().CreateLeafNode(parentNode, rel, desc.bbox, &primIndices[0], primIndices.size());
+    }
+    else if (spatialSplit.sah < objectSplit.sah)
+    {
+        BVH::NodeId id = GetBVH().CreateInternalNode(parentNode, rel, static_cast<BVH::SplitAxis>(objectSplit.dim), desc.bbox);
+        
+        refs.resize(primCount * 2);
+        
+        unsigned newPrimCount;
+        
+        auto splitIter = PerformSpatialSplit(refs.begin(), refs.begin() + primCount, spatialSplit, newPrimCount);
+        
+        auto dist = std::distance(refs.begin(), splitIter);
+        
+        first = refs_.insert(last, refs.begin(), refs.begin() + newPrimCount);
+        
+        auto splitListIter = first;
+        std::advance(splitListIter, dist);
+        
+        BuildNode(id, BVH::ChildRel::CR_LEFT,  first, splitListIter, ++level);
+        BuildNode(id, BVH::ChildRel::CR_RIGHT, splitListIter, last, ++level);
     }
     else
     {
-        //  Split along a principal component of node centers
-        int splitAxis = nodeCentersBbox.GetMaxDim();
-        
-        // Sort the list
-        //{
-        std::vector<PrimitiveRef> refs(first, last);
-        
-        last = refs_.erase(first, last);
-        
-        int refCount = refs.size();
-        refs.resize(refCount * 2);
-        
-       // std::sort(refs.begin(), refs.begin() + refCount, [splitAxis](PrimitiveRef const& r1, PrimitiveRef const& r2)
-                  //{
-                     // return r1.bbox.GetCenter()[splitAxis] < r2.bbox.GetCenter()[splitAxis];
-                  //});
-        
-        // Spatial split
-        float splitValue = nodeCentersBbox.GetCenter()[splitAxis];
-        int   splitNodeEnd = refCount;
-        
-        if (level < 20)
-        {
-            unsigned kNumTests = 10;
-            float sahValue[10];
+        BVH::NodeId id = GetBVH().CreateInternalNode(parentNode, rel, static_cast<BVH::SplitAxis>(objectSplit.dim), desc.bbox);
 
-            float range = nodeCentersBbox.GetExtents()[splitAxis];
-            float step  = range / (kNumTests + 1);
-
-            for (unsigned i = 0; i < kNumTests; ++i)
-            {
-                BBox leftBox = BBox();
-                BBox rightBox = BBox();
-                unsigned leftCount(0), rightCount(0);
-
-                float split = nodeCentersBbox.GetMinPoint()[splitAxis] + (i + 1)*step;
-
-                for(int j = 0; j < refCount; ++j)
-                {
-                    PrimitiveRef r1, r2;
-                    if (SplitPrimRef(refs[j], splitAxis, splitValue, r1, r2))
-                    {
-                        ++leftCount;
-                        ++rightCount;
-                        leftBox = BBoxUnion(leftBox, r1.bbox);
-                        rightBox = BBoxUnion(rightBox, r2.bbox);
-                    }
-                    else
-                    {
-                        if (refs[j].bbox.GetCenter()[splitAxis] < split)
-                        {
-                            ++leftCount;
-                            leftBox = BBoxUnion(leftBox, refs[j].bbox);
-                        }
-                        else
-                        {
-                            ++rightCount;
-                            rightBox = BBoxUnion(rightBox, refs[j].bbox);
-
-                        }
-                    }
-                }
-
-                sahValue[i] = nodeSahCost_ + triSahCost_ * (leftCount * leftBox.GetSurfaceArea() + rightCount * rightBox.GetSurfaceArea())/nodesBbox.GetSurfaceArea();
-            }
-
-            float* minSah = std::min_element(sahValue, sahValue + kNumTests);
-            unsigned minSahIdx = std::distance(sahValue, minSah);
-            splitValue = nodeCentersBbox.GetMinPoint()[splitAxis] + (minSahIdx + 1) * step;
-
-            for(int i = 0; i < refCount; ++i)
-            {
-                PrimitiveRef r1, r2;
-                if (SplitPrimRef(refs[i], splitAxis, splitValue, r1, r2))
-                {
-                    refs[i] = r1;
-                    refs[splitNodeEnd++] = r2;
-                }
-            }
-        }
+        auto splitIter = PerformObjectSplit(refs.begin(), refs.end(), objectSplit);
+        auto dist = std::distance(refs.begin(), splitIter);
         
-        auto split = std::partition(refs.begin(), refs.begin() + splitNodeEnd, [splitAxis, splitValue](PrimitiveRef const& r)
-                                    {
-                                        return r.bbox.GetCenter()[splitAxis] <= splitValue;
-                                    }
-                                    );
+        first = refs_.insert(last, refs.begin(), refs.end());
         
-        int numSplitBefore = std::distance(refs.begin(), split);
-        int numSplitAfter  = std::distance(split, refs.begin() + splitNodeEnd);
+        auto splitListIter = first;
+        std::advance(splitListIter, dist);
         
-        first = refs_.insert(last, refs.begin(), refs.begin() + splitNodeEnd);
-        
-        
-        auto splitList = first;
-        
-        if (numSplitBefore == 0 || numSplitAfter == 0)
-        {
-            std::advance(splitList, splitNodeEnd/2);
-        }
-        else
-        {
-            std::advance(splitList, numSplitBefore);
-        }
-
-        BVH::NodeId id = GetBVH().CreateInternalNode(parentNode, rel, static_cast<BVH::SplitAxis>(splitAxis), nodesBbox);
-
-        BuildNode(id, BVH::ChildRel::CR_LEFT, first, splitList, ++level);
-        BuildNode(id, BVH::ChildRel::CR_RIGHT, splitList, last, ++level);
+        BuildNode(id, BVH::ChildRel::CR_LEFT,  first, splitListIter, ++level);
+        BuildNode(id, BVH::ChildRel::CR_RIGHT, splitListIter, last, ++level);
         
         return id;
     }
 }
 
-BVH::NodeId SplitBVHBuilder::BuildNodeObjectSplitOnly(BVH::NodeId parentNode, BVH::ChildRel rel, PrimitiveRefIterator first, PrimitiveRefIterator last, unsigned level)
+unsigned         SplitBVHBuilder::GetPrimitiveCount() const
 {
-    // Check if we have a valid iterator range
-    assert(std::distance(first, last) > 0);
-    
-    maxLevel_ = std::max(level, maxLevel_);
-    
-    // Start expanding form the first node bbox
-    // and its center
-    BBox nodesBbox = first->bbox;
-    BBox nodeCentersBbox(nodesBbox.GetCenter());
-    // calc number of nodes for later use
-    unsigned primCount = 0;
-    
-    // Calculate bounding box of all the nodes
-    // and all the node centers
-    // The former is used to create the node itself
-    // the latter is to choose principal direction to split along
-    std::for_each(first, last, [&nodesBbox, &nodeCentersBbox, &primCount](PrimitiveRef const& info)
-                  {
-                      nodesBbox = BBoxUnion(nodesBbox, info.bbox);
-                      nodeCentersBbox = BBoxUnion(nodeCentersBbox, info.bbox.GetCenter());
-                      ++primCount;
-                  }
-                  );
+    return prims_.size();
+}
 
-    //std::cout << "Level " << maxLevel_ << " prim count" << primCount << "\n";
-    
-    // Create leaf node if there is only one primitive
-    //  Split along a principal component of node centers
-    int splitAxis = nodeCentersBbox.GetMaxDim();
+SplitBVHBuilder::Primitive const* SplitBVHBuilder::GetPrimitives() const
+{
+    return &prims_[0];
+}
 
-    //std::cout << "BBOx: " << nodeCentersBbox.GetMinPoint()[splitAxis] << " " << nodeCentersBbox.GetMaxPoint()[splitAxis] << "\n";
+void SplitBVHBuilder::ReorderPrimitives()
+{
+    std::vector<Primitive> tempPrims(prims_.begin(), prims_.end());
     
-    if (primCount < minPrimsPerLeaf_)
+    unsigned idxCount = bvh_->GetPrimitiveIndexCount();
+    unsigned const* indices = bvh_->GetPrimitiveIndices();
+    
+    
+    for( int i = 0; i < idxCount; ++i)
     {
-        std::vector<unsigned> primIndices;
-        std::for_each(first, last, [&primIndices](PrimitiveRef const& r)
-                      {
-                          primIndices.push_back(r.idx);
-                      });
-        
-        return GetBVH().CreateLeafNode(parentNode, rel, nodesBbox, &primIndices[0], primIndices.size());
+        prims_[i] = tempPrims[indices[i]];
     }
-    else
+}
+
+// Find best object split according to 10-bins histogram SAH
+void SplitBVHBuilder::FindObjectSplit(NodeDesc const& desc, std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, SplitDesc& split)
+{
+    // SAH implementation
+    // calc centroids histogram
+    unsigned const kNumBins = 64;
+    // moving split bin index
+    unsigned splitIdx = 0;
+    
+    split.lb = BBox();
+    split.rb = BBox();
+    split.sah = std::numeric_limits<float>::max();
+    
+    // if we cannot apply histogram algorithm
+    // put NAN sentinel as split val
+    // PerformObjectSplit simply splits in half
+    // in this case
+    if (desc.cbox.GetExtents().x() == 0 &&
+        desc.cbox.GetExtents().y() == 0 &&
+        desc.cbox.GetExtents().z() == 0)
+    {
+        split.val = NAN;
+        split.sah = NAN;
+        return;
+    }
+    
+    // Bin has bbox and occurence count
+    struct Bin
+    {
+        BBox box;
+        unsigned count;
+    };
+    
+    // Keep bins for each dimension
+    Bin   bins[3][kNumBins];
+    
+    for(int axis = 0; axis < 3; ++axis)
+    {
+        float centroidRng = desc.cbox.GetExtents()[axis];
+        
+        for (unsigned i = 0; i < kNumBins; ++i)
+        {
+            bins[axis][i].count = 0;
+            bins[axis][i].box = BBox();
+        }
+        
+        for (auto i = begin; i < end; ++i)
+        {
+            unsigned binIdx = (unsigned)std::min<float>(kNumBins * ((i->bbox.GetCenter()[axis] - desc.cbox.GetMinPoint()[axis]) / centroidRng), kNumBins-1);
+            
+            assert(binIdx >= 0);
+            
+            ++bins[axis][binIdx].count;
+            bins[axis][binIdx].box = BBoxUnion(bins[axis][binIdx].box, i->bbox);
+        }
+        
+        for (unsigned i = 0; i < kNumBins - 1; ++i)
+        {
+            BBox h1Box = BBox();
+            unsigned h1Count = 0;
+            
+            for(unsigned j = 0; j <= i; ++j)
+            {
+                h1Box = BBoxUnion(h1Box, bins[axis][j].box);
+                h1Count += bins[axis][j].count;
+            }
+            
+            BBox h2Box = BBox();
+            unsigned h2Count = 0;
+            
+            for(unsigned j = i + 1; j < kNumBins; ++j)
+            {
+                h2Box = BBoxUnion(h2Box, bins[axis][j].box);
+                h2Count += bins[axis][j].count;
+            }
+            
+            float sah = nodeSahCost_ + triSahCost_ * (h1Count * h1Box.GetSurfaceArea() + h2Count * h2Box.GetSurfaceArea())/desc.bbox.GetSurfaceArea();
+            
+            if (sah < split.sah)
+            {
+                split.dim = axis;
+                splitIdx = i;
+                split.sah = sah;
+            }
+        }
+    }
+    
+    // Choose split plane
+    split.val = bins[split.dim][splitIdx + 1].box.GetCenter()[split.dim];
+}
+
+// Find best spatial split according to 10-bins histogram SAH
+void SplitBVHBuilder::FindSpatialSplit(NodeDesc const& desc, std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, SplitDesc& split)
+{
+    unsigned primCount = std::distance(begin, end);
+    
+    int const kNumBins = 64;
+    
+    if (primCount < kNumBins)
+    {
+        split.sah = NAN;
+        split.val = NAN;
+        return;
+    }
+
+    struct Bin
+    {
+        BBox bbox;
+        unsigned enter;
+        unsigned exit;
+    };
+    
+    Bin bins[3][kNumBins];
+    
+    // Initialize bins.
+    vector3 origin  = desc.bbox.GetMinPoint();
+    vector3 binSize = desc.bbox.GetExtents() * (1.f / kNumBins);
+    vector3 invBinSize = vector3(1.f / binSize.x(), 1.f / binSize.y(), 1.f / binSize.z());
+    
+    char dims[3] = {0, 0, 0};
+    unsigned dimCount = 0;
+    
+    for (int dim = 0; dim < 3; ++dim)
+    {
+        if (binSize[dim] != 0.f)
+            dims[dimCount++] = dim;
+    }
+    
+    for (int dim = 0; dim < dimCount; dim++)
+    {
+        for (int i = 0; i < kNumBins; i++)
+        {
+            bins[dims[dim]][i].bbox = BBox();
+            bins[dims[dim]][i].enter = 0;
+            bins[dims[dim]][i].exit = 0;
+        }
+    }
+    
+    for (auto iter = begin; iter != end; ++iter)
+    {
+        vector3 firstBin = clamp(vector3((iter->bbox.GetMinPoint() - origin) * invBinSize), vector3(0,0,0),  vector3(kNumBins - 1, kNumBins - 1, kNumBins - 1));
+        vector3 lastBin = clamp(vector3((iter->bbox.GetMaxPoint() - origin) * invBinSize), firstBin, vector3(kNumBins - 1, kNumBins - 1, kNumBins - 1));
+        
+        for (int dim = 0; dim < dimCount; dim++)
+        {
+            PrimitiveRef ref = *iter;
+            for (int i = (int)firstBin[dims[dim]]; i < (int)lastBin[dims[dim]]; i++)
+            {
+                PrimitiveRef leftRef, rightRef;
+                SplitPrimRef(ref, dims[dim], origin[dims[dim]] + binSize[dims[dim]] * (float)(i + 1), leftRef, rightRef);
+                
+                bins[dims[dim]][i].bbox = BBoxUnion(bins[dims[dim]][i].bbox, leftRef.bbox);
+                ref = rightRef;
+            }
+            
+            bins[dims[dim]][(int)lastBin[dims[dim]]].bbox = BBoxUnion(bins[dims[dim]][(int)lastBin[dims[dim]]].bbox, ref.bbox);
+            bins[dims[dim]][(int)firstBin[dims[dim]]].enter++;
+            bins[dims[dim]][(int)lastBin[dims[dim]]].exit++;
+        }
+    }
+    
+    BBox rightBounds[kNumBins - 2];
+    
+    split.sah = std::numeric_limits<float>::max();
+    
+    for (int dim = 0; dim < dimCount; dim++)
     {
         
-        std::vector<PrimitiveRef> refs(first, last);
+        BBox rb = BBox();
+        for (int i = kNumBins - 1; i > 0; i--)
+        {
+            rb = BBoxUnion(rb, bins[dims[dim]][i].bbox);
+            rightBounds[i - 1] = rb;
+        }
         
-        std::sort(refs.begin(), refs.end(), [splitAxis](PrimitiveRef const& r1, PrimitiveRef const& r2)
-                  {
-                      return r1.bbox.GetCenter()[splitAxis] < r2.bbox.GetCenter()[splitAxis];
-                  });
-
-        unsigned splitIdx = primCount / 2;
-        float splitSahValue = 1000.f;
-        if (nodeCentersBbox.GetMinPoint()[splitAxis] != nodeCentersBbox.GetMaxPoint()[splitAxis])
+        BBox lb = BBox();
+        int leftNum = 0;
+        int rightNum = primCount;
+        
+        for (int i = 1; i < kNumBins; i++)
         {
-            // Spatial split
-            float splitValue = nodeCentersBbox.GetCenter()[splitAxis];
-
+            lb = BBoxUnion(lb, bins[dims[dim]][i - 1].bbox);
+            leftNum += bins[dims[dim]][i - 1].enter;
+            rightNum -= bins[dims[dim]][i - 1].exit;
             
-            splitIdx =  FindObjectSplit(refs, splitAxis, nodesBbox, nodeCentersBbox, splitSahValue);
-        }
-
-        last = std::copy(refs.begin(), refs.end(), first);
-
-        if ((splitSahValue > refs.size() * triSahCost_ && refs.size() < primsPerLeaf_))
-        {
-            std::vector<unsigned> primIndices;
-            std::for_each(first, last, [&primIndices](PrimitiveRef const& r)
-                          {
-                              primIndices.push_back(r.idx);
-                          });
+            float sah = nodeSahCost_ + triSahCost_ * (lb.GetSurfaceArea() * leftNum  + rightBounds[i - 1].GetSurfaceArea() * rightNum) / desc.bbox.GetSurfaceArea();
             
-            return GetBVH().CreateLeafNode(parentNode, rel, nodesBbox, &primIndices[0], primIndices.size());
-        }
-        else
-        {
-            auto splitList = first;
-            
-            std::advance(splitList, splitIdx);
-            
-            BVH::NodeId id = GetBVH().CreateInternalNode(parentNode, rel, static_cast<BVH::SplitAxis>(splitAxis), nodesBbox);
-            
-            BuildNodeObjectSplitOnly(id, BVH::ChildRel::CR_LEFT, first, splitList, ++level);
-            BuildNodeObjectSplitOnly(id, BVH::ChildRel::CR_RIGHT, splitList, last, ++level);
-            
-            return id;
+            if (sah < split.sah)
+            {
+                split.sah = sah;
+                split.dim = dims[dim];
+                split.val = origin[dims[dim]] + binSize[dims[dim]] * (float)i;
+            }
         }
     }
 }
 
+void SplitBVHBuilder::CreateNodeDesc(std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, NodeDesc& desc)
+{
+    desc.bbox = BBox();
+    desc.cbox = BBox();
+    desc.begin = begin;
+    desc.end = end;
+    
+    std::for_each(begin, end, [&desc](PrimitiveRef const& info)
+                  {
+                      desc.bbox = BBoxUnion(desc.bbox, info.bbox);
+                      desc.cbox = BBoxUnion(desc.cbox, info.bbox.GetCenter());
+                  }
+                  );
+}
+
+// Perform object split
+std::vector<SplitBVHBuilder::PrimitiveRef>::iterator SplitBVHBuilder::PerformObjectSplit(std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, SplitDesc const& splitDesc)
+{
+    // Check for NaN sentinel and split in half in this case
+    if (std::isnan(splitDesc.val))
+    {
+        std::advance(begin, std::distance(begin, end) / 2);
+        return begin;
+    }
+    else
+    {
+        // Partition according to splitting plane otherwise
+        return std::partition(begin, end, [=](PrimitiveRef const& r)
+                              {
+                                  return r.bbox.GetCenter()[splitDesc.dim] < splitDesc.val;
+                              });
+    }
+}
+
+SplitBVHBuilder::PrimitiveRefIterator SplitBVHBuilder::RemoveEmptyRefs(PrimitiveRefIterator begin, PrimitiveRefIterator end)
+{
+    return std::remove_if(begin, end, [](PrimitiveRef const& r)
+                          {
+                              return r.bbox.GetSurfaceArea() == 0.f;
+                          }
+                          );
+}
+
 bool SplitBVHBuilder::SplitPrimRef(PrimitiveRef primRef, int splitAxis, float splitValue, PrimitiveRef& r1, PrimitiveRef& r2)
 {
-    if (((primRef.bbox.GetMinPoint()[splitAxis] <= splitValue) &&
-         (primRef.bbox.GetMaxPoint()[splitAxis] <= splitValue)) ||
-        ((primRef.bbox.GetMinPoint()[splitAxis] >= splitValue) &&
-         (primRef.bbox.GetMaxPoint()[splitAxis] >= splitValue)))
-        return false;
+//    if (((primRef.bbox.GetMinPoint()[splitAxis] <= splitValue) &&
+//         (primRef.bbox.GetMaxPoint()[splitAxis] <= splitValue)) ||
+//        ((primRef.bbox.GetMinPoint()[splitAxis] >= splitValue) &&
+//         (primRef.bbox.GetMaxPoint()[splitAxis] >= splitValue)))
+//        return false;
     
     // Assign initial values to r1 and r2
     // prim index is the same
@@ -299,11 +401,12 @@ bool SplitBVHBuilder::SplitPrimRef(PrimitiveRef primRef, int splitAxis, float sp
         float vc2 = v2[splitAxis];
         
         // Put the vertex into either r1 or
-        if (vc1 < splitValue)
+        if (vc1 <= splitValue)
         {
             r1.bbox = BBoxUnion(r1.bbox, v1);
         }
-        else
+        
+        if (vc1 >= splitValue)
         {
             r2.bbox = BBoxUnion(r2.bbox, v1);
         }
@@ -337,105 +440,26 @@ bool SplitBVHBuilder::SplitPrimRef(PrimitiveRef primRef, int splitAxis, float sp
     return split;
 }
 
-unsigned SplitBVHBuilder::FindObjectSplit(std::vector<PrimitiveRef>& refs, int splitAxis, BBox const& parentNodeBBox, BBox const& centroidsBBox,  float& splitSahValue)
+std::vector<SplitBVHBuilder::PrimitiveRef>::iterator SplitBVHBuilder::PerformSpatialSplit(std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, SplitDesc const& splitDesc, unsigned& newPrimCount)
 {
-    // SAH implementation
-    // calc centroids histogram
-    unsigned const kNumBins = 10;
-    
-    if (refs.size() < kNumBins)
+    auto newPrimsIter = end;
+    for (auto iter = begin; iter != end; ++iter)
     {
-        return refs.size()/2;
-    }
-    
-    struct Bin
-    {
-        BBox box;
-        unsigned count;
-    };
-    
-    Bin bins[kNumBins];
-    
-    float centroidRng = centroidsBBox.GetExtents()[splitAxis];
-    float binRng = centroidRng / kNumBins;
-    
-    for (unsigned i = 0; i < kNumBins; ++i)
-    {
-        bins[i].count = 0;
-        bins[i].box = BBox();
-    }
-    
-    for (unsigned i = 0; i < refs.size(); ++i)
-    {
-        unsigned bin_idx = (unsigned)std::min<float>(kNumBins * ((refs[i].bbox.GetCenter()[splitAxis] - centroidsBBox.GetMinPoint()[splitAxis]) / centroidRng), kNumBins-1);
-        
-        assert(bin_idx >= 0);
-        
-        ++bins[bin_idx].count;
-        bins[bin_idx].box = BBoxUnion(bins[bin_idx].box, refs[i].bbox);
-    }
-    
-    float sahCost[kNumBins-1];
-    
-    for (unsigned i = 0; i < kNumBins - 1; ++i)
-    {
-        BBox h1Box = BBox();
-        unsigned h1Count = 0;
-        
-        for(unsigned j = 0; j <= i; ++j)
+        PrimitiveRef r1, r2;
+        if (SplitPrimRef(*iter, splitDesc.dim, splitDesc.val, r1, r2))
         {
-            h1Box = BBoxUnion(h1Box, bins[j].box);
-            h1Count += bins[j].count;
+            *iter = r1;
+            *newPrimsIter = r2;
+            ++newPrimsIter;
         }
-        
-        BBox h2Box = BBox();
-        unsigned h2Count = 0;
-        
-        for(unsigned j = i + 1; j < kNumBins; ++j)
-        {
-            h2Box = BBoxUnion(h2Box, bins[j].box);
-            h2Count += bins[j].count;
-        }
-        
-        sahCost[i] = nodeSahCost_ + triSahCost_ * (h1Count * h1Box.GetSurfaceArea() + h2Count * h2Box.GetSurfaceArea())/parentNodeBBox.GetSurfaceArea();
     }
     
-    float* minSahCost = std::min_element(sahCost, sahCost + kNumBins - 1);
+    newPrimCount = std::distance(begin, newPrimsIter);
     
-    splitSahValue = *minSahCost;
-    
-    unsigned splitIdx = std::distance(sahCost, minSahCost);
-    
-    float border = bins[splitIdx + 1].box.GetCenter()[splitAxis];
-    auto iter = std::partition(refs.begin(), refs.end(), [=](PrimitiveRef const& r)
-                               {
-                                   return r.bbox.GetCenter()[splitAxis] < border;
-                               });
-    unsigned si = std::distance(refs.begin(), iter);
-
-    return si;
+    return std::partition(begin, newPrimsIter, [=](PrimitiveRef const& r)
+                                {
+                                    return r.bbox.GetCenter()[splitDesc.dim] <= splitDesc.val;
+                                }
+                                );
 }
 
-unsigned         SplitBVHBuilder::GetPrimitiveCount() const
-{
-    return prims_.size();
-}
-
-SplitBVHBuilder::Primitive const* SplitBVHBuilder::GetPrimitives() const
-{
-    return &prims_[0];
-}
-
-void SplitBVHBuilder::ReorderPrimitives()
-{
-    std::vector<Primitive> tempPrims(prims_.begin(), prims_.end());
-    
-    unsigned idxCount = bvh_->GetPrimitiveIndexCount();
-    unsigned const* indices = bvh_->GetPrimitiveIndices();
-    
-    
-    for( int i = 0; i < idxCount; ++i)
-    {
-        prims_[i] = tempPrims[indices[i]];
-    }
-}

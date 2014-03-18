@@ -25,7 +25,7 @@ MassiveScene::MassiveScene()
     BuildMaterials();
     
     {
-        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/untitled1.obj");
+        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/sponza.objm");
         mesh_ptr->Rescale(5);
         Mesh::Vertex const* vertexData = mesh_ptr->GetVertexArrayPtr();
         unsigned const* indexData = mesh_ptr->GetIndexArrayPtr();

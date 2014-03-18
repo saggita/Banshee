@@ -47,6 +47,23 @@ inline void	cartesian_to_spherical ( const vector3& cart, vector3& sph )
 	cartesian_to_spherical(cart, sph.x(), sph.y(), sph.z());
 }
 
+/// Clamp float value to [a, b) range
+inline float clamp(float x, float a, float b)
+
+{
+    return x < a ? a : (x > b ? b : x);
+}
+
+/// Clamp each component of the vector to [a, b) range
+inline vector3 clamp(vector3 const& v, vector3 const& v1, vector3 const& v2)
+{
+    vector3 res;
+    res.x() = clamp(v.x(), v1.x(), v2.x());
+    res.y() = clamp(v.y(), v1.y(), v2.y());
+    res.z() = clamp(v.z(), v1.z(), v2.z());
+    return res;
+}
+
 /// Convert spherical coordinates to cartesian 
 inline void	spherical_to_cartesian ( const real& r, const real& phi, const real& theta, vector3& cart )
 {

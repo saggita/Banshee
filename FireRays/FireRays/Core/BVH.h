@@ -11,6 +11,7 @@
 
 #include "Common.h"
 #include "bbox.h"
+#include "SceneBase.h"
 
 class BVH
 {
@@ -68,8 +69,10 @@ public:
     /// QUALITY CHECK : raycast query
     struct RayQuery;
     struct RayQueryStatistics;
-    void        CastRay(RayQuery const& q, RayQueryStatistics& stat) const;
-
+    void        CastRay(RayQuery& q, RayQueryStatistics& stat, SceneBase::Vertex const* vertices, unsigned const* indices) const;
+    // Node count
+    unsigned GetNodeCount() const;
+    
 protected:
     // Interface for the builders, make them friends here
     friend class BVHAccelerator;
@@ -95,6 +98,7 @@ protected:
     NodeId CreateLeafNode(NodeId id, ChildRel rel, BBox const& b, unsigned* primIndices, unsigned idxCount);
     // Check whether node childrens' bboxes are contained within its own bounding box
     bool   CheckInvariant(NodeId id);
+    
 
 
 private:
@@ -127,12 +131,14 @@ struct BVH::RayQuery
 {
     vector3 o;
     vector3 d;
+    float   t;
 };
 
 
 struct BVH::RayQueryStatistics
 {
     bool            hitBvh;
+    bool            hitPrim;
     unsigned int    numNodesVisited;
     unsigned int    numTrianglesTested;
     unsigned int    maxDepthVisited;
@@ -141,6 +147,11 @@ struct BVH::RayQueryStatistics
 inline BVH::NodeId BVH::GetPreRootNode() const
 {
     return nullptr;
+}
+
+inline unsigned BVH::GetNodeCount() const
+{
+    return nodeCache_.size();
 }
 
 

@@ -256,7 +256,7 @@ void InitGraphics()
 void InitData()
 {
 	//gScene = SimpleScene::CreateFromObj("sibenik.objm");
-    gScene  = TestScene::Create();
+    gScene  = MassiveScene::Create();
 	gCamera = QuatCamera::LookAt(CAMERA_POSITION, CAMERA_AT, CAMERA_UP);
 
 	gCamera->SetNearZ(CAMERA_NEAR_PLANE);

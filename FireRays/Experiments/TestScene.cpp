@@ -83,40 +83,40 @@ TestScene::TestScene()
 
     // Add plane w/ diffuse material
     Vertex v;
-
-    v.position = vector3(-500, -3, -500);
-    v.normal   = vector3(0, 1, 0);
-    v.texcoord = vector2(0, 0);
-
-    vertices_.push_back(v);
-
-    v.position = vector3(500, -3, -500);
-    v.normal   = vector3(0, 1, 0);
-    v.texcoord = vector2(25, 0);
-
-    vertices_.push_back(v);
-
-    v.position = vector3(500, -3,  500);
-    v.normal   = vector3(0, 1, 0);
-    v.texcoord = vector2(25, 25);
-
-    vertices_.push_back(v);
-
-    v.position = vector3(-500, -3,  500);
-    v.normal   = vector3(0, 1, 0);
-    v.texcoord = vector2(0, 25);
-
-    vertices_.push_back(v);
-
-    indices_.push_back(startIdx);
-    indices_.push_back(startIdx + 1);
-    indices_.push_back(startIdx + 3);
-    indices_.push_back(startIdx + 3);
-    indices_.push_back(startIdx + 1);
-    indices_.push_back(startIdx + 2);
-
-    materials_.push_back(3);
-    materials_.push_back(3);
+//
+//    v.position = vector3(-500, -3, -500);
+//    v.normal   = vector3(0, 1, 0);
+//    v.texcoord = vector2(0, 0);
+//
+//    vertices_.push_back(v);
+//
+//    v.position = vector3(500, -3, -500);
+//    v.normal   = vector3(0, 1, 0);
+//    v.texcoord = vector2(25, 0);
+//
+//    vertices_.push_back(v);
+//
+//    v.position = vector3(500, -3,  500);
+//    v.normal   = vector3(0, 1, 0);
+//    v.texcoord = vector2(25, 25);
+//
+//    vertices_.push_back(v);
+//
+//    v.position = vector3(-500, -3,  500);
+//    v.normal   = vector3(0, 1, 0);
+//    v.texcoord = vector2(0, 25);
+//
+//    vertices_.push_back(v);
+//
+//    indices_.push_back(startIdx);
+//    indices_.push_back(startIdx + 1);
+//    indices_.push_back(startIdx + 3);
+//    indices_.push_back(startIdx + 3);
+//    indices_.push_back(startIdx + 1);
+//    indices_.push_back(startIdx + 2);
+//
+//    materials_.push_back(3);
+//    materials_.push_back(3);
 
     startIdx = vertices_.size();
 

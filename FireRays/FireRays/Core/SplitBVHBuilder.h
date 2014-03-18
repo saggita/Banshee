@@ -30,22 +30,37 @@ public:
 private:
     // Reference to a primitive
     struct PrimitiveRef;
+    struct SplitDesc;
+    struct NodeDesc;
+    
     typedef std::list<PrimitiveRef>::iterator PrimitiveRefIterator;
     
     // Build node from [first, last) prim refs range and attach it to parent from rel-side
     BVH::NodeId BuildNode(BVH::NodeId parentNode, BVH::ChildRel rel, PrimitiveRefIterator first, PrimitiveRefIterator last, unsigned level);
     
-    // For testing purposes
-    BVH::NodeId BuildNodeObjectSplitOnly(BVH::NodeId parentNode, BVH::ChildRel rel, PrimitiveRefIterator first, PrimitiveRefIterator last, unsigned level);
+    // Find best object split according to 64-bins histogram SAH
+    void FindObjectSplit(NodeDesc const& desc, std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, SplitDesc& split);
     
-    // Find best object split according to 10-bins histogram SAH
-    unsigned FindObjectSplit(std::vector<PrimitiveRef>& refs, int splitAxis, BBox const& parentNodeBBox, BBox const& centroidsBBox, float& sahSplitValue);
+    // Find best spatial split according to 64-bins histogram SAH
+    void FindSpatialSplit(NodeDesc const& desc, std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, SplitDesc& split);
+
+    // Perform object split
+    std::vector<PrimitiveRef>::iterator PerformObjectSplit(std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, SplitDesc const& splitDesc);
     
+    // Perform spatial split
+    std::vector<PrimitiveRef>::iterator PerformSpatialSplit(std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator primsEnd, SplitDesc const& splitDesc, unsigned& newPrimCount);
+    
+    // Create node desc for the range
+    void CreateNodeDesc(std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, NodeDesc& desc);
+
     // Test if the prim ref intersects the plane and return adjusted primitve refs for right and left
     bool SplitPrimRef(PrimitiveRef primRef, int splitAxis, float splitValue, PrimitiveRef& r1, PrimitiveRef& r2);
     
     // Reorder primitive array to conform to BVH representation
     void ReorderPrimitives();
+    
+    PrimitiveRefIterator RemoveEmptyRefs(PrimitiveRefIterator begin, PrimitiveRefIterator end);
+    
     
     // Data members
     std::vector<Primitive>  prims_;
@@ -63,6 +78,24 @@ struct SplitBVHBuilder::PrimitiveRef
 {
     unsigned idx;
     BBox     bbox;
+};
+
+struct SplitBVHBuilder::SplitDesc
+{
+    unsigned dim;
+    float    val;
+    float    sah;
+    
+    BBox lb;
+    BBox rb;
+};
+
+struct SplitBVHBuilder::NodeDesc
+{
+    std::vector<PrimitiveRef>::iterator begin;
+    std::vector<PrimitiveRef>::iterator end;
+    BBox     bbox;
+    BBox     cbox;
 };
 
 struct SplitBVHBuilder::Primitive

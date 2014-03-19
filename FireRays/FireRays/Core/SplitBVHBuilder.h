@@ -15,22 +15,33 @@
 class SplitBVHBuilder : public BVHBuilderBase
 {
 public:
+    // Primitive structure is represented by 3 vertex indices and 1 material index
     struct Primitive;
     
-    // Construct BVH from an indexed vertex list
-    template <typename T> SplitBVHBuilder(T const* vertices, unsigned int vertexCount, unsigned const* indices, unsigned indexCount, unsigned const* materials, unsigned primsPerLeaf, unsigned minPrimsPerLeaf, float triSahCost, float nodeSahCost);
+    // Construct BVH from an indexed vertex list.
+    // Position data gets copied into internal storage and doesn't need to be kept around
+    // as well as index data.
+    template <typename T> SplitBVHBuilder(T const* vertices, unsigned int vertexCount, unsigned const* indices, unsigned indexCount, unsigned const* materials, unsigned primsPerLeaf, float triSahCost, float nodeSahCost);
     
     // Start building process
     void Build();
     
+    // Accessors to internal index data
     unsigned         GetPrimitiveCount() const;
     Primitive const* GetPrimitives() const;
     
     
 private:
-    // Reference to a primitive
+    // Reference to a primitive consists of (possibly partial)bounding box and primitive index om prims_ array 
     struct PrimitiveRef;
+
+    // Split is represented by dimension, split value and SAH cost value.
+    // The same structure is used to represent spatial and object splits
+    // split value == NaN is a special sentinel representing a command to
+    // split in half in case histogram binning cannot be applied
     struct SplitDesc;
+
+    // Node desc is represented by start iterator, end iterator and bounding box
     struct NodeDesc;
     
     typedef std::list<PrimitiveRef>::iterator PrimitiveRefIterator;
@@ -39,18 +50,18 @@ private:
     BVH::NodeId BuildNode(BVH::NodeId parentNode, BVH::ChildRel rel, PrimitiveRefIterator first, PrimitiveRefIterator last, unsigned level);
     
     // Find best object split according to 64-bins histogram SAH
-    void FindObjectSplit(NodeDesc const& desc, std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, SplitDesc& split);
+    void FindObjectSplit(NodeDesc const& desc, SplitDesc& split);
     
     // Find best spatial split according to 64-bins histogram SAH
-    void FindSpatialSplit(NodeDesc const& desc, std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, SplitDesc& split);
+    void FindSpatialSplit(NodeDesc const& desc, SplitDesc& split);
 
     // Perform object split
     std::vector<PrimitiveRef>::iterator PerformObjectSplit(std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, SplitDesc const& splitDesc);
     
     // Perform spatial split
-    std::vector<PrimitiveRef>::iterator PerformSpatialSplit(std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator primsEnd, SplitDesc const& splitDesc, unsigned& newPrimCount);
+    std::vector<PrimitiveRef>::iterator PerformSpatialSplit(std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, SplitDesc const& splitDesc, unsigned& newPrimCount);
     
-    // Create node desc for the range
+    // Create node desc for the range of primitive refs
     void CreateNodeDesc(std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, NodeDesc& desc);
 
     // Test if the prim ref intersects the plane and return adjusted primitve refs for right and left
@@ -59,6 +70,7 @@ private:
     // Reorder primitive array to conform to BVH representation
     void ReorderPrimitives();
     
+    // Remove refs with zero-volume bounding boxes
     PrimitiveRefIterator RemoveEmptyRefs(PrimitiveRefIterator begin, PrimitiveRefIterator end);
     
     
@@ -66,6 +78,7 @@ private:
     std::vector<Primitive>  prims_;
     std::list<PrimitiveRef> refs_;
     std::vector<vector3>    positions_;
+
     float                   triSahCost_;
     float                   nodeSahCost_;
     unsigned                primsPerLeaf_;
@@ -85,9 +98,6 @@ struct SplitBVHBuilder::SplitDesc
     unsigned dim;
     float    val;
     float    sah;
-    
-    BBox lb;
-    BBox rb;
 };
 
 struct SplitBVHBuilder::NodeDesc
@@ -111,9 +121,8 @@ struct SplitBVHBuilder::Primitive
     };
 };
 
-template <typename T> SplitBVHBuilder::SplitBVHBuilder(T const* vertices, unsigned int vertexCount, unsigned const* indices, unsigned indexCount, unsigned const* materials, unsigned primsPerLeaf, unsigned minPrimsPerLeaf, float triSahCost, float nodeSahCost)
+template <typename T> SplitBVHBuilder::SplitBVHBuilder(T const* vertices, unsigned int vertexCount, unsigned const* indices, unsigned indexCount, unsigned const* materials, unsigned primsPerLeaf, float triSahCost, float nodeSahCost)
 : primsPerLeaf_(primsPerLeaf)
-, minPrimsPerLeaf_(minPrimsPerLeaf)
 , triSahCost_(triSahCost)
 , nodeSahCost_(nodeSahCost)
 , maxLevel_(0)

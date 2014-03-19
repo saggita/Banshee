@@ -152,7 +152,7 @@ void OCLRender::Init(unsigned width, unsigned height)
     CHECK_ERROR(status, "Cannot create trace experiments kernel");
     
     BVH bvh;
-    SplitBVHBuilder builder(GetScene()->GetVertices(), GetScene()->GetVertexCount(), GetScene()->GetIndices(), GetScene()->GetIndexCount(), GetScene()->GetMaterials(), 128U, 1U, 1.f, 1.f);
+    SplitBVHBuilder builder(GetScene()->GetVertices(), GetScene()->GetVertexCount(), GetScene()->GetIndices(), GetScene()->GetIndexCount(), GetScene()->GetMaterials(), 128U, 1.f, 1.f);
     builder.SetBVH(&bvh);
     builder.Build();
     

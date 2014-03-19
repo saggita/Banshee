@@ -25,8 +25,8 @@ MassiveScene::MassiveScene()
     BuildMaterials();
     
     {
-        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/sponza.objm");
-        mesh_ptr->Rescale(5);
+        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/crytek-sponza/new.obj");
+        //mesh_ptr->Rescale(0.1);
         Mesh::Vertex const* vertexData = mesh_ptr->GetVertexArrayPtr();
         unsigned const* indexData = mesh_ptr->GetIndexArrayPtr();
 

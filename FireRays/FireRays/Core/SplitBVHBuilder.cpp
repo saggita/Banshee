@@ -11,6 +11,12 @@
 #include "utils.h"
 #include <cmath>
 
+#ifdef WIN32
+#define ISNAN(x) _isnan(x) 
+#else
+#define ISNAN(x) std::isnan(x)
+#endif
+
 
 void SplitBVHBuilder::Build()
 {
@@ -150,8 +156,8 @@ void SplitBVHBuilder::FindObjectSplit(NodeDesc const& desc, SplitDesc& split)
         desc.cbox.GetExtents().y() == 0 &&
         desc.cbox.GetExtents().z() == 0)
     {
-        split.val = NAN;
-        split.sah = NAN;
+        split.val = std::numeric_limits<float>::quiet_NaN();
+        split.sah = std::numeric_limits<float>::quiet_NaN();
         return;
     }
     
@@ -230,8 +236,8 @@ void SplitBVHBuilder::FindSpatialSplit(NodeDesc const& desc, SplitDesc& split)
     // If there are too few primitives don't split them
     if (primCount < kNumBins)
     {
-        split.sah = NAN;
-        split.val = NAN;
+        split.sah = std::numeric_limits<float>::quiet_NaN();
+        split.val = std::numeric_limits<float>::quiet_NaN();
         return;
     }
 
@@ -350,7 +356,7 @@ void SplitBVHBuilder::CreateNodeDesc(std::vector<PrimitiveRef>::iterator begin, 
 std::vector<SplitBVHBuilder::PrimitiveRef>::iterator SplitBVHBuilder::PerformObjectSplit(std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, SplitDesc const& splitDesc)
 {
     // Check for NaN sentinel and split in half in this case
-    if (std::isnan(splitDesc.val))
+    if (ISNAN(splitDesc.val))
     {
         std::advance(begin, std::distance(begin, end) / 2);
         return begin;

@@ -376,20 +376,20 @@ static bool Intersects(BVH::RayQuery& q, BBox const& sBox)
     float lo = vRayDir.x()*(sBox.GetMinPoint().x() - q.o.x());
     float hi = vRayDir.x()*(sBox.GetMaxPoint().x() - q.o.x());
 
-    float tmin = fmin(lo, hi);
-    float tmax = fmax(lo, hi);
+    float tmin = std::min(lo, hi);
+    float tmax = std::max(lo, hi);
 
     float lo1 = vRayDir.y()*(sBox.GetMinPoint().y() - q.o.y());
     float hi1 = vRayDir.y()*(sBox.GetMaxPoint().y() - q.o.y());
 
-    tmin = fmax(tmin, fmin(lo1, hi1));
-    tmax = fmin(tmax, fmax(lo1, hi1));
+    tmin = std::max(tmin, std::min(lo1, hi1));
+    tmax = std::min(tmax, std::max(lo1, hi1));
 
     float lo2 = vRayDir.z()*(sBox.GetMinPoint().z() - q.o.z());
     float hi2 = vRayDir.z()*(sBox.GetMaxPoint().z() - q.o.z());
 
-    tmin = fmax(tmin, fmin(lo2, hi2));
-    tmax = fmin(tmax, fmax(lo2, hi2));
+    tmin = std::max(tmin, std::min(lo2, hi2));
+    tmax = std::min(tmax, std::max(lo2, hi2));
 
     if ((tmin <= tmax) && (tmax > 0.f))
     {

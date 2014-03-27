@@ -17,7 +17,7 @@ DEFINES
 //#define TRAVERSAL_STACKLESS
 #define TRAVERSAL_STACKED
 //#define LOCAL_STACK
-#define NODE_STACK_SIZE 32
+#define NODE_STACK_SIZE 64
 #define MAX_PATH_LENGTH 3
 
 #define RAY_EPSILON 0.01f
@@ -259,7 +259,7 @@ float4 TransformPoint(float16 mWVP, float4 vPoint)
     vRes.z = mWVP.s8 * vPoint.x + mWVP.s9 * vPoint.y + mWVP.sa * vPoint.z + mWVP.sb * vPoint.w;
     return vRes;
 }
-
+//
 //float4 make_float4(float x, float y, float z, float w)
 //{
 //    float4 res;

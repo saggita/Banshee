@@ -15,13 +15,11 @@
 void SplitBVHBuilder::Build()
 {
     maxLevel_ = 0;
-    
+
     // Build the nodes over all primitive references
     BuildNode(GetBVH().GetPreRootNode(), BVH::ChildRel::CR_LEFT, refs_.begin(), refs_.end(), maxLevel_);
-    
-    //ReorderPrimitives();
-    
-    std::cout << "\n" << maxLevel_ << " levels in the tree";
+
+    std::cout << "\nBVH depth: " << maxLevel_ << "\n";
 }
 
 BVH::NodeId SplitBVHBuilder::BuildNode(BVH::NodeId parentNode, BVH::ChildRel rel, PrimitiveRefIterator first, PrimitiveRefIterator last, unsigned level)
@@ -42,12 +40,18 @@ BVH::NodeId SplitBVHBuilder::BuildNode(BVH::NodeId parentNode, BVH::ChildRel rel
 
     NodeDesc desc;
     CreateNodeDesc(refs.begin(), refs.end(), desc);
+
+    if (level == 0)
+    {
+        std::cout << "\nRoot bounds: [" << desc.bbox.GetMinPoint().x() << " , " << desc.bbox.GetMinPoint().y() << " , " << desc.bbox.GetMinPoint().z() << "] ["
+            << desc.bbox.GetMaxPoint().x() << " , " << desc.bbox.GetMaxPoint().y() << " , " << desc.bbox.GetMaxPoint().z() << "]";
+    }
     
     SplitDesc objectSplit;
-    FindObjectSplit(desc, refs.begin(), refs.end(), objectSplit);
+    FindObjectSplit(desc, objectSplit);
     
     SplitDesc spatialSplit;
-    FindSpatialSplit(desc, refs.begin(), refs.end(), spatialSplit);
+    FindSpatialSplit(desc, spatialSplit);
     
     float leafSah = primCount * triSahCost_;
     
@@ -127,17 +131,15 @@ void SplitBVHBuilder::ReorderPrimitives()
     }
 }
 
-// Find best object split according to 10-bins histogram SAH
-void SplitBVHBuilder::FindObjectSplit(NodeDesc const& desc, std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, SplitDesc& split)
+// Find best object split according to 128-bins histogram SAH
+void SplitBVHBuilder::FindObjectSplit(NodeDesc const& desc, SplitDesc& split)
 {
     // SAH implementation
     // calc centroids histogram
-    unsigned const kNumBins = 64;
+    unsigned const kNumBins = 16;
     // moving split bin index
     unsigned splitIdx = 0;
     
-    split.lb = BBox();
-    split.rb = BBox();
     split.sah = std::numeric_limits<float>::max();
     
     // if we cannot apply histogram algorithm
@@ -173,7 +175,7 @@ void SplitBVHBuilder::FindObjectSplit(NodeDesc const& desc, std::vector<Primitiv
             bins[axis][i].box = BBox();
         }
         
-        for (auto i = begin; i < end; ++i)
+        for (auto i = desc.begin; i < desc.end; ++i)
         {
             unsigned binIdx = (unsigned)std::min<float>(kNumBins * ((i->bbox.GetCenter()[axis] - desc.cbox.GetMinPoint()[axis]) / centroidRng), kNumBins-1);
             
@@ -219,12 +221,13 @@ void SplitBVHBuilder::FindObjectSplit(NodeDesc const& desc, std::vector<Primitiv
 }
 
 // Find best spatial split according to 10-bins histogram SAH
-void SplitBVHBuilder::FindSpatialSplit(NodeDesc const& desc, std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, SplitDesc& split)
+void SplitBVHBuilder::FindSpatialSplit(NodeDesc const& desc, SplitDesc& split)
 {
-    unsigned primCount = std::distance(begin, end);
-    
-    int const kNumBins = 64;
-    
+    // Calculate prim count for the node
+    unsigned primCount = std::distance(desc.begin, desc.end);
+    // Calculate kNumBins-histogram
+    int const kNumBins = 16;
+    // If there are too few primitives don't split them
     if (primCount < kNumBins)
     {
         split.sah = NAN;
@@ -232,6 +235,7 @@ void SplitBVHBuilder::FindSpatialSplit(NodeDesc const& desc, std::vector<Primiti
         return;
     }
 
+    // Bin has start and exit counts + bbox
     struct Bin
     {
         BBox bbox;
@@ -240,8 +244,7 @@ void SplitBVHBuilder::FindSpatialSplit(NodeDesc const& desc, std::vector<Primiti
     };
     
     Bin bins[3][kNumBins];
-    
-    // Initialize bins.
+
     vector3 origin  = desc.bbox.GetMinPoint();
     vector3 binSize = desc.bbox.GetExtents() * (1.f / kNumBins);
     vector3 invBinSize = vector3(1.f / binSize.x(), 1.f / binSize.y(), 1.f / binSize.z());
@@ -251,32 +254,36 @@ void SplitBVHBuilder::FindSpatialSplit(NodeDesc const& desc, std::vector<Primiti
     
     for (int dim = 0; dim < 3; ++dim)
     {
-        if (binSize[dim] != 0.f)
+        if (binSize[dim] < 0.001f)
             dims[dimCount++] = dim;
     }
-    
-    for (int dim = 0; dim < dimCount; dim++)
+
+    // Initialize bins
+    for (int dim = 0; dim < dimCount; ++dim)
     {
-        for (int i = 0; i < kNumBins; i++)
+        for (int i = 0; i < kNumBins; ++i)
         {
             bins[dims[dim]][i].bbox = BBox();
             bins[dims[dim]][i].enter = 0;
             bins[dims[dim]][i].exit = 0;
         }
     }
-    
-    for (auto iter = begin; iter != end; ++iter)
+
+    // Iterate thru all primitive refs
+    for (auto iter = desc.begin; iter != desc.end; ++iter)
     {
+        // Determine starting bin for this triangle
         vector3 firstBin = clamp(vector3((iter->bbox.GetMinPoint() - origin) * invBinSize), vector3(0,0,0),  vector3(kNumBins - 1, kNumBins - 1, kNumBins - 1));
+        // Determine finishing bin
         vector3 lastBin = clamp(vector3((iter->bbox.GetMaxPoint() - origin) * invBinSize), firstBin, vector3(kNumBins - 1, kNumBins - 1, kNumBins - 1));
         
-        for (int dim = 0; dim < dimCount; dim++)
+        for (int dim = 0; dim < dimCount; ++dim)
         {
             PrimitiveRef ref = *iter;
-            for (int i = (int)firstBin[dims[dim]]; i < (int)lastBin[dims[dim]]; i++)
+            for (int i = (int)firstBin[dims[dim]]; i < (int)lastBin[dims[dim]]; ++i)
             {
                 PrimitiveRef leftRef, rightRef;
-                SplitPrimRef(ref, dims[dim], origin[dims[dim]] + binSize[dims[dim]] * (float)(i + 1), leftRef, rightRef);
+                SplitPrimRef(ref, dims[dim], origin[dims[dim]] + binSize[dims[dim]] * (i + 1), leftRef, rightRef);
                 
                 bins[dims[dim]][i].bbox = BBoxUnion(bins[dims[dim]][i].bbox, leftRef.bbox);
                 ref = rightRef;
@@ -288,15 +295,15 @@ void SplitBVHBuilder::FindSpatialSplit(NodeDesc const& desc, std::vector<Primiti
         }
     }
     
-    BBox rightBounds[kNumBins - 2];
+    BBox rightBounds[kNumBins - 1];
     
     split.sah = std::numeric_limits<float>::max();
     
-    for (int dim = 0; dim < dimCount; dim++)
+    for (int dim = 0; dim < dimCount; ++dim)
     {
         
         BBox rb = BBox();
-        for (int i = kNumBins - 1; i > 0; i--)
+        for (int i = kNumBins - 1; i > 0; --i)
         {
             rb = BBoxUnion(rb, bins[dims[dim]][i].bbox);
             rightBounds[i - 1] = rb;
@@ -306,7 +313,7 @@ void SplitBVHBuilder::FindSpatialSplit(NodeDesc const& desc, std::vector<Primiti
         int leftNum = 0;
         int rightNum = primCount;
         
-        for (int i = 1; i < kNumBins; i++)
+        for (int i = 1; i < kNumBins; ++i)
         {
             lb = BBoxUnion(lb, bins[dims[dim]][i - 1].bbox);
             leftNum += bins[dims[dim]][i - 1].enter;

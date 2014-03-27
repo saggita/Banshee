@@ -42,17 +42,15 @@ protected:
     BVH::NodeId BuildNodeFromGPU(BVH::NodeId parentNode, BVH::ChildRel rel, int idx);
     
     
-
-    
 private:
     
-    struct Box
+    struct __declspec(align(16)) Box
     {
         cl_float3 min;
         cl_float3 max;
     };
     
-    struct SplitRequest
+    struct __declspec(align(16)) SplitRequest
     {
         cl_int first;
         cl_int last;
@@ -61,7 +59,7 @@ private:
         cl_int split;
     };
     
-    struct Node
+    struct __declspec(align(16)) Node
     {
         Box bbox;
         int parent;

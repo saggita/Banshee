@@ -13,16 +13,16 @@
 // -------------------- MACRO --------------------------
 // Apple OCL compiler has this by default, 
 // so embrace with #ifdef in the future
-//#define DEFINE_MAKE_4(type)\
-//type##4 make_##type##4(type x, type y, type z, type w)\
-//{\
-//    type##4 res;\
-//    res.x = x;\
-//    res.y = y;\
-//    res.z = z;\
-//    res.w = w;\
-//    return res;\
-//}
+#define DEFINE_MAKE_4(type)\
+type##4 make_##type##4(type x, type y, type z, type w)\
+{\
+    type##4 res;\
+    res.x = x;\
+    res.y = y;\
+    res.z = z;\
+    res.w = w;\
+    return res;\
+}
 
 // Multitype macros to handle parallel primitives
 #define DEFINE_SAFE_LOAD_4(type)\
@@ -206,6 +206,7 @@ __kernel void distribute_part_sum_##type##4( __global type* in_sums, __global ty
 }
 
 //DEFINE_MAKE_4(int)
+DEFINE_MAKE_4(int)
 DEFINE_SAFE_LOAD_4(int)
 DEFINE_SAFE_STORE_4(int)
 DEFINE_GROUP_SCAN_EXCLUSIVE(int)

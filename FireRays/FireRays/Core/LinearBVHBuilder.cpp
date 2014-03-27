@@ -120,11 +120,6 @@ void LinearBVHBuilder::CalcMortonCodes()
     calcMortonCodesKernel.SetArg(6, gpu_indices_);
     
     context_.Launch1D(0, numBlocks * blockSize, blockSize, calcMortonCodesKernel);
-    
-    //std::vector<int> test(numPrimitives);
-    
-    //context_.ReadBuffer(0, gpu_morton_codes_, &test[0], test.size()).Wait();
-    
 }
 
 int LinearBVHBuilder::CalcMortonCode(int xi, int yi, int zi)
@@ -339,7 +334,7 @@ void LinearBVHBuilder::InitOpenCL()
     platforms.clear();
     
     // Create OpenCL context
-    context_ = CLWContext::Create(platform.GetDevice(1));
+    context_ = CLWContext::Create(platform.GetDevice(0));
     
     // Load source code
     std::vector<char> sourceCode;

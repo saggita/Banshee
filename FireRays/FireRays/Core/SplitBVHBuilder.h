@@ -43,7 +43,7 @@ private:
     typedef std::list<PrimitiveRef>::iterator PrimitiveRefIterator;
     
     // Build node from [first, last) prim refs range and attach it to parent from rel-side
-    BVH::NodeId BuildNode(BVH::NodeId parentNode, BVH::ChildRel rel, PrimitiveRefIterator first, PrimitiveRefIterator last, unsigned level);
+    void BuildBVH();
     
     // Find best object split according to 64-bins histogram SAH
     void FindObjectSplit(NodeDesc const& desc, SplitDesc& split);
@@ -67,9 +67,8 @@ private:
     void ReorderPrimitives();
     
     // Remove refs with zero-volume bounding boxes
-    PrimitiveRefIterator RemoveEmptyRefs(PrimitiveRefIterator begin, PrimitiveRefIterator end);
-    
-    
+    void RemoveEmptyRefs();
+
     // Data members
     std::vector<Primitive>  prims_;
     std::list<PrimitiveRef> refs_;
@@ -80,6 +79,8 @@ private:
     unsigned                primsPerLeaf_;
     unsigned                minPrimsPerLeaf_;
     unsigned                maxLevel_;
+    unsigned                objectSplitCount_;
+    unsigned                spatialSplitCount_;
 };
 
 
@@ -109,6 +110,8 @@ template <typename T> SplitBVHBuilder::SplitBVHBuilder(T const* vertices, unsign
 , triSahCost_(triSahCost)
 , nodeSahCost_(nodeSahCost)
 , maxLevel_(0)
+, objectSplitCount_(0)
+, spatialSplitCount_(0)
 {
     positions_.resize(vertexCount);
     

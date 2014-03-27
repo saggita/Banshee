@@ -1,9 +1,9 @@
 project "Experiments"
     kind "ConsoleApp"
     location "../Experiments"
-    links {"FireRays", "assimp"}
+    links {"FireRays", "CLW", "assimp"}
     files { "../Experiments/**.h", "../Experiments/**.cpp"} 
-    includedirs{ "../FireRays/Core", "../FireRays/Util", "../3rdParty/assimp/include" } 
+    includedirs{ "../FireRays/Core", "../FireRays/Util", "../3rdParty/assimp/include", "../CLW" } 
     
     buildoptions "-std=c++11 -stdlib=libc++"
 
@@ -12,13 +12,15 @@ project "Experiments"
 		libdirs {"../3rdParty/assimp/lib/x64"}
     end
 	
-	if os.is("windows") then
-		links {"assimp"}
+    if os.is("windows") then
+	links {"FireRays", "assimp", "glew", "freeglut"}
+        includedirs {"../3rdParty/glew/include", "../3rdParty/freeglut/include"}
 		configuration {"x32"}
-			libdirs {"../3rdParty/assimp/lib/x86"}
+			libdirs {"../3rdParty/assimp/lib/x86", "../3rdParty/glew/lib/x86", "../3rdParty/freeglut/lib/x86"}
 		configuration {"x64"}
-			libdirs {"../3rdParty/assimp/lib/x64"}
+			libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/glew/lib/x64", "../3rdParty/freeglut/lib/x86"}
     end
+
 	
     configuration {"x32", "Debug"}
         targetdir "../Bin/Debug/x86"

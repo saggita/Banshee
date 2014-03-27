@@ -24,6 +24,24 @@ typedef struct
     int  last;
 } Node;
 
+float3 make_float3(float x, float y, float z)
+{
+    float3 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    return res;
+}
+
+int3 make_int3(int x, int y, int z)
+{
+    int3 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    return res;
+}
+
 //
 // the following two functions are from https://devblogs.nvidia.com/parallelforall/thinking-parallel-part-iii-tree-construction-gpu/
 int expand_bits(int v)

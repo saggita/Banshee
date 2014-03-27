@@ -38,8 +38,14 @@ CLWProgram CLWProgram::CreateFromSource(std::vector<char> const& sourceCode, CLW
     
     if(status != CL_SUCCESS)
     {
-        /// lots of exceptions here need to be tested
-        /// TODO: implement that
+        std::vector<char> buildLog;
+        size_t logSize;
+        clGetProgramBuildInfo(program, deviceIds[0], CL_PROGRAM_BUILD_LOG, 0, nullptr, &logSize);
+
+        buildLog.resize(logSize);
+        clGetProgramBuildInfo(program, deviceIds[0], CL_PROGRAM_BUILD_LOG, logSize, &buildLog[0], nullptr);
+
+        throw std::runtime_error(&buildLog[0]);
         assert(false);
     }
     

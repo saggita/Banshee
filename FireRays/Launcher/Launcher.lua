@@ -1,7 +1,7 @@
 project "Launcher"
     kind "ConsoleApp"
     location "../Launcher"
-    links {"FireRays", "assimp"}
+    links {"FireRays", "CLW", "assimp"}
     files { "../Launcher/**.h", "../Launcher/**.cpp", "../Launcher/**.cl", "../Launcher/**.fsh", "../Launcher/**.vsh" } 
     includedirs{ "../FireRays/Core", "../FireRays/Util", "../3rdParty/assimp/include" } 
     

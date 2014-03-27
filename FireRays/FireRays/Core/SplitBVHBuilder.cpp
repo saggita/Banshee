@@ -20,96 +20,104 @@
 
 void SplitBVHBuilder::Build()
 {
-    maxLevel_ = 0;
-
     // Build the nodes over all primitive references
-    BuildNode(GetBVH().GetPreRootNode(), BVH::ChildRel::CR_LEFT, refs_.begin(), refs_.end(), maxLevel_);
+    BuildBVH();
 
-    std::cout << "\nBVH depth: " << maxLevel_ << "\n";
+    std::cout << "\n Num spatial splits: " << spatialSplitCount_ << " object: " << objectSplitCount_ << "\n";
 }
 
-BVH::NodeId SplitBVHBuilder::BuildNode(BVH::NodeId parentNode, BVH::ChildRel rel, PrimitiveRefIterator first, PrimitiveRefIterator last, unsigned level)
+void SplitBVHBuilder::BuildBVH()
 {
     // Remove empty refs
-    last = RemoveEmptyRefs(first, last);
-    
-    // Check if we have a valid iterator range
-    unsigned primCount = std::distance(first, last);
-    
-    assert( primCount > 0);
-    
-    maxLevel_ = std::max(level, maxLevel_);
-    
-    std::vector<PrimitiveRef> refs(first, last);
-        
-    last = refs_.erase(first, last);
+    RemoveEmptyRefs();
 
-    NodeDesc desc;
-    CreateNodeDesc(refs.begin(), refs.end(), desc);
+    struct SplitRequest
+    {
+        BVH::NodeId parentNode;
+        BVH::ChildRel rel;
+        PrimitiveRefIterator first;
+        PrimitiveRefIterator last;
+    };
 
-    if (level == 0)
-    {
-        std::cout << "\nRoot bounds: [" << desc.bbox.GetMinPoint().x() << " , " << desc.bbox.GetMinPoint().y() << " , " << desc.bbox.GetMinPoint().z() << "] ["
-            << desc.bbox.GetMaxPoint().x() << " , " << desc.bbox.GetMaxPoint().y() << " , " << desc.bbox.GetMaxPoint().z() << "]";
-    }
-    
-    SplitDesc objectSplit;
-    FindObjectSplit(desc, objectSplit);
-    
-    SplitDesc spatialSplit;
-    FindSpatialSplit(desc, spatialSplit);
-    
-    float leafSah = primCount * triSahCost_;
-    
-    float minSah = std::min(std::min(leafSah, objectSplit.sah), spatialSplit.sah);
-    
-    if ( (minSah == leafSah && primCount < primsPerLeaf_) || primCount == 1)
-    {
-        
-        std::vector<unsigned> primIndices;
-        std::for_each(refs.begin(), refs.end(), [&primIndices](PrimitiveRef const& r)
-                      {
-                          primIndices.push_back(r.idx);
-                      });
-        
-        return GetBVH().CreateLeafNode(parentNode, rel, desc.bbox, &primIndices[0], primIndices.size());
-    }
-    else if (spatialSplit.sah < objectSplit.sah)
-    {
-        BVH::NodeId id = GetBVH().CreateInternalNode(parentNode, rel, static_cast<BVH::SplitAxis>(objectSplit.dim), desc.bbox);
-        
-        refs.resize(primCount * 2);
-        
-        unsigned newPrimCount;
-        
-        auto splitIter = PerformSpatialSplit(refs.begin(), refs.begin() + primCount, spatialSplit, newPrimCount);
-        
-        auto dist = std::distance(refs.begin(), splitIter);
-        
-        first = refs_.insert(last, refs.begin(), refs.begin() + newPrimCount);
-        
-        auto splitListIter = first;
-        std::advance(splitListIter, dist);
-        
-        BuildNode(id, BVH::ChildRel::CR_LEFT,  first, splitListIter, ++level);
-        BuildNode(id, BVH::ChildRel::CR_RIGHT, splitListIter, last, ++level);
-    }
-    else
-    {
-        BVH::NodeId id = GetBVH().CreateInternalNode(parentNode, rel, static_cast<BVH::SplitAxis>(objectSplit.dim), desc.bbox);
+    std::stack<SplitRequest> splitStack;
 
-        auto splitIter = PerformObjectSplit(refs.begin(), refs.end(), objectSplit);
-        auto dist = std::distance(refs.begin(), splitIter);
+    SplitRequest initialRequest = {GetBVH().GetPreRootNode(), BVH::ChildRel::CR_LEFT, refs_.begin(), refs_.end()};
+    splitStack.push(initialRequest);
+
+    while (!splitStack.empty())
+    {
+        SplitRequest request = splitStack.top();
+
+        splitStack.pop();
+
+        // Check if we have a valid iterator range
+        unsigned primCount = std::distance(request.first, request.last);
+    
+        assert( primCount > 0);
+
+        std::vector<PrimitiveRef> refs(request.first, request.last);
         
-        first = refs_.insert(last, refs.begin(), refs.end());
-        
-        auto splitListIter = first;
-        std::advance(splitListIter, dist);
-        
-        BuildNode(id, BVH::ChildRel::CR_LEFT,  first, splitListIter, ++level);
-        BuildNode(id, BVH::ChildRel::CR_RIGHT, splitListIter, last, ++level);
-        
-        return id;
+        request.last = refs_.erase(request.first, request.last);
+
+        NodeDesc desc;
+        CreateNodeDesc(refs.begin(), refs.end(), desc);
+
+        SplitDesc objectSplit;
+        FindObjectSplit(desc, objectSplit);
+    
+        SplitDesc spatialSplit;
+        FindSpatialSplit(desc, spatialSplit);
+    
+        float leafSah = primCount * triSahCost_;
+    
+        float minSah = std::min(std::min(leafSah, objectSplit.sah), spatialSplit.sah);
+    
+        if ( (minSah == leafSah && primCount < primsPerLeaf_) || primCount == 1)
+        {
+
+            std::vector<unsigned> primIndices;
+            std::for_each(refs.begin(), refs.end(), [&primIndices](PrimitiveRef const& r)
+            {
+                primIndices.push_back(r.idx);
+            });
+
+            GetBVH().CreateLeafNode(request.parentNode, request.rel, desc.bbox, &primIndices[0], primIndices.size());
+        }
+        else 
+        {
+
+            BVH::NodeId id = GetBVH().CreateInternalNode(request.parentNode, request.rel, static_cast<BVH::SplitAxis>(objectSplit.dim), desc.bbox);
+
+            std::vector<PrimitiveRef>::iterator splitIter;
+            PrimitiveRefIterator splitListIter;
+            size_t dist = 0;
+            unsigned newPrimCount;
+
+            if (spatialSplit.sah < objectSplit.sah)
+            {
+                refs.resize(primCount * 2);
+                splitIter = PerformSpatialSplit(refs.begin(), refs.begin() + primCount, spatialSplit, newPrimCount);
+                ++spatialSplitCount_;
+            }
+            else
+            {
+                splitIter = PerformObjectSplit(refs.begin(), refs.end(), objectSplit);
+                newPrimCount = primCount;
+                ++objectSplitCount_;
+            }
+
+            dist = std::distance(refs.begin(), splitIter);
+            request.first = refs_.insert(request.last, refs.begin(), refs.begin() + newPrimCount);
+
+            splitListIter = request.first;
+            std::advance(splitListIter, dist);
+
+            SplitRequest leftRequest = {id, BVH::ChildRel::CR_LEFT, request.first, splitListIter};
+            SplitRequest rightRequest = {id, BVH::ChildRel::CR_RIGHT, splitListIter, request.last};
+
+            splitStack.push(rightRequest);
+            splitStack.push(leftRequest);
+        }
     }
 }
 
@@ -137,12 +145,12 @@ void SplitBVHBuilder::ReorderPrimitives()
     }
 }
 
-// Find best object split according to 128-bins histogram SAH
+// Find best object split according to 10-bins histogram SAH
 void SplitBVHBuilder::FindObjectSplit(NodeDesc const& desc, SplitDesc& split)
 {
     // SAH implementation
     // calc centroids histogram
-    unsigned const kNumBins = 16;
+    unsigned const kNumBins = 4;
     // moving split bin index
     unsigned splitIdx = 0;
     
@@ -170,10 +178,13 @@ void SplitBVHBuilder::FindObjectSplit(NodeDesc const& desc, SplitDesc& split)
     
     // Keep bins for each dimension
     Bin   bins[3][kNumBins];
+
+    float invBoxArea = 1.f / desc.bbox.GetSurfaceArea();
     
     for(int axis = 0; axis < 3; ++axis)
     {
         float centroidRng = desc.cbox.GetExtents()[axis];
+        float invCentroidRnd = 1.f / centroidRng;
         
         for (unsigned i = 0; i < kNumBins; ++i)
         {
@@ -183,7 +194,7 @@ void SplitBVHBuilder::FindObjectSplit(NodeDesc const& desc, SplitDesc& split)
         
         for (auto i = desc.begin; i < desc.end; ++i)
         {
-            unsigned binIdx = (unsigned)std::min<float>(kNumBins * ((i->bbox.GetCenter()[axis] - desc.cbox.GetMinPoint()[axis]) / centroidRng), kNumBins-1);
+            unsigned binIdx = (unsigned)std::min<float>(kNumBins * ((i->bbox.GetCenter()[axis] - desc.cbox.GetMinPoint()[axis]) * invCentroidRnd), kNumBins-1);
             
             assert(binIdx >= 0);
             
@@ -211,7 +222,7 @@ void SplitBVHBuilder::FindObjectSplit(NodeDesc const& desc, SplitDesc& split)
                 h2Count += bins[axis][j].count;
             }
             
-            float sah = nodeSahCost_ + triSahCost_ * (h1Count * h1Box.GetSurfaceArea() + h2Count * h2Box.GetSurfaceArea())/desc.bbox.GetSurfaceArea();
+            float sah = nodeSahCost_ + triSahCost_ * (h1Count * h1Box.GetSurfaceArea() + h2Count * h2Box.GetSurfaceArea()) * invBoxArea;
             
             if (sah < split.sah)
             {
@@ -233,6 +244,7 @@ void SplitBVHBuilder::FindSpatialSplit(NodeDesc const& desc, SplitDesc& split)
     unsigned primCount = std::distance(desc.begin, desc.end);
     // Calculate kNumBins-histogram
     int const kNumBins = 16;
+
     // If there are too few primitives don't split them
     if (primCount < kNumBins)
     {
@@ -260,7 +272,7 @@ void SplitBVHBuilder::FindSpatialSplit(NodeDesc const& desc, SplitDesc& split)
     
     for (int dim = 0; dim < 3; ++dim)
     {
-        if (binSize[dim] < 0.001f)
+        if (binSize[dim] > 0.001f)
             dims[dimCount++] = dim;
     }
 
@@ -371,13 +383,13 @@ std::vector<SplitBVHBuilder::PrimitiveRef>::iterator SplitBVHBuilder::PerformObj
     }
 }
 
-SplitBVHBuilder::PrimitiveRefIterator SplitBVHBuilder::RemoveEmptyRefs(PrimitiveRefIterator begin, PrimitiveRefIterator end)
+void SplitBVHBuilder::RemoveEmptyRefs()
 {
-    return std::remove_if(begin, end, [](PrimitiveRef const& r)
+    refs_.erase(std::remove_if(refs_.begin(), refs_.end(), [](PrimitiveRef const& r)
                           {
                               return r.bbox.GetSurfaceArea() == 0.f;
                           }
-                          );
+    ), refs_.end());
 }
 
 bool SplitBVHBuilder::SplitPrimRef(PrimitiveRef primRef, int splitAxis, float splitValue, PrimitiveRef& r1, PrimitiveRef& r2)

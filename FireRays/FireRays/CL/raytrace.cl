@@ -17,7 +17,7 @@ DEFINES
 //#define TRAVERSAL_STACKLESS
 #define TRAVERSAL_STACKED
 //#define LOCAL_STACK
-#define NODE_STACK_SIZE 64
+#define NODE_STACK_SIZE 86
 #define MAX_PATH_LENGTH 3
 
 #define RAY_EPSILON 0.01f
@@ -260,33 +260,33 @@ float4 TransformPoint(float16 mWVP, float4 vPoint)
     return vRes;
 }
 
-//float4 make_float4(float x, float y, float z, float w)
-//{
-//    float4 res;
-//    res.x = x;
-//    res.y = y;
-//    res.z = z;
-//    res.w = w;
-//    return res;
-//}
-//
-//
-//float3 make_float3(float x, float y, float z)
-//{
-//    float3 res;
-//    res.x = x;
-//    res.y = y;
-//    res.z = z;
-//    return res;
-//}
-//
-//int2 make_int2(int x, int y)
-//{
-//    int2 res;
-//    res.x = x;
-//    res.y = y;
-//    return res;
-//}
+float4 make_float4(float x, float y, float z, float w)
+{
+    float4 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    res.w = w;
+    return res;
+}
+
+
+float3 make_float3(float x, float y, float z)
+{
+    float3 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    return res;
+}
+
+int2 make_int2(int x, int y)
+{
+    int2 res;
+    res.x = x;
+    res.y = y;
+    return res;
+}
 
 float4 tex2d(SceneData* sSceneData, uint texIdx, float2 uv)
 {
@@ -1225,11 +1225,11 @@ __kernel void TraceExperiments(__global PathStart*    sPathStartBuffer,
 
     bool hit = TraverseBVHStacked(sBvh, uBvhIdxBuffer, sVertices, uIndices, &r, &sTempShadingData);
 
-    float4 fVal = r.maxt / 100;
+    float4 fVal = r.maxt / 1000;
 
     //sShadingData[globalId] = sTempShadingData;
     int  iId = sPathStartBuffer[globalId].iId;
-    int2 iPixelCoords = make_int2(globalId % 400, globalId / 400);
+    int2 iPixelCoords = make_int2(globalId % 800, globalId / 800);
     write_imagef(tOutput, iPixelCoords, fVal);
 }
 

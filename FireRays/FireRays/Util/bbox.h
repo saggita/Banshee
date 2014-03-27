@@ -33,7 +33,7 @@ public:
 	
 	bool Contains(vector3 const& p) const;
     
-	int GetMaxDim() const;
+	int   GetMaxDim() const;
 	float GetSurfaceArea() const;
 	
 private:

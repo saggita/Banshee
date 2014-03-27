@@ -26,9 +26,9 @@ int main(int argc, const char * argv[])
     auto scene  = TestScene::Create();
     
     BVH bvh;
-    //SplitBVHBuilder builder(scene->GetVertices(), scene->GetVertexCount(), scene->GetIndices(), scene->GetIndexCount(), scene->GetMaterials(), 8U, 1U, 1.f, 1.f);
-    
-    LinearBVHBuilder builder(scene->GetVertices(), scene->GetVertexCount(), scene->GetIndices(), scene->GetIndexCount(), scene->GetMaterials());
+    SplitBVHBuilder builder(scene->GetVertices(), scene->GetVertexCount(), scene->GetIndices(), scene->GetIndexCount(), scene->GetMaterials(), 32U, 1.f, 1.f);
+   
+    //LinearBVHBuilder builder(scene->GetVertices(), scene->GetVertexCount(), scene->GetIndices(), scene->GetIndexCount(), scene->GetMaterials());
     
 	static auto prevTime = std::chrono::high_resolution_clock::now();
     

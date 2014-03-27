@@ -19,6 +19,7 @@
 
 #include "BVH.h"
 #include "SplitBVHBuilder.h"
+#include "LinearBVHBuilder.h"
 #include "OCLBVHBackEnd.h"
 
 #include "utils.h"
@@ -153,6 +154,7 @@ void OCLRender::Init(unsigned width, unsigned height)
     
     BVH bvh;
     SplitBVHBuilder builder(GetScene()->GetVertices(), GetScene()->GetVertexCount(), GetScene()->GetIndices(), GetScene()->GetIndexCount(), GetScene()->GetMaterials(), 128U, 1U, 1.f, 1.f);
+    //LinearBVHBuilder builder(GetScene()->GetVertices(), GetScene()->GetVertexCount(), GetScene()->GetIndices(), GetScene()->GetIndexCount(), GetScene()->GetMaterials());
     builder.SetBVH(&bvh);
     builder.Build();
     
@@ -210,9 +212,9 @@ void OCLRender::Init(unsigned width, unsigned height)
         nodes[i].sBox.vMax.s[1] = accelNodes[i].box.GetMaxPoint().y();
         nodes[i].sBox.vMax.s[2] = accelNodes[i].box.GetMaxPoint().z();
 
-        nodes[i].uRight = accelNodes[i].right;
+        nodes[i].uRight     = accelNodes[i].right;
         nodes[i].uPrimStart = accelNodes[i].primStartIdx;
-        nodes[i].uParent = accelNodes[i].parent;
+        nodes[i].uParent    = accelNodes[i].parent;
         nodes[i].uPrimCount = accelNodes[i].primCount;
     }
 

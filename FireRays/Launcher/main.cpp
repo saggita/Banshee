@@ -46,8 +46,8 @@ static vector2  gMouseDelta = vector2(0,0);
 GLuint gVertexBufferId;
 GLuint gIndexBufferId;
 
-#define WINDOW_WIDTH  960
-#define WINDOW_HEIGHT 600
+#define WINDOW_WIDTH  400
+#define WINDOW_HEIGHT 300
 #define CAMERA_POSITION vector3(12,12,12)
 #define CAMERA_AT vector3(0,0,0)
 #define CAMERA_UP vector3(0,1,0)
@@ -256,7 +256,7 @@ void InitGraphics()
 void InitData()
 {
 	//gScene = SimpleScene::CreateFromObj("sibenik.objm");
-    gScene  = MassiveScene::Create();
+    gScene  = TestScene::Create();
 	gCamera = QuatCamera::LookAt(CAMERA_POSITION, CAMERA_AT, CAMERA_UP);
 
 	gCamera->SetNearZ(CAMERA_NEAR_PLANE);

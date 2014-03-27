@@ -81,3 +81,7 @@ solution "FireRays"
 	if fileExists("./Experiments/Experiments.lua") then
 		dofile("./Experiments/Experiments.lua")
 	end
+	
+	if fileExists("./CLW/CLW.lua") then
+		dofile("./CLW/CLW.lua")
+	end

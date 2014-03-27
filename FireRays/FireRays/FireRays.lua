@@ -1,8 +1,9 @@
 project "FireRays"
     kind "StaticLib"
     location "../FireRays"
-    includedirs { "./Core", "./Util" }
-    files { "../FireRays/**.h", "../FireRays/**.cpp", "../FireRays/**.cl", "../FireRays/**.fsh", "../FireRays/**.vsh" }
+    links {"CLW"}
+    includedirs { "./Core", "./Util", "../CLW" }
+    files { "../FireRays/**.h", "../FireRays/**.cpp", "../FireRays/**.cl", "../FireRays/**.fsh", "../FireRays/**.vsh"}
     buildoptions "-std=c++11 -stdlib=libc++"
 	
 	configuration {"x32", "Debug"}

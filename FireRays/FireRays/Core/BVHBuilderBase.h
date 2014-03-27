@@ -14,6 +14,8 @@
 class BVHBuilderBase
 {
 public:
+    struct Primitive;
+    
     BVHBuilderBase() : bvh_ (nullptr) {}
     virtual ~BVHBuilderBase(){}
     virtual void SetBVH(BVH* bvh){ bvh_ = bvh; }
@@ -22,6 +24,19 @@ public:
 protected:
     BVH& GetBVH() const { return *bvh_; }
     BVH* bvh_;
+};
+
+struct BVHBuilderBase::Primitive
+{
+    union
+    {
+        struct
+        {
+            unsigned i1,i2,i3,m;
+        };
+        
+        unsigned i[4];
+    };
 };
 
 #endif // BVHBUILDERBASE_H

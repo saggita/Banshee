@@ -17,6 +17,7 @@
 
 #include "BVH.h"
 #include "SplitBVHBuilder.h"
+#include "LinearBVHBuilder.h"
 #include "OCLBVHBackEnd.h"
 #include "TestScene.h"
 
@@ -25,13 +26,19 @@ int main(int argc, const char * argv[])
     auto scene  = TestScene::Create();
     
     BVH bvh;
-    SplitBVHBuilder builder(scene->GetVertices(), scene->GetVertexCount(), scene->GetIndices(), scene->GetIndexCount(), scene->GetMaterials(), 8U, 1U, 1.f, 1.f);
+    //SplitBVHBuilder builder(scene->GetVertices(), scene->GetVertexCount(), scene->GetIndices(), scene->GetIndexCount(), scene->GetMaterials(), 8U, 1U, 1.f, 1.f);
+    
+    LinearBVHBuilder builder(scene->GetVertices(), scene->GetVertexCount(), scene->GetIndices(), scene->GetIndexCount(), scene->GetMaterials());
     
 	static auto prevTime = std::chrono::high_resolution_clock::now();
     
-    //std::shared_ptr<BVHAccelerator> accel = BVHAccelerator::CreateFromScene(*scene);
 	builder.SetBVH(&bvh);
     builder.Build();
+    
+    auto currentTime = std::chrono::high_resolution_clock::now();
+	auto deltaTime   = std::chrono::duration_cast<std::chrono::duration<double> >(currentTime - prevTime);
+    
+    std::cout << "\nBuilding time " << deltaTime.count() << " secs\n";
     
     // generate points
     BVH::Iterator* iter       = bvh.CreateDepthFirstIterator();
@@ -94,11 +101,6 @@ int main(int argc, const char * argv[])
             }
         }
     }
-    
-    auto currentTime = std::chrono::high_resolution_clock::now();
-	auto deltaTime   = std::chrono::duration_cast<std::chrono::duration<double> >(currentTime - prevTime);
-    
-    std::cout << "\nBuilding time " << deltaTime.count() << " secs\n";
     
     std::cout << "-------\n";
     std::cout << "BVH node count " << bvh.GetNodeCount() << "\n";

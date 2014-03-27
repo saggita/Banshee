@@ -15,8 +15,6 @@
 class SplitBVHBuilder : public BVHBuilderBase
 {
 public:
-    struct Primitive;
-    
     // Construct BVH from an indexed vertex list
     template <typename T> SplitBVHBuilder(T const* vertices, unsigned int vertexCount, unsigned const* indices, unsigned indexCount, unsigned const* materials, unsigned primsPerLeaf, unsigned minPrimsPerLeaf, float triSahCost, float nodeSahCost);
     
@@ -25,7 +23,6 @@ public:
     
     unsigned         GetPrimitiveCount() const;
     Primitive const* GetPrimitives() const;
-    
     
 private:
     // Reference to a primitive
@@ -96,19 +93,6 @@ struct SplitBVHBuilder::NodeDesc
     std::vector<PrimitiveRef>::iterator end;
     BBox     bbox;
     BBox     cbox;
-};
-
-struct SplitBVHBuilder::Primitive
-{
-    union
-    {
-        struct
-        {
-            unsigned i1,i2,i3,m;
-        };
-        
-        unsigned i[4];
-    };
 };
 
 template <typename T> SplitBVHBuilder::SplitBVHBuilder(T const* vertices, unsigned int vertexCount, unsigned const* indices, unsigned indexCount, unsigned const* materials, unsigned primsPerLeaf, unsigned minPrimsPerLeaf, float triSahCost, float nodeSahCost)

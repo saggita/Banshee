@@ -1229,7 +1229,7 @@ __kernel void TraceExperiments(__global PathStart*    sPathStartBuffer,
 
     //sShadingData[globalId] = sTempShadingData;
     int  iId = sPathStartBuffer[globalId].iId;
-    int2 iPixelCoords = make_int2(globalId % 960, globalId / 960); 
+    int2 iPixelCoords = make_int2(globalId % 400, globalId / 400);
     write_imagef(tOutput, iPixelCoords, fVal);
 }
 

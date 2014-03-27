@@ -77,6 +77,7 @@ protected:
     // Interface for the builders, make them friends here
     friend class BVHAccelerator;
     friend class SplitBVHBuilder;
+    friend class LinearBVHBuilder;
     // Iterators are also friends
     friend class DepthFirstIterator;
     friend class BreadthFirstIterator;

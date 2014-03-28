@@ -17,6 +17,16 @@
 #define ISNAN(x) std::isnan(x)
 #endif
 
+/// Clamp each component of the vector to [a, b) range
+inline vector3opt clamp(vector3opt const& v, vector3opt const& v1, vector3opt const& v2)
+{
+    vector3opt res;
+    res.x = clamp(v.x, v1.x, v2.x);
+    res.y = clamp(v.y, v1.y, v2.y);
+    res.z = clamp(v.z, v1.z, v2.z);
+    return res;
+}
+
 
 void SplitBVHBuilder::Build()
 {
@@ -55,7 +65,7 @@ void SplitBVHBuilder::BuildBVH()
     
         assert( primCount > 0);
 
-        std::vector<PrimitiveRef> refs(request.first, request.last);
+        PrimitiveRefVector refs(request.first, request.last);
         
         request.last = refs_.erase(request.first, request.last);
 
@@ -88,7 +98,7 @@ void SplitBVHBuilder::BuildBVH()
 
             BVH::NodeId id = GetBVH().CreateInternalNode(request.parentNode, request.rel, static_cast<BVH::SplitAxis>(objectSplit.dim), desc.bbox);
 
-            std::vector<PrimitiveRef>::iterator splitIter;
+            PrimitiveRefVector::iterator splitIter;
             PrimitiveRefIterator splitListIter;
             size_t dist = 0;
             unsigned newPrimCount;
@@ -160,9 +170,9 @@ void SplitBVHBuilder::FindObjectSplit(NodeDesc const& desc, SplitDesc& split)
     // put NAN sentinel as split val
     // PerformObjectSplit simply splits in half
     // in this case
-    if (desc.cbox.GetExtents().x() == 0 &&
-        desc.cbox.GetExtents().y() == 0 &&
-        desc.cbox.GetExtents().z() == 0)
+    if (desc.cbox.GetExtents().x == 0 &&
+        desc.cbox.GetExtents().y == 0 &&
+        desc.cbox.GetExtents().z == 0)
     {
         split.val = std::numeric_limits<float>::quiet_NaN();
         split.sah = std::numeric_limits<float>::quiet_NaN();
@@ -194,7 +204,7 @@ void SplitBVHBuilder::FindObjectSplit(NodeDesc const& desc, SplitDesc& split)
         
         for (auto i = desc.begin; i < desc.end; ++i)
         {
-            unsigned binIdx = (unsigned)std::min<float>(kNumBins * ((i->bbox.GetCenter()[axis] - desc.cbox.GetMinPoint()[axis]) * invCentroidRnd), kNumBins-1);
+            unsigned binIdx = (unsigned)std::min<float>(kNumBins * ((i->bbox.GetCenter()[axis] - desc.cbox.min[axis]) * invCentroidRnd), kNumBins-1);
             
             assert(binIdx >= 0);
             
@@ -263,9 +273,9 @@ void SplitBVHBuilder::FindSpatialSplit(NodeDesc const& desc, SplitDesc& split)
     
     Bin bins[3][kNumBins];
 
-    vector3 origin  = desc.bbox.GetMinPoint();
-    vector3 binSize = desc.bbox.GetExtents() * (1.f / kNumBins);
-    vector3 invBinSize = vector3(1.f / binSize.x(), 1.f / binSize.y(), 1.f / binSize.z());
+    vector3opt origin  = desc.bbox.min;
+    vector3opt binSize = desc.bbox.GetExtents() * (1.f / kNumBins);
+    vector3opt invBinSize = vector3opt(1.f / binSize.x, 1.f / binSize.y, 1.f / binSize.z);
     
     char dims[3] = {0, 0, 0};
     unsigned dimCount = 0;
@@ -291,9 +301,9 @@ void SplitBVHBuilder::FindSpatialSplit(NodeDesc const& desc, SplitDesc& split)
     for (auto iter = desc.begin; iter != desc.end; ++iter)
     {
         // Determine starting bin for this triangle
-        vector3 firstBin = clamp(vector3((iter->bbox.GetMinPoint() - origin) * invBinSize), vector3(0,0,0),  vector3(kNumBins - 1, kNumBins - 1, kNumBins - 1));
+        vector3opt firstBin = clamp(vector3opt((iter->bbox.min - origin) * invBinSize), vector3opt(0,0,0),  vector3opt(kNumBins - 1, kNumBins - 1, kNumBins - 1));
         // Determine finishing bin
-        vector3 lastBin = clamp(vector3((iter->bbox.GetMaxPoint() - origin) * invBinSize), firstBin, vector3(kNumBins - 1, kNumBins - 1, kNumBins - 1));
+        vector3opt lastBin = clamp(vector3opt((iter->bbox.max - origin) * invBinSize), firstBin, vector3opt(kNumBins - 1, kNumBins - 1, kNumBins - 1));
         
         for (int dim = 0; dim < dimCount; ++dim)
         {
@@ -392,7 +402,7 @@ void SplitBVHBuilder::RemoveEmptyRefs()
     ), refs_.end());
 }
 
-bool SplitBVHBuilder::SplitPrimRef(PrimitiveRef primRef, int splitAxis, float splitValue, PrimitiveRef& r1, PrimitiveRef& r2)
+bool SplitBVHBuilder::SplitPrimRef(PrimitiveRef const& primRef, int splitAxis, float splitValue, PrimitiveRef& r1, PrimitiveRef& r2)
 {
 //    if (((primRef.bbox.GetMinPoint()[splitAxis] <= splitValue) &&
 //         (primRef.bbox.GetMaxPoint()[splitAxis] <= splitValue)) ||
@@ -418,8 +428,8 @@ bool SplitBVHBuilder::SplitPrimRef(PrimitiveRef primRef, int splitAxis, float sp
     for (int i = 0; i < 3; ++i)
     {
         // Fetch positions
-        vector3 v1 = positions_[prim.i[i]];
-        vector3 v2 = positions_[prim.i[(i + 1)%3]];
+        vector3opt v1 = positions_[prim.i[i]];
+        vector3opt v2 = positions_[prim.i[(i + 1)%3]];
         
         // Get the component we are interested in
         float vc1 = v1[splitAxis];
@@ -444,7 +454,7 @@ bool SplitBVHBuilder::SplitPrimRef(PrimitiveRef primRef, int splitAxis, float sp
             // Interpolate the value
             float vct = std::min(std::max((splitValue - vc1) / (vc2 - vc1), 0.f), 1.f);
             // Find interpolated position
-            vector3  vt = v1 * (1.f - vct) + v2 * vct;
+            vector3opt  vt = v1 * (1.f - vct) + v2 * vct;
             
             // Insert position into both bounding boxes
             r1.bbox = BBoxUnion(r1.bbox, vt);

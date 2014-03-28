@@ -29,7 +29,6 @@ public:
 	uint GetVertexCount() const;
 	uint GetIndexCount() const;
 	uint GetVertexSizeInBytes() const;
-	BBox Bounds() const;
     
     void Rescale(float factor);
 
@@ -41,8 +40,6 @@ private:
 
 	std::vector<Vertex> vertexData_;
 	std::vector<unsigned> indexData_;
-	
-	BBox bBox_;
 };
 
 #endif 

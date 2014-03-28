@@ -45,10 +45,10 @@ int main(int argc, const char * argv[])
     BBox           rootBounds = bvh.GetNodeBbox(iter->GetNodeId());
     
     
-    std::vector<vector3> points;
-    float xrange = rootBounds.GetExtents().x() * 2;
-    float yrange = rootBounds.GetExtents().y() * 2;
-    float zrange = rootBounds.GetExtents().z() * 2;
+    std::vector<vector3opt> points;
+    float xrange = rootBounds.GetExtents().x * 2;
+    float yrange = rootBounds.GetExtents().y * 2;
+    float zrange = rootBounds.GetExtents().z * 2;
     
     const int NUM_POINTS = 100000;
     for (int i = 0; i < NUM_POINTS; ++i)
@@ -57,8 +57,8 @@ int main(int argc, const char * argv[])
         float y = ((float)rand() / RAND_MAX) * yrange;
         float z = ((float)rand() / RAND_MAX) * zrange;
         
-        vector3 p = rootBounds.GetMinPoint() - rootBounds.GetExtents() * 0.5f;
-        p += vector3(x,y,z);
+        vector3opt p = rootBounds.min - rootBounds.GetExtents() * 0.5f;
+        p += vector3opt(x,y,z);
         points.push_back(p);
     }
     
@@ -77,12 +77,9 @@ int main(int argc, const char * argv[])
         int idx1 = rand() % points.size();
         int idx2 = rand() % points.size();
         
-        vector3 dir = normalize(points[idx2] - points[idx1]);
-        vector3 origin = points[idx1];
-        
         BVH::RayQuery q;
-        q.o = origin;
-        q.d = dir;
+        q.o = points[idx1];
+        q.d = (points[idx2] - points[idx1]).normalize();
         q.t = std::numeric_limits<float>::max();
         
         BVH::RayQueryStatistics stat;

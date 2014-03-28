@@ -130,8 +130,8 @@ struct BVH::Iterator
 
 struct BVH::RayQuery
 {
-    vector3 o;
-    vector3 d;
+    vector3opt o;
+    vector3opt d;
     float   t;
 };
 

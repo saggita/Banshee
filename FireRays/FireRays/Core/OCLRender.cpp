@@ -214,12 +214,12 @@ void OCLRender::Init(unsigned width, unsigned height)
     for (int i = 0; i < backEnd.GetNodeCount(); ++i)
     {
         
-        nodes[i].sBox.vMin.s[0] = accelNodes[i].box.GetMinPoint().x();
-        nodes[i].sBox.vMin.s[1] = accelNodes[i].box.GetMinPoint().y();
-        nodes[i].sBox.vMin.s[2] = accelNodes[i].box.GetMinPoint().z();
-        nodes[i].sBox.vMax.s[0] = accelNodes[i].box.GetMaxPoint().x();
-        nodes[i].sBox.vMax.s[1] = accelNodes[i].box.GetMaxPoint().y();
-        nodes[i].sBox.vMax.s[2] = accelNodes[i].box.GetMaxPoint().z();
+        nodes[i].sBox.vMin.s[0] = accelNodes[i].box.min.x;
+        nodes[i].sBox.vMin.s[1] = accelNodes[i].box.min.y;
+        nodes[i].sBox.vMin.s[2] = accelNodes[i].box.min.z;
+        nodes[i].sBox.vMax.s[0] = accelNodes[i].box.max.x;
+        nodes[i].sBox.vMax.s[1] = accelNodes[i].box.max.y;
+        nodes[i].sBox.vMax.s[2] = accelNodes[i].box.max.z;
 
         nodes[i].uRight     = accelNodes[i].right;
         nodes[i].uPrimStart = accelNodes[i].primStartIdx;

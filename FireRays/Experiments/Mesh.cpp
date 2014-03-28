@@ -57,8 +57,6 @@ void Mesh::LoadFromFile(std::string const& fileName)
 
 	unsigned int baseIdx = 0;
 	
-	bBox_ = BBox(vector3(scene->mMeshes[0]->mVertices[0].x, scene->mMeshes[0]->mVertices[0].y, scene->mMeshes[0]->mVertices[0].z));
-
 	for (int m = 0; m < scene->mNumMeshes; ++m)
 	{
 		const aiMesh* Mesh = scene->mMeshes[0];
@@ -91,7 +89,6 @@ void Mesh::LoadFromFile(std::string const& fileName)
 			}
 		
 			vertexData_.push_back(v);
-			bBox_ = BBoxUnion(bBox_, v.position);
 		}
 		
 		baseIdx = (unsigned int)vertexData_.size();
@@ -138,15 +135,10 @@ uint Mesh::GetVertexSizeInBytes() const
 	return sizeof(Vertex);
 }
 
-BBox Mesh::Bounds() const
-{
-	return bBox_;
-}
 
 void Mesh::Rescale(float factor)
 {
     vector3 c(0,0,0);
-    bBox_ = c;
     
     std::for_each(vertexData_.begin(), vertexData_.end(), [&c](Mesh::Vertex const& v){ c += v.position; });
     
@@ -157,7 +149,6 @@ void Mesh::Rescale(float factor)
                   {
                       vector3 c2v = factor * (v.position - c);
                       v.position = c + c2v;
-                      bBox_ = BBoxUnion(bBox_, v.position);
                   });
 }
 

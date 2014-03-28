@@ -35,17 +35,17 @@ static cl_float3 calc_centroid(cl_float3 v1, cl_float3 v2, cl_float3 v3)
     return res;
 }
 
-static vector3 cl_float3_to_vector3(cl_float3 v)
+static vector3opt cl_float3_to_vector3(cl_float3 v)
 {
-    return vector3(v.s[0], v.s[1], v.s[2]);
+    return vector3opt(v.s[0], v.s[1], v.s[2]);
 }
 
-static cl_float3 vector3_to_cl_float3(vector3 v)
+static cl_float3 vector3_to_cl_float3(vector3opt const& v)
 {
     cl_float3 res;
-    res.s[0] = v.x();
-    res.s[1] = v.y();
-    res.s[2] = v.z();
+    res.s[0] = v.x;
+    res.s[1] = v.y;
+    res.s[2] = v.z;
     
     return res;
 }
@@ -108,7 +108,7 @@ void LinearBVHBuilder::CalcMortonCodes()
     
     CLWKernel calcMortonCodesKernel = program_.GetKernel("assign_morton_codes");
     
-    cl_float3 min =  vector3_to_cl_float3(bbox_.GetMinPoint());
+    cl_float3 min =  vector3_to_cl_float3(bbox_.min);
     cl_float3 ext =  vector3_to_cl_float3(bbox_.GetExtents());
     
     calcMortonCodesKernel.SetArg(0, min);

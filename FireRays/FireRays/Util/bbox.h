@@ -15,113 +15,83 @@
 
 #include "CommonTypes.h"
 
-class BBox
+_MM_ALIGN16 class BBox
 {
 public:
     BBox();
-	BBox(vector3 const& p);
-	BBox(vector3 const& pmin, vector3 const& pmax);
+	BBox(vector3opt const& p);
+	BBox(vector3opt const& pmin, vector3opt const& pmax);
 	
-	vector3& GetMaxPoint();
-	vector3& GetMinPoint();
+	vector3opt GetCenter() const;
+	vector3opt GetExtents() const;
 	
-	vector3 const& GetMaxPoint() const;
-	vector3 const& GetMinPoint() const;
-	
-	vector3 GetCenter() const;
-	vector3 GetExtents() const;
-	
-	bool Contains(vector3 const& p) const;
+	bool Contains(vector3opt const& p) const;
     
 	int   GetMaxDim() const;
 	float GetSurfaceArea() const;
-	
-private:
-	vector3 minPoint_;
-	vector3 maxPoint_;
+
+    inline void* operator new[](size_t x) { return _aligned_malloc(x, 16); }
+    inline void  operator delete[](void* x) { if (x) _aligned_free(x); }
+
+	vector3opt min;
+	vector3opt max;
 };
 
 inline BBox BBoxUnion(BBox const& box1, BBox const& box2)
-{
-	vector3 pmin(std::min(box1.GetMinPoint().x(), box2.GetMinPoint().x()), std::min(box1.GetMinPoint().y(), box2.GetMinPoint().y()), std::min(box1.GetMinPoint().z(), box2.GetMinPoint().z()));
-	vector3 pmax(std::max(box1.GetMaxPoint().x(), box2.GetMaxPoint().x()), std::max(box1.GetMaxPoint().y(), box2.GetMaxPoint().y()), std::max(box1.GetMaxPoint().z(), box2.GetMaxPoint().z()));
-	
-	return BBox(pmin, pmax);
+{	
+	return BBox(vmin(box1.min, box2.min), vmax(box1.max, box2.max));
 }
 
 inline BBox BBoxIntersection(BBox const& box1, BBox const& box2)
-{
-	vector3 pmin(std::max(box1.GetMinPoint().x(), box2.GetMinPoint().x()), std::max(box1.GetMinPoint().y(), box2.GetMinPoint().y()), std::max(box1.GetMinPoint().z(), box2.GetMinPoint().z()));
-    
-	vector3 pmax(std::min(box1.GetMaxPoint().x(), box2.GetMaxPoint().x()), std::min(box1.GetMaxPoint().y(), box2.GetMaxPoint().y()), std::min(box1.GetMaxPoint().z(), box2.GetMaxPoint().z()));
-	
-	return BBox(pmin, pmax);
+{	
+	return BBox(vmax(box1.min, box2.min), vmin(box1.max, box2.max));
 }
 
 inline bool Intersects(BBox const& box1, BBox const& box2)
 {
-	vector3 b1Center = box1.GetCenter();
-	vector3 b1Radius = 0.5f * box1.GetExtents();
-	vector3 b2Center = box2.GetCenter();
-	vector3 b2Radius = 0.5f * box2.GetExtents();
+	vector3opt b1Center = box1.GetCenter();
+	vector3opt b1Radius = 0.5f * box1.GetExtents();
+	vector3opt b2Center = box2.GetCenter();
+	vector3opt b2Radius = 0.5f * box2.GetExtents();
 	
-	return abs(b2Center.x() - b1Center.x()) < b1Radius.x() + b2Radius.x() &&
-		   abs(b2Center.y() - b1Center.y()) < b1Radius.y() + b2Radius.y() &&
-		   abs(b2Center.x() - b1Center.z()) < b1Radius.z() + b2Radius.z();
+	return abs(b2Center.x - b1Center.x) < b1Radius.x + b2Radius.x &&
+		   abs(b2Center.y - b1Center.y) < b1Radius.y + b2Radius.y &&
+		   abs(b2Center.x - b1Center.z) < b1Radius.z + b2Radius.z;
 }
 
 inline bool Contains(BBox const& box1, BBox const& box2)
 {
-	return box1.Contains(box2.GetMinPoint()) && box1.Contains(box2.GetMaxPoint());
+	return box1.Contains(box2.min) && box1.Contains(box2.max);
 }
 
-inline vector3& BBox::GetMaxPoint()
+
+inline vector3opt BBox::GetExtents() const
 {
-    return maxPoint_;
+    return max - min;
 }
 
-inline vector3& BBox::GetMinPoint()
+inline vector3opt BBox::GetCenter() const
 {
-    return minPoint_;
+    return 0.5f * (max + min);
 }
 
-inline vector3 const& BBox::GetMaxPoint() const
+inline bool BBox::Contains(vector3opt const& p) const
 {
-    return maxPoint_;
-}
-
-inline vector3 const& BBox::GetMinPoint() const
-{
-    return minPoint_;
-}
-
-inline vector3 BBox::GetExtents() const
-{
-    return maxPoint_ - minPoint_;
-}
-
-inline vector3 BBox::GetCenter() const
-{
-    return 0.5f * (maxPoint_ + minPoint_);
-}
-
-inline bool BBox::Contains(vector3 const& p) const
-{
-    vector3 radius = 0.5f * GetExtents();
-    return abs(GetCenter().x() - p.x()) <= radius.x() &&
-        abs(GetCenter().y() - p.y()) <= radius.y() &&
-        abs(GetCenter().z() - p.z()) <= radius.z();
+    vector3opt radius = 0.5f * GetExtents();
+    return abs(GetCenter().x - p.x) <= radius.x &&
+        abs(GetCenter().y - p.y) <= radius.y &&
+        abs(GetCenter().z - p.z) <= radius.z;
 }
 
 inline int BBox::GetMaxDim() const
 {
-    vector3 ext = GetExtents();
+    vector3opt ext = GetExtents();
 
-    if (ext.x() >= ext.y() && ext.x() >= ext.z())
+    if (ext.x >= ext.y && ext.x >= ext.z)
         return 0;
-    if (ext.y() >= ext.x() && ext.y() >= ext.z())
+    if (ext.y >= ext.x && ext.y >= ext.z)
         return 1;
-    if (ext.z() >= ext.x() && ext.z() >= ext.y())
+    if (ext.z >= ext.x && ext.z >= ext.y)
         return 2;
 
     return 0;
@@ -129,30 +99,31 @@ inline int BBox::GetMaxDim() const
 
 inline float BBox::GetSurfaceArea() const
 {
-    return 2 * (GetExtents().x() * GetExtents().y() + GetExtents().x() * GetExtents().z() + GetExtents().y() * GetExtents().z());
+    vector3opt extents = GetExtents();
+    return 2 * (extents.x * extents.y + extents.x * extents.z + extents.y * extents.z);
 }
 
 inline BBox::BBox()
-: minPoint_(vector3(std::numeric_limits<float>::max(),
+: min(vector3opt(std::numeric_limits<float>::max(),
 std::numeric_limits<float>::max(),
 std::numeric_limits<float>::max()))
-, maxPoint_(vector3(-std::numeric_limits<float>::max(),
+, max(vector3opt(-std::numeric_limits<float>::max(),
 -std::numeric_limits<float>::max(),
 -std::numeric_limits<float>::max()))
 {
 
 }
 
-inline BBox::BBox(vector3 const& p)
-: minPoint_(p)
-, maxPoint_(p)
+inline BBox::BBox(vector3opt const& p)
+: min(p)
+, max(p)
 {
 
 }
 
-inline BBox::BBox(vector3 const& p1, vector3 const& p2)
-: minPoint_(std::min(p1.x(), p2.x()), std::min(p1.y(), p2.y()), std::min(p1.z(), p2.z()))
-, maxPoint_(std::max(p1.x(), p2.x()), std::max(p1.y(), p2.y()), std::max(p1.z(), p2.z()))
+inline BBox::BBox(vector3opt const& p1, vector3opt const& p2)
+: min(vmin(p1, p2))
+, max(vmax(p1, p2))
 {
 }
 

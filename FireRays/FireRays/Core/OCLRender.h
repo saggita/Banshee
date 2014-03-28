@@ -25,7 +25,6 @@
 #include "Common.h"
 #include "RenderBase.h"
 #include "CommonTypes.h"
-#include "BVHAccelerator.h"
 
 class TextureBase;
 class OCLRender : public RenderBase
@@ -197,8 +196,6 @@ private:
 	cl_uint   frameCount_;
 
 	DevConfig configData_;
-
-	std::shared_ptr<BVHAccelerator> accel_;
 };
 
 #endif // OCLRENDER_H

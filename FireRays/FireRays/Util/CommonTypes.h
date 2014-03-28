@@ -7,6 +7,7 @@
 #include "matrix.h"
 #include "vector.h"
 #include "quaternion.h"
+#include "vector3opt.h"
 
 // Floating point type to use within core library
 typedef float		real;

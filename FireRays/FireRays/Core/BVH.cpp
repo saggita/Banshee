@@ -372,21 +372,21 @@ void BVH::DestroyIterator(Iterator* iter)
 // Intersect ray with the axis-aligned box
 static bool Intersects(BVH::RayQuery& q, BBox const& sBox)
 {
-    vector3 vRayDir = vector3(1.f / q.d.x(), 1.f / q.d.y(), 1.f / q.d.z());
-    float lo = vRayDir.x()*(sBox.GetMinPoint().x() - q.o.x());
-    float hi = vRayDir.x()*(sBox.GetMaxPoint().x() - q.o.x());
+    vector3opt vRayDir = vector3opt(1.f / q.d.x, 1.f / q.d.y, 1.f / q.d.z);
+    float lo = vRayDir.x*(sBox.min.x - q.o.x);
+    float hi = vRayDir.x*(sBox.max.x - q.o.x);
 
     float tmin = std::min(lo, hi);
     float tmax = std::max(lo, hi);
 
-    float lo1 = vRayDir.y()*(sBox.GetMinPoint().y() - q.o.y());
-    float hi1 = vRayDir.y()*(sBox.GetMaxPoint().y() - q.o.y());
+    float lo1 = vRayDir.y*(sBox.min.y - q.o.y);
+    float hi1 = vRayDir.y*(sBox.max.y - q.o.y);
 
     tmin = std::max(tmin, std::min(lo1, hi1));
     tmax = std::min(tmax, std::max(lo1, hi1));
 
-    float lo2 = vRayDir.z()*(sBox.GetMinPoint().z() - q.o.z());
-    float hi2 = vRayDir.z()*(sBox.GetMaxPoint().z() - q.o.z());
+    float lo2 = vRayDir.z*(sBox.min.z - q.o.z);
+    float hi2 = vRayDir.z*(sBox.max.z - q.o.z);
 
     tmin = std::max(tmin, std::min(lo2, hi2));
     tmax = std::min(tmax, std::max(lo2, hi2));
@@ -399,21 +399,24 @@ static bool Intersects(BVH::RayQuery& q, BBox const& sBox)
         return false;
 }
 
-bool Intersects(BVH::RayQuery& q, vector3 vP1, vector3 vP2, vector3 vP3)
+bool Intersects(BVH::RayQuery& q, vector3 vPP1, vector3 vPP2, vector3 vPP3)
 {
-    vector3 vE1 = vP2 - vP1;
-    vector3 vE2 = vP3 - vP1;
-    
-    vector3 vS1 = cross(q.d, vE2);
+    vector3opt vP1 = vector3opt(vPP1.x(), vPP1.y(), vPP1.z());
+    vector3opt vP2= vector3opt(vPP2.x(), vPP2.y(), vPP2.z());
+    vector3opt vP3 = vector3opt(vPP3.x(), vPP3.y(), vPP3.z());
+    vector3opt vE1 = vP2 - vP1;
+    vector3opt vE2 = vP3 - vP1;
+
+    vector3opt vS1 = cross(q.d, vE2);
     float  fInvDir = 1.0/dot(vS1, vE1);
     
-    vector3 vD = q.o - vP1;
+    vector3opt vD = q.o - vP1;
     float  fB1 = dot(vD, vS1) * fInvDir;
     
     if (fB1 < 0.0 || fB1 > 1.0)
         return false;
     
-    vector3 vS2 = cross(vD, vE1);
+    vector3opt vS2 = cross(vD, vE1);
     float  fB2 = dot(q.d, vS2) * fInvDir;
     
     if (fB2 < 0.0 || fB1 + fB2 > 1.0)

@@ -12,6 +12,8 @@
 #include "BVH.h"
 #include "BVHBuilderBase.h"
 
+#include "aligned_allocator.h"
+
 class SplitBVHBuilder : public BVHBuilderBase
 {
 public:
@@ -28,8 +30,11 @@ public:
     Primitive const* GetPrimitives() const;
     
 private:
+
     // Reference to a primitive consists of (possibly partial)bounding box and primitive index om prims_ array 
     struct PrimitiveRef;
+    typedef std::vector<PrimitiveRef, aligned_allocator<PrimitiveRef, 16> > PrimitiveRefVector;
+    typedef std::list<PrimitiveRef, aligned_allocator<PrimitiveRef, 16> >   PrimitiveRefList;
 
     // Split is represented by dimension, split value and SAH cost value.
     // The same structure is used to represent spatial and object splits
@@ -58,10 +63,10 @@ private:
     std::vector<PrimitiveRef>::iterator PerformSpatialSplit(std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, SplitDesc const& splitDesc, unsigned& newPrimCount);
     
     // Create node desc for the range of primitive refs
-    void CreateNodeDesc(std::vector<PrimitiveRef>::iterator begin, std::vector<PrimitiveRef>::iterator end, NodeDesc& desc);
+    void CreateNodeDesc(PrimitiveRefVector::iterator begin, std::vector<PrimitiveRef>::iterator end, NodeDesc& desc);
 
     // Test if the prim ref intersects the plane and return adjusted primitve refs for right and left
-    bool SplitPrimRef(PrimitiveRef primRef, int splitAxis, float splitValue, PrimitiveRef& r1, PrimitiveRef& r2);
+    bool SplitPrimRef(PrimitiveRef const& primRef, int splitAxis, float splitValue, PrimitiveRef& r1, PrimitiveRef& r2);
     
     // Reorder primitive array to conform to BVH representation
     void ReorderPrimitives();
@@ -71,8 +76,8 @@ private:
 
     // Data members
     std::vector<Primitive>  prims_;
-    std::list<PrimitiveRef> refs_;
-    std::vector<vector3>    positions_;
+    PrimitiveRefList refs_;
+    std::vector<vector3opt, aligned_allocator<vector3opt, 16> > positions_;
 
     float                   triSahCost_;
     float                   nodeSahCost_;
@@ -84,7 +89,7 @@ private:
 };
 
 
-struct SplitBVHBuilder::PrimitiveRef
+_MM_ALIGN16 struct SplitBVHBuilder::PrimitiveRef
 {
     unsigned idx;
     BBox     bbox;
@@ -97,10 +102,10 @@ struct SplitBVHBuilder::SplitDesc
     float    sah;
 };
 
-struct SplitBVHBuilder::NodeDesc
+_MM_ALIGN16 struct SplitBVHBuilder::NodeDesc
 {
-    std::vector<PrimitiveRef>::iterator begin;
-    std::vector<PrimitiveRef>::iterator end;
+    PrimitiveRefVector::iterator begin;
+    PrimitiveRefVector::iterator end;
     BBox     bbox;
     BBox     cbox;
 };
@@ -118,15 +123,15 @@ template <typename T> SplitBVHBuilder::SplitBVHBuilder(T const* vertices, unsign
     /// copy vertex data
     for (int i = 0; i < vertexCount; ++i)
     {
-        positions_[i] = vertices[i].position;
+        positions_[i] = vector3opt(vertices[i].position.x(), vertices[i].position.y(), vertices[i].position.z()); ;
     }
     
     /// build primitives list
     prims_.resize(indexCount/3);
     for (unsigned i = 0; i < indexCount; i += 3)
     {
-        BBox b(vertices[indices[i]].position, vertices[indices[i+1]].position);
-        b = BBoxUnion(b, vertices[indices[i+2]].position);
+        BBox b(positions_[indices[i]], positions_[indices[i+1]]);
+        b = BBoxUnion(b, positions_[indices[i+2]]);
         
         Primitive t = {indices[i], indices[i + 1], indices[i + 2], materials[i/3]};
         prims_[i/3] = t;

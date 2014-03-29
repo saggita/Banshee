@@ -469,7 +469,7 @@ void OCLRender::Render()
         CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 11, sizeof(cl_mem), &taskCounterBuffer_), "SetKernelArg failed");
         CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 12, sizeof(cl_int), &numTasks), "SetKernelArg failed");
         
-        status = clEnqueueNDRangeKernel(commandQueue_, pathTraceKernel_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent2);
+        //status = clEnqueueNDRangeKernel(commandQueue_, pathTraceKernel_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent2);
         CHECK_ERROR(status, "Path tracing kernel launch failed");
 
         CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, taskCounterBuffer_, CL_FALSE, 0, sizeof(cl_int), &initialTaskCount, 0, nullptr, nullptr), "Cannot update task counter buffer");
@@ -489,7 +489,7 @@ void OCLRender::Render()
         CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 12, sizeof(cl_mem), &taskCounterBuffer_), "SetKernelArg failed");
         CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 13, sizeof(cl_int), &numTasks), "SetKernelArg failed");
 
-        status = clEnqueueNDRangeKernel(commandQueue_, pathShadeAndExportKernel_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent3);
+        //status = clEnqueueNDRangeKernel(commandQueue_, pathShadeAndExportKernel_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent3);
         CHECK_ERROR(status, "Shade kernel launch failed");
 
         CHECK_ERROR(clSetKernelArg(traceExperiments_, 0, sizeof(cl_mem), &pathStartBuffer_), "SetKernelArg failed");
@@ -500,10 +500,10 @@ void OCLRender::Render()
         CHECK_ERROR(clSetKernelArg(traceExperiments_, 5, sizeof(cl_mem), &traceShadingData_), "SetKernelArg failed");
         CHECK_ERROR(clSetKernelArg(traceExperiments_, 6, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
 
-        /*localWorkSize1 = 64;
+        localWorkSize1 = 64;
         globalWorkSize1 = configData_.uOutputHeight * configData_.uOutputWidth;
         status = clEnqueueNDRangeKernel(commandQueue_, traceExperiments_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent4);
-        CHECK_ERROR(status, "Shade kernel launch failed");*/
+        CHECK_ERROR(status, "Shade kernel launch failed");
     }
 
     CHECK_ERROR(clEnqueueReleaseGLObjects(commandQueue_, 1, gl_objects, 0,0,0), "Cannot release OpenGL objects");
@@ -521,21 +521,21 @@ void OCLRender::Render()
 
     std::cout << "Ray generation time " << totalTime << " msec\n";
 
-    clGetEventProfilingInfo(kernelExecutionEvent2, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
-    clGetEventProfilingInfo(kernelExecutionEvent2, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
-    totalTime = (double)(endTime - startTime)/1000000.0;
-
-    std::cout << "Ray tracing time " << totalTime << " msec\n";
-
-    clGetEventProfilingInfo(kernelExecutionEvent3, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
-    clGetEventProfilingInfo(kernelExecutionEvent3, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
-    totalTime = (double)(endTime - startTime)/1000000.0;
-
-    //clGetEventProfilingInfo(kernelExecutionEvent4, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
-    //clGetEventProfilingInfo(kernelExecutionEvent4, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
+    //clGetEventProfilingInfo(kernelExecutionEvent2, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
+    //clGetEventProfilingInfo(kernelExecutionEvent2, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
     //totalTime = (double)(endTime - startTime)/1000000.0;
 
-    //std::cout << "Primary time " << totalTime << " msec\n";
+    //std::cout << "Ray tracing time " << totalTime << " msec\n";
+
+    //clGetEventProfilingInfo(kernelExecutionEvent3, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
+    //clGetEventProfilingInfo(kernelExecutionEvent3, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
+    //totalTime = (double)(endTime - startTime)/1000000.0;
+
+    clGetEventProfilingInfo(kernelExecutionEvent4, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
+    clGetEventProfilingInfo(kernelExecutionEvent4, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
+    totalTime = (double)(endTime - startTime)/1000000.0;
+
+    std::cout << "Primary time " << totalTime << " msec\n";
     ++frameCount_;
 }
 

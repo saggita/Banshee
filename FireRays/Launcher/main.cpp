@@ -47,8 +47,8 @@ static vector2  gMouseDelta = vector2(0,0);
 GLuint gVertexBufferId;
 GLuint gIndexBufferId;
 
-#define WINDOW_WIDTH  200
-#define WINDOW_HEIGHT 200
+#define WINDOW_WIDTH  800
+#define WINDOW_HEIGHT 600
 #define CAMERA_POSITION vector3(12,12,12)
 #define CAMERA_AT vector3(0,0,0)
 #define CAMERA_UP vector3(0,1,0)

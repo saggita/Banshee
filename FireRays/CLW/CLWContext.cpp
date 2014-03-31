@@ -16,7 +16,7 @@
 
 
 
-CLWContext CLWContext::Create(std::vector<CLWDevice> const& devices, CreationFlags creationFlags)
+CLWContext CLWContext::Create(std::vector<CLWDevice> const& devices, cl_context_properties* props)
 {
     std::vector<cl_device_id> deviceIds;
     std::for_each(devices.cbegin(), devices.cend(),
@@ -25,7 +25,7 @@ CLWContext CLWContext::Create(std::vector<CLWDevice> const& devices, CreationFla
                       deviceIds.push_back(device);
                   });
     cl_int status = CL_SUCCESS;
-    cl_context ctx = clCreateContext(nullptr, static_cast<cl_int>(deviceIds.size()), &deviceIds[0], nullptr, nullptr, &status);
+    cl_context ctx = clCreateContext(props, static_cast<cl_int>(deviceIds.size()), &deviceIds[0], nullptr, nullptr, &status);
     
     ThrowIf<CLWOutOfHostMemory>(status == CL_OUT_OF_HOST_MEMORY, "Cannot create context: Out of host memory");
     ThrowIf<CLWInvalidDevice>(status == CL_INVALID_DEVICE, "Cannot create context: Invalid device");
@@ -33,7 +33,7 @@ CLWContext CLWContext::Create(std::vector<CLWDevice> const& devices, CreationFla
     ThrowIf<CLWInvalidValue>(status == CL_INVALID_VALUE, "Cannot create context: Invalid value");
     ThrowIf<CLWDeviceNotAvailable>(status == CL_DEVICE_NOT_AVAILABLE, "Cannot create context: Device not available");
     
-    CLWContext context(ctx, devices, creationFlags);
+    CLWContext context(ctx, devices);
     
     clReleaseContext(ctx);
     
@@ -86,31 +86,31 @@ CLWEvent CLWContext::Launch1D(unsigned int idx, size_t globalSize, size_t localS
     return CLWEvent::Create(event);
 }
 
-CLWContext CLWContext::Create(CLWDevice device, CreationFlags creationFlags)
+CLWContext CLWContext::Create(CLWDevice device, cl_context_properties* props)
 {
     std::vector<CLWDevice> devices;
     devices.push_back(device);
-    return CLWContext::Create(devices, creationFlags);
+    return CLWContext::Create(devices, props);
 }
 
-CLWContext::CLWContext(cl_context context, std::vector<CLWDevice> const& devices, CreationFlags creationFlags)
+CLWContext::CLWContext(cl_context context, std::vector<CLWDevice> const& devices)
 : ReferenceCounter<cl_context, clRetainContext, clReleaseContext>(context)
 , devices_(devices)
 {
-    InitCL(creationFlags);
+    InitCL();
 }
 
-CLWContext::CLWContext(cl_context context, std::vector<CLWDevice>&& devices, CreationFlags creationFlags)
+CLWContext::CLWContext(cl_context context, std::vector<CLWDevice>&& devices)
 : ReferenceCounter<cl_context, clRetainContext, clReleaseContext>(context)
 , devices_(devices)
 {
-    InitCL(creationFlags);
+    InitCL();
 }
 
-CLWContext::CLWContext(CLWDevice device, CreationFlags creationFlags)
+CLWContext::CLWContext(CLWDevice device)
 {
     devices_.push_back(device);
-    InitCL(creationFlags);
+    InitCL();
 }
 
 CLWContext::~CLWContext()
@@ -127,7 +127,7 @@ CLWDevice CLWContext::GetDevice(unsigned int idx) const
     return devices_[idx];
 }
 
-void CLWContext::InitCL(CreationFlags creationFlags)
+void CLWContext::InitCL()
 {
     std::for_each(devices_.begin(), devices_.end(),
                   [this](CLWDevice const& device)

@@ -32,14 +32,9 @@ class CLWCommandQueue;
 class CLWContext : public ReferenceCounter<cl_context, clRetainContext, clReleaseContext>
 {
 public:
-    enum CreationFlags
-    {
-        kNone,
-        //kInterop,
-    };
 
-    static CLWContext Create(std::vector<CLWDevice> const&, CreationFlags creationFlags = kNone);
-    static CLWContext Create(CLWDevice device, CreationFlags creationFlags = kNone);
+    static CLWContext Create(std::vector<CLWDevice> const&, cl_context_properties* props = nullptr);
+    static CLWContext Create(CLWDevice device, cl_context_properties* props = nullptr);
     
     CLWContext(){}
     virtual                     ~CLWContext();
@@ -62,12 +57,12 @@ public:
     CLWEvent Launch1D(unsigned int idx, size_t globalSize, size_t localSize, cl_kernel kernel, std::vector<CLWEvent> const& events);
 
 private:
-    void InitCL(CreationFlags creationFlags);
+    void InitCL();
 
-    CLWContext(cl_context context, std::vector<CLWDevice> const&, CreationFlags creationFlags);
-    CLWContext(cl_context context, std::vector<CLWDevice>&&, CreationFlags creationFlags);
+    CLWContext(cl_context context, std::vector<CLWDevice> const&);
+    CLWContext(cl_context context, std::vector<CLWDevice>&&);
 
-    CLWContext(CLWDevice device, CreationFlags creationFlags);
+    CLWContext(CLWDevice device);
 
     std::vector<CLWDevice>       devices_;
     std::vector<CLWCommandQueue> commandQueues_;

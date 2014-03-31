@@ -1,13 +1,13 @@
 //
-//  CLWTexture.h
+//  CLWImage2D.h
 //  CLW
 //
 //  Created by dmitryk on 19.12.13.
 //  Copyright (c) 2013 dmitryk. All rights reserved.
 //
 
-#ifndef __CLW__CLWImage__
-#define __CLW__CLWImage__
+#ifndef __CLW__CLWImage2D__
+#define __CLW__CLWImage2D__
 
 #include <iostream>
 #include <memory>
@@ -16,8 +16,10 @@
 
 #ifdef __APPLE__
 #include <OpenCL/OpenCL.h>
+#include <OpenGL/OpenGL.h>
 #else
 #include <CL/cl.h>
+#include <CL/cl_gl.h>
 #endif
 
 #include "ReferenceCounter.h"
@@ -26,12 +28,14 @@
 #include "CLWEvent.h"
 
 
-class CLWImage : public ReferenceCounter<cl_mem, clRetainMemObject, clReleaseMemObject>
+class CLWImage2D : public ReferenceCounter<cl_mem, clRetainMemObject, clReleaseMemObject>
 {
 public:
-    static CLWImage Create(size_t elementCount, cl_context context);
-    CLWImage(){}
-    virtual ~CLWImage();
+    static CLWImage2D Create(cl_context context, cl_image_format const* imgFormat, size_t width, size_t height, size_t rowPitch);
+    static CLWImage2D CreateFromGLTexture(cl_context context, cl_GLint texture);
+
+    CLWImage2D(){}
+    virtual ~CLWImage2D();
 
     operator ParameterHolder() const
     {
@@ -39,12 +43,8 @@ public:
     }
     
 private:
-    //CLWEvent WriteDeviceBuffer(CLWCommandQueue cmdQueue, T const* hostBuffer, size_t elemCount);
-    //CLWEvent ReadDeviceBuffer(CLWCommandQueue cmdQueue, T* hostBuffer, size_t elemCount);
-    //CLWEvent ReadDeviceBuffer(CLWCommandQueue cmdQueue, T* hostBuffer, size_t offset, size_t elemCount);
-    
-    CLWImage(cl_mem image);
 
+    CLWImage2D(cl_mem image);
     friend class CLWContext;
 };
 

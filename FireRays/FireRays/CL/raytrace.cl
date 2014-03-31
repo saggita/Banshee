@@ -123,7 +123,9 @@ typedef struct _PathVertex{
     ShadingData sShadingData;
     float3      vIncidentDir;
     float4      vRadiance;
-    uint		uMaterialIdx;
+    uint        uMaterialIdx;
+    float       fDistance;
+    bool        bHit;
 } PathVertex;
 
 typedef  struct {
@@ -534,6 +536,7 @@ bool TraverseBVHStacked(
     }
     while (idx != NODE_STACK_GUARD);
 
+    //shadingData->bHit = hit;
     return hit;
 }
 
@@ -1208,11 +1211,10 @@ __kernel void TraceExperiments(__global PathStart*    sPathStartBuffer,
                                __global uint*         uBvhIdxBuffer,
                                __global Vertex*       sVertices,
                                __global uint4*        uIndices,
-                               __global ShadingData*  sShadingData,
-                               __write_only image2d_t tOutput)
+                               __global PathVertex*   sIntersections)
 {
-    __local uchar bThreadVotes[64];
-    __local int   iSharedStack[64];
+    //__local uchar bThreadVotes[64];
+    //__local int   iSharedStack[64];
 
     int globalId  = get_global_id(0);
     int localId   = get_local_id(0);
@@ -1220,20 +1222,117 @@ __kernel void TraceExperiments(__global PathStart*    sPathStartBuffer,
 
     Ray r = sPathStartBuffer[globalId].sRay;
 
-    ShadingData sTempShadingData;
-    //bool hit = TraverseBVHPacket(localId, iSharedStack, bThreadVotes, sBvh, uBvhIdxBuffer, sVertices, uIndices, &r, &sTempShadingData);
+    PathVertex  sPathVertex;
+    sPathVertex.bHit = TraverseBVHStacked(sBvh, uBvhIdxBuffer, sVertices, uIndices, &r, &sPathVertex.sShadingData);
 
-    bool hit = TraverseBVHStacked(sBvh, uBvhIdxBuffer, sVertices, uIndices, &r, &sTempShadingData);
-
-    float4 fVal = r.maxt / 1000;
-
-    //sShadingData[globalId] = sTempShadingData;
-    int  iId = sPathStartBuffer[globalId].iId;
-    int2 iPixelCoords = make_int2(globalId % 800, globalId / 800);
-    write_imagef(tOutput, iPixelCoords, fVal);
+    sPathVertex.vIncidentDir = r.d;
+    sPathVertex.fDistance = r.maxt;
+    sIntersections[globalId] = sPathVertex;
 }
 
 
+typedef struct
+{
+    __global TextureDesc*   sTextureDesc;
+    __global float4*        vTextures;
+} TextureSystem;
+
+float4 tex2dsys(TextureSystem* sTextureSystem, uint texIdx, float2 uv)
+{
+    uv.x -= floor(uv.x);
+    uv.y -= floor(uv.y);
+
+    TextureDesc desc = sTextureSystem->sTextureDesc[texIdx];
+
+    __global float4* vTextureData = sTextureSystem->vTextures + desc.uPoolOffset;
+
+    uint x = floor(uv.x * desc.uWidth - 0.5);
+    uint y = floor(uv.y * desc.uHeight - 0.5);
+
+    x = x % desc.uWidth;
+    y = y % desc.uHeight;
+
+    return vTextureData[y * desc.uWidth + x];
+}
+
+float4 EvaluateMaterialSys(TextureSystem* sTextureSystem, MaterialRep* sMaterialRep, ShadingData* sShadingData, float3 vWi, float3 vWo, float4 vRadiance)
+{
+    switch (sMaterialRep->eBsdf)
+    {
+    case BSDF_TYPE_LAMBERT:
+        {
+            float  fInvPi = 1.f /  M_PI;
+            float4 vColor = (sMaterialRep->uTd == -1) ? sMaterialRep->vKd : tex2dsys(sTextureSystem, sMaterialRep->uTd, sShadingData->vTex);
+            return fInvPi * vRadiance * vColor;
+        }
+
+    case BSDF_TYPE_SPECULAR:
+        {
+            float3 vReflDir = normalize(-vWi + 2.f*dot(vWi, sShadingData->vNormal) * sShadingData->vNormal);
+            return vRadiance * sMaterialRep->vKs * pow(max(0.f, dot(vReflDir, vWo)), sMaterialRep->fEs) / (dot(sShadingData->vNormal, vWi));
+        }
+    case BSDF_TYPE_EMISSIVE:
+        {
+            return sMaterialRep->vKe;
+        }
+    }
+}
+
+__kernel void DirectIllumination(__global BVHNode*      sBvh,
+                                 __global uint*         uBvhIdxBuffer,
+                                 __global Vertex*       sVertices,
+                                 __global uint4*        uIndices,
+                                 __global PathVertex*   sIntersections,
+                                 __global MaterialRep*  materials,
+                                 __global TextureDesc*  textureDescBuffer,
+                                 __global float4*       textureBuffer,
+                                 __write_only image2d_t tOutput,
+                                 __global float4*       intermediateBuffer,
+                                 uint uFrameCount)
+{
+    
+    int globalId  = get_global_id(0);
+    int localId   = get_local_id(0);
+    int groupSize = get_local_size(0);
+
+    TextureSystem textureSys;
+    textureSys.sTextureDesc = textureDescBuffer;
+    textureSys.vTextures = textureBuffer;
+
+    int  iId = globalId;
+    int2 iPixelCoords = make_int2(globalId % 800, globalId / 800);
+
+    RNG sRNG = CreateRNG((get_global_id(0) + 133)*(uFrameCount + 57));
+    PathVertex myVertex = sIntersections[globalId];
+    float4 vRes = make_float4(1,1,1,1);
+
+    if (myVertex.bHit)
+    {
+        Ray sRay;
+        sRay.d = GetHemisphereSample(myVertex.sShadingData.vNormal, 1.f, &sRNG);
+        sRay.o = myVertex.sShadingData.vPos + RAY_EPSILON * sRay.d;
+        sRay.maxt = 10000.f;
+        sRay.mint = 0.f;
+
+        ShadingData sTempData;
+        float fShadow = TraverseBVHStacked(sBvh, uBvhIdxBuffer, sVertices, uIndices, &sRay, &sTempData) ? 0.f : 1.f;
+
+        // there is no NdotL term here as it is canceled by cos(Theta)/M_PI pdf
+        // MaterialRep material = materials[myVertex.sShadingData.uMaterialIdx];
+        vRes = fShadow * make_float4(6,6,5,10);
+            //EvaluateMaterialSys(&textureSys, &material, &myVertex.sShadingData, sRay.d, -myVertex.vIncidentDir, make_float4(1,1,1,1)) / M_PI;
+    }
+
+    if (uFrameCount)
+    {
+        float4 vPrevValue =  intermediateBuffer[globalId];
+        vRes = vPrevValue * ((float)(uFrameCount - 1.f)/uFrameCount) + vRes * (1.f/uFrameCount);
+    }
+
+    intermediateBuffer[globalId] = vRes;
+
+    write_imagef(tOutput, iPixelCoords, vRes);
+}
 
 
 

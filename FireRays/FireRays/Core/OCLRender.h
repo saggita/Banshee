@@ -107,6 +107,7 @@ private:
 		cl_float3 vNormal;
 		cl_float2 vTex;
 		cl_uint   uMaterialIdx;
+        cl_bool   bHit;
 	};
 
 	struct  __declspec(align(16)) DevPathVertex
@@ -115,6 +116,8 @@ private:
 		cl_float3 vIncidentDir;
 		cl_float4 vRadiance;
 		cl_uint	  uMaterialIdx;
+        cl_float  fDistance;
+        cl_bool   bHit;
 	};
 
 	struct  __declspec(align(16)) DevMaterialRep
@@ -164,7 +167,8 @@ private:
 
     /// EXPERIMENTAL
     cl_kernel           traceExperiments_;
-    cl_mem              traceShadingData_;
+    cl_kernel           directIlluminationKernel_;
+    cl_mem              firstHitBuffer_;
 
 	cl_mem		vertexBuffer_;
 	cl_mem		indexBuffer_;
@@ -189,6 +193,7 @@ private:
     cl_mem pathStartBuffer_;
     cl_mem pathCounterBuffer_;
     cl_mem taskCounterBuffer_;
+    cl_mem firstHitsBuffer_;
 
 	GLuint		glDepthTexture_;
 

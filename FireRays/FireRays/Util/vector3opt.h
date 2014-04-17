@@ -1,10 +1,19 @@
 #ifndef VECTOR3OPT_H
 #define VECTOR3OPT_H
 
+#include <xmmintrin.h>
 #include <smmintrin.h>
+
+#if defined(_MSC_VER)
+#define _ALIGNED_STRUCT(x) __declspec(align(x)) struct
+#define _ALIGNED_CLASS(x) __declspec(align(x)) class
+#else
+#define _ALIGNED_STRUCT(x) struct __attribute__ ((aligned(x)))
+#define _ALIGNED_CLASS(x) class __attribute__ ((aligned(x)))
+#endif
  
 // Simple vector class
-_MM_ALIGN16 class vector3opt
+_ALIGNED_CLASS(16) vector3opt
 {
  public:
   // constructors
@@ -55,8 +64,8 @@ _MM_ALIGN16 class vector3opt
   inline vector3opt normalize() const { return _mm_mul_ps(mmvalue, _mm_rsqrt_ps(_mm_dp_ps(mmvalue, mmvalue, 0x7F))); }
  
   // overloaded operators that ensure alignment
-  inline void* operator new[](size_t x) { return _aligned_malloc(x, 16); }
-  inline void  operator delete[](void* x) { if (x) _aligned_free(x); }
+  inline void* operator new[](size_t x) { return _mm_malloc(x, 16); }
+  inline void  operator delete[](void* x) { if (x) _mm_free(x); }
   inline float operator [](int i) const { return *(&x + i);}
  
   // Member variables

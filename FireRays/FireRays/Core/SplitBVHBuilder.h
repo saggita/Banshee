@@ -89,7 +89,7 @@ private:
 };
 
 
-_MM_ALIGN16 struct SplitBVHBuilder::PrimitiveRef
+_ALIGNED_STRUCT(16) SplitBVHBuilder::PrimitiveRef
 {
     unsigned idx;
     BBox     bbox;
@@ -102,7 +102,7 @@ struct SplitBVHBuilder::SplitDesc
     float    sah;
 };
 
-_MM_ALIGN16 struct SplitBVHBuilder::NodeDesc
+_ALIGNED_STRUCT(16) SplitBVHBuilder::NodeDesc
 {
     PrimitiveRefVector::iterator begin;
     PrimitiveRefVector::iterator end;

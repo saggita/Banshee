@@ -15,7 +15,7 @@
 
 #include "CommonTypes.h"
 
-_MM_ALIGN16 class BBox
+_ALIGNED_CLASS(16) BBox
 {
 public:
     BBox();
@@ -30,8 +30,8 @@ public:
 	int   GetMaxDim() const;
 	float GetSurfaceArea() const;
 
-    inline void* operator new[](size_t x) { return _aligned_malloc(x, 16); }
-    inline void  operator delete[](void* x) { if (x) _aligned_free(x); }
+    inline void* operator new[](size_t x) { return _mm_malloc(x, 16); }
+    inline void  operator delete[](void* x) { if (x) _mm_free(x); }
 
 	vector3opt min;
 	vector3opt max;

@@ -23,6 +23,7 @@
 #include "ReferenceCounter.h"
 #include "ParameterHolder.h"
 #include "CLWBuffer.h"
+#include "CLWImage2D.h"
 #include "CLWEvent.h"
 #include "CLWDevice.h"
 
@@ -35,26 +36,39 @@ public:
 
     static CLWContext Create(std::vector<CLWDevice> const&, cl_context_properties* props = nullptr);
     static CLWContext Create(CLWDevice device, cl_context_properties* props = nullptr);
-    
+
     CLWContext(){}
     virtual                     ~CLWContext();
-    
-    
-    unsigned int                GetDeviceCount() const;
-    CLWDevice  GetDevice(unsigned int idx) const;
-    CLWProgram CreateProgram(std::vector<char> const& sourceCode) const;
 
-    template <typename T> CLWBuffer<T> CreateBuffer(size_t elementCount) const;
+    unsigned int                GetDeviceCount() const;
+    CLWDevice                   GetDevice(unsigned int idx) const;
+    CLWProgram                  CreateProgram(std::vector<char> const& sourceCode) const;
+
+    template <typename T> CLWBuffer<T>  CreateBuffer(size_t elementCount) const;
+    template <typename T> CLWBuffer<T>  CreateBuffer(size_t elementCount, void* data) const;
+
+    CLWImage2D                          CreateImage2DFromGLTexture(cl_GLint texture) const;
+
     template <typename T> CLWEvent  WriteBuffer(unsigned int idx, CLWBuffer<T> buffer, T* const hostBuffer, size_t elemCount) const;
-    template <typename T> CLWEvent  ReadBuffer(unsigned int idx, CLWBuffer<T> buffer, T* hostBuffer, size_t elemCount) const;
-    template <typename T> CLWEvent  ReadBuffer(unsigned int idx, CLWBuffer<T> buffer, T* hostBuffer, size_t offset, size_t elemCount) const;
-    template <typename T> CLWEvent  CopyBuffer(unsigned int idx, CLWBuffer<T> source, CLWBuffer<T> dest, size_t srcOffset, size_t destOffset, size_t elemCount) const;
+    template <typename T> CLWEvent  ReadBuffer(unsigned int idx,  CLWBuffer<T> buffer, T* hostBuffer, size_t elemCount) const;
+    template <typename T> CLWEvent  ReadBuffer(unsigned int idx,  CLWBuffer<T> buffer, T* hostBuffer, size_t offset, size_t elemCount) const;
+    template <typename T> CLWEvent  CopyBuffer(unsigned int idx,  CLWBuffer<T> source, CLWBuffer<T> dest, size_t srcOffset, size_t destOffset, size_t elemCount) const;
+    template <typename T> CLWEvent  MapBuffer(unsigned int idx,  CLWBuffer<T> buffer, T** mappedData) const;
+    template <typename T> CLWEvent  UnmapBuffer(unsigned int idx,  CLWBuffer<T> buffer, T* mappedData) const;
 
     //variadic temporarily disabled due to VS13 requirement 
     //template <unsigned globalSize, unsigned localSize, typename ... Types> void Launch1D(unsigned int idx, cl_kernel kernel, Types ... args);
     CLWEvent Launch1D(unsigned int idx, size_t globalSize, size_t localSize, cl_kernel kernel);
     CLWEvent Launch1D(unsigned int idx, size_t globalSize, size_t localSize, cl_kernel kernel, CLWEvent depEvent);
     CLWEvent Launch1D(unsigned int idx, size_t globalSize, size_t localSize, cl_kernel kernel, std::vector<CLWEvent> const& events);
+
+    CLWEvent Launch2D(unsigned int idx, size_t* globalSize, size_t* localSize, cl_kernel kernel);
+    CLWEvent Launch2D(unsigned int idx, size_t* globalSize, size_t* localSize, cl_kernel kernel, CLWEvent depEvent);
+    CLWEvent Launch2D(unsigned int idx, size_t* globalSize, size_t* localSize, cl_kernel kernel, std::vector<CLWEvent> const& events);
+
+    // GL interop 
+    void AcquireGLObjects(unsigned int idx, std::vector<cl_mem> const& objects) const;
+    void ReleaseGLObjects(unsigned int idx, std::vector<cl_mem> const& objects) const;
 
 private:
     void InitCL();
@@ -70,7 +84,12 @@ private:
 
 template <typename T> CLWBuffer<T> CLWContext::CreateBuffer(size_t elementCount) const
 {
-    return CLWBuffer<T>::Create(elementCount, *this);
+    return CLWBuffer<T>::Create(*this, elementCount);
+}
+
+template <typename T> CLWBuffer<T> CLWContext::CreateBuffer(size_t elementCount, void* data) const
+{
+    return CLWBuffer<T>::Create(*this, elementCount, data);
 }
 
 template <typename T> CLWEvent  CLWContext::WriteBuffer(unsigned int idx, CLWBuffer<T> buffer, T* const hostBuffer, size_t elemCount) const
@@ -115,6 +134,16 @@ template <typename T> CLWEvent  CLWContext::CopyBuffer(unsigned int idx, CLWBuff
     assert(status == CL_SUCCESS);
 
     return CLWEvent::Create(event);
+}
+
+template <typename T> CLWEvent  CLWContext::MapBuffer(unsigned int idx,  CLWBuffer<T> buffer, T** mappedData) const
+{
+    return buffer.MapDeviceBuffer(commandQueues_[idx], mappedData);
+}
+
+template <typename T> CLWEvent  CLWContext::UnmapBuffer(unsigned int idx,  CLWBuffer<T> buffer, T* mappedData) const
+{
+    return buffer.UnmapDeviceBuffer(commandQueues_[idx], mappedData);
 }
 
 

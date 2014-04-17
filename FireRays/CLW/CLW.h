@@ -14,7 +14,7 @@
 #include "CLWDevice.h"
 #include "CLWContext.h"
 #include "CLWCommandQueue.h"
-#include "CLWImage.h"
+#include "CLWImage2D.h"
 #include "CLWBuffer.h"
 #include "CLWProgram.h"
 #include "CLWParallelPrimitives.h"

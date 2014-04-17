@@ -17,7 +17,7 @@ DEFINES
 //#define TRAVERSAL_STACKLESS
 #define TRAVERSAL_STACKED
 //#define LOCAL_STACK
-#define NODE_STACK_SIZE 86
+#define NODE_STACK_SIZE 32
 #define MAX_PATH_LENGTH 3
 
 #define RAY_EPSILON 0.01f
@@ -1300,7 +1300,7 @@ __kernel void DirectIllumination(__global BVHNode*      sBvh,
     textureSys.vTextures = textureBuffer;
 
     int  iId = globalId;
-    int2 iPixelCoords = make_int2(globalId % 800, globalId / 800);
+    int2 iPixelCoords = make_int2(globalId % 400, globalId / 400);
 
     RNG sRNG = CreateRNG((get_global_id(0) + 133)*(uFrameCount + 57));
     PathVertex myVertex = sIntersections[globalId];
@@ -1318,9 +1318,9 @@ __kernel void DirectIllumination(__global BVHNode*      sBvh,
         float fShadow = TraverseBVHStacked(sBvh, uBvhIdxBuffer, sVertices, uIndices, &sRay, &sTempData) ? 0.f : 1.f;
 
         // there is no NdotL term here as it is canceled by cos(Theta)/M_PI pdf
-        // MaterialRep material = materials[myVertex.sShadingData.uMaterialIdx];
-        vRes = fShadow * make_float4(6,6,5,10);
-            //EvaluateMaterialSys(&textureSys, &material, &myVertex.sShadingData, sRay.d, -myVertex.vIncidentDir, make_float4(1,1,1,1)) / M_PI;
+        MaterialRep material = materials[myVertex.sShadingData.uMaterialIdx];
+        //vRes = fShadow * make_float4(6,6,5,10);
+        vRes = fShadow * EvaluateMaterialSys(&textureSys, &material, &myVertex.sShadingData, sRay.d, -myVertex.vIncidentDir, make_float4(10,10,10,10)) / M_PI;
     }
 
     if (uFrameCount)

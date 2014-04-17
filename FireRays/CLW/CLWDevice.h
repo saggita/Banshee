@@ -27,6 +27,7 @@ class CLWPlatform;
 class CLWDevice : public ReferenceCounter<cl_device_id, clRetainDevice, clReleaseDevice>
 {
 public:
+    CLWDevice(){}
     virtual ~CLWDevice();
 
     // Device info

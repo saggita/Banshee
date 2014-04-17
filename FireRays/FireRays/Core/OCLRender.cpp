@@ -41,8 +41,7 @@ GLuint OCLRender::GetOutputTexture() const
 }
 
 OCLRender::OCLRender(cl_platform_id platform)
-    :platform_(platform)
-    , frameCount_(0)
+    : frameCount_(0)
 {
 
 }
@@ -52,38 +51,10 @@ void OCLRender::Init(unsigned width, unsigned height)
     outputSize_.s[0] = width;
     outputSize_.s[1] = height;
 
-    cl_int status = CL_SUCCESS;
-    CHECK_ERROR(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_GPU, 1, &device_, nullptr), "GetDeviceIDs failed");
+    std::vector<CLWPlatform> platforms;
+    CLWPlatform::CreateAllPlatforms(platforms);
 
-    char device_name[2048];
-    clGetDeviceInfo(device_, CL_DEVICE_NAME, 2048, device_name, nullptr);
-    std::cout << "Device detected: " << device_name << "\n";
-
-    size_t workGroupSize = 0;
-    clGetDeviceInfo(device_, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &workGroupSize, nullptr);
-    std::cout << "Max work group size: " << workGroupSize << "\n";
-
-    cl_ulong maxAllocationSize = 0;
-    status = clGetDeviceInfo(device_, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &maxAllocationSize, nullptr);
-    std::cout << "Max mem allocation size: " << maxAllocationSize << "\n";
-
-    clGetDeviceInfo(device_, CL_DEVICE_TYPE, sizeof(deviceType_), &deviceType_, nullptr);
-
-    switch (deviceType_)
-    {
-    case CL_DEVICE_TYPE_CPU:
-        std::cout << "CPU device\n";
-        break;
-    case CL_DEVICE_TYPE_GPU:
-        std::cout << "GPU device\n";
-        break;
-    case CL_DEVICE_TYPE_ACCELERATOR:
-        std::cout << "Accelerator device\n";
-        break;
-    default:
-        std::cout << "Unknown device\n";
-        break;
-    }
+    cl_platform_id platformId = platforms[0];
 
 #ifdef __APPLE__
     CGLContextObj kCGLContext = CGLGetCurrentContext(); // GL Context
@@ -91,7 +62,7 @@ void OCLRender::Init(unsigned width, unsigned height)
     cl_context_properties props[] =
     {
         CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE, (cl_context_properties) kCGLShareGroup, CL_CONTEXT_PLATFORM,
-        (cl_context_properties) platform_,
+        (cl_context_properties) platformId,
         0
     };
 #elif WIN32
@@ -99,68 +70,23 @@ void OCLRender::Init(unsigned width, unsigned height)
         CL_GL_CONTEXT_KHR, (cl_context_properties) wglGetCurrentContext(),
         CL_WGL_HDC_KHR,
         (cl_context_properties) wglGetCurrentDC(),
-        CL_CONTEXT_PLATFORM, (cl_context_properties)platform_, 0
+        CL_CONTEXT_PLATFORM, (cl_context_properties)platformId, 0
     };
 #endif
 
-    context_ = clCreateContext(props, 1, &device_, nullptr, nullptr, &status);
-
-    CHECK_ERROR(status, "Cannot create OpenCL context");
-
-    commandQueue_ = clCreateCommandQueue(context_, device_, CL_QUEUE_PROFILING_ENABLE, &status);
-
-    CHECK_ERROR(status, "Cannot create command queue");
+    device_ = platforms[0].GetDevice(0);
+    context_ = CLWContext::Create(device_, props);
 
     std::vector<char> sourceCode;
     LoadFileContents("../../../FireRays/CL/raytrace.cl", sourceCode);
 
-    char*  programSource = &sourceCode[0];
-    size_t programSize = sourceCode.size();
+    program_ = context_.CreateProgram(sourceCode); 
 
-    program_ = clCreateProgramWithSource(context_, 1, (const char**)&programSource, &programSize, &status);
-    CHECK_ERROR(status, "Cannnot create program from raytrace.cl");
-
-    const char* buildOptions
-#ifdef __APPLE__
-        = "-D OCLAPPLE";
-#elif WIN32
-        = "";
-#else
-        = "";
-#endif
-
-    if (clBuildProgram(program_, 1, &device_, buildOptions, nullptr, nullptr) < 0)
-    {
-        std::vector<char> buildLog;
-        size_t logSize;
-        clGetProgramBuildInfo(program_, device_, CL_PROGRAM_BUILD_LOG, 0, nullptr, &logSize);
-
-        buildLog.resize(logSize);
-        clGetProgramBuildInfo(program_, device_, CL_PROGRAM_BUILD_LOG, logSize, &buildLog[0], nullptr);
-
-        throw std::runtime_error(&buildLog[0]);
-    };
-    
-    pathGenerationKernel_ = clCreateKernel(program_, "GeneratePath", &status);
-    CHECK_ERROR(status, "Cannot create GeneratePath kernel");
-    
-    pathTraceKernel_ = clCreateKernel(program_, "TracePath", &status);
-    CHECK_ERROR(status, "Cannot create TracePath kernel");
-
-    pathShadeAndExportKernel_ = clCreateKernel(program_, "ShadeAndExport", &status);
-    CHECK_ERROR(status, "Cannot create shade kernel");
-
-    traceExperiments_ = clCreateKernel(program_, "TraceExperiments", &status);
-    CHECK_ERROR(status, "Cannot create trace experiments kernel");
-
-    directIlluminationKernel_ = clCreateKernel(program_, "DirectIllumination", &status);
-    CHECK_ERROR(status, "Cannot create direct illumibation kernel");
-    
     BVH bvh;
     SplitBVHBuilder builder(GetScene()->GetVertices(), GetScene()->GetVertexCount(), GetScene()->GetIndices(), GetScene()->GetIndexCount(), GetScene()->GetMaterials(), 128U, 1.f, 1.f);
     //LinearBVHBuilder builder(GetScene()->GetVertices(), GetScene()->GetVertexCount(), GetScene()->GetIndices(), GetScene()->GetIndexCount(), GetScene()->GetMaterials());
     builder.SetBVH(&bvh);
-    
+
     static auto prevTime = std::chrono::high_resolution_clock::now();
 
     builder.Build();
@@ -169,7 +95,7 @@ void OCLRender::Init(unsigned width, unsigned height)
 	auto deltaTime   = std::chrono::duration_cast<std::chrono::duration<double> >(currentTime - prevTime);
     
     std::cout << "\nBVH building time " << deltaTime.count() << " secs\n";
-    
+
     OCLBVHBackEnd backEnd(bvh);
     backEnd.Generate();
 
@@ -191,8 +117,7 @@ void OCLRender::Init(unsigned width, unsigned height)
         vertices[i].vTex.s[1] = sceneVertices[i].texcoord.y();
     };
 
-    vertexBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevVertex) * vertices.size(), (void*)&vertices[0], &status);
-    CHECK_ERROR(status, "Cannot create vertex buffer");
+    vertexBuffer_ = context_.CreateBuffer<DevVertex>(vertices.size(), &vertices[0]);
 
     std::vector<cl_uint4> triangles(builder.GetPrimitiveCount());
     std::vector<cl_uint>  areaLights;
@@ -209,8 +134,7 @@ void OCLRender::Init(unsigned width, unsigned height)
             areaLights.push_back(i);
     }
 
-    indexBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint4) * triangles.size(), (void*)&triangles[0], &status);
-    CHECK_ERROR(status, "Cannot create index buffer");
+    indexBuffer_ = context_.CreateBuffer<cl_uint4>(triangles.size(), &triangles[0]);
 
     std::vector<DevBVHNode> nodes(backEnd.GetNodeCount());
     OCLBVHBackEnd::Node const* accelNodes = backEnd.GetNodes();
@@ -230,11 +154,9 @@ void OCLRender::Init(unsigned width, unsigned height)
         nodes[i].uPrimCount = accelNodes[i].primCount;
     }
 
-    bvhBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR , nodes.size() * sizeof(DevBVHNode), (void*)&nodes[0], &status);
-    CHECK_ERROR(status, "Cannot create BVH node buffer");
+    bvhBuffer_ = context_.CreateBuffer<DevBVHNode>(nodes.size(), &nodes[0]);
 
-    configBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(configData_), nullptr, &status);
-    CHECK_ERROR(status, "Cannot create parameter buffer");
+    configBuffer_ = context_.CreateBuffer<DevConfig>(1);
 
     glActiveTexture(GL_TEXTURE0);
     glGenTextures(1, &glDepthTexture_);
@@ -247,53 +169,12 @@ void OCLRender::Init(unsigned width, unsigned height)
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F_ARB, outputSize_.s[0], outputSize_.s[1], 0, GL_RGBA, GL_FLOAT, nullptr);
 
-    outputDepthTexture_ = clCreateFromGLTexture(context_, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, glDepthTexture_, &status);
-    CHECK_ERROR(status, "Cannot create interop texture");
+    outputDepthTexture_ = context_.CreateImage2DFromGLTexture(glDepthTexture_);
 
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    std::vector<DevPointLight> pointLights;
 
-    DevPointLight light;
-    light.vPos.s[0] = 0.f;
-    light.vPos.s[1] = 9.f;
-    light.vPos.s[2] = 0.f;
-    light.vPos.s[3] = 0.f;
-
-    light.vColor.s[0] = 2.7f;
-    light.vColor.s[1] = 2.7f;
-    light.vColor.s[2] = 2.7f;
-    light.vColor.s[3] = 0.f;
-
-    pointLights.push_back(light);
-
-    //DevPointLight light;
-    light.vPos.s[0] = 1.f;
-    light.vPos.s[1] = 2.f;
-    light.vPos.s[2] = 1.f;
-    light.vPos.s[3] = 0.f;
-
-    light.vColor.s[0] = 1.5f;
-    light.vColor.s[1] = 1.5f;
-    light.vColor.s[2] = 1.5f;
-    light.vColor.s[3] = 0.f;
-
-    pointLights.push_back(light);
-
-    pointLights_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevPointLight) * pointLights.size(), (void*)&pointLights[0],&status);
-    CHECK_ERROR(status, "Cannot create lights buffer");
-
-    std::vector<cl_float> randomBuffer(RANDOM_BUFFER_SIZE);
-    std::generate(randomBuffer.begin(), randomBuffer.end(), rand_float);
-
-    randomBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR , RANDOM_BUFFER_SIZE * sizeof(cl_float), (void*)&randomBuffer[0], &status);
-    CHECK_ERROR(status, "Cannot create random buffer");
-
-    pathBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, MAX_PATH_LENGTH * sizeof(DevPathVertex) * outputSize_.s[0] * outputSize_.s[1], nullptr, &status);
-    CHECK_ERROR(status, "Cannot create path buffer");
-
-    intermediateBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_float4) * outputSize_.s[0] * outputSize_.s[1], nullptr, &status);
-    CHECK_ERROR(status, "Cannot create intermediate buffer");
+    intermediateBuffer_ = context_.CreateBuffer<cl_float4>(outputSize_.s[0] * outputSize_.s[1]);
 
     std::vector<DevMaterialRep> materials(GetScene()->GetMaterialRepCount());
 
@@ -321,30 +202,13 @@ void OCLRender::Init(unsigned width, unsigned height)
         materials[i].uTd = sceneMaterials[i].uTd;
     }
 
-    materialBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(DevMaterialRep) * materials.size(), (void*)&materials[0], &status);
-    CHECK_ERROR(status, "Cannot create material buffer");
-
-    textureBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(cl_float) * TEXTURE_BUFFER_SIZE, nullptr, &status);
-    CHECK_ERROR(status, "Cannot create texture buffer");
-
-    textureDescBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY, sizeof(DevTextureDesc) * MAX_TEXTURE_HANDLES, nullptr, &status);
-    CHECK_ERROR(status, "Cannot create texture handles buffer");
-
-    areaLightsBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint) * MAX_AREA_LIGHTS, &areaLights[0], &status);
-    CHECK_ERROR(status, "Cannot create area lights buffer");
-    
-    /// new architecture
-    pathStartBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(DevPathStart) * outputSize_.s[0] * outputSize_.s[1], NULL, &status);
-    CHECK_ERROR(status, "Cannot create path start buffer");
-    
-    taskCounterBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(cl_int), NULL, &status);
-    CHECK_ERROR(status, "Cannot create task counter buffer");
-
-    bvhIndicesBuffer_ = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint) * bvh.GetPrimitiveIndexCount(), (void*)bvh.GetPrimitiveIndices(), &status);
-    CHECK_ERROR(status, "Cannot create area lights buffer");
-
-    firstHitBuffer_ = clCreateBuffer(context_, CL_MEM_READ_WRITE, sizeof(DevPathVertex) * width * height, nullptr, &status);
-    CHECK_ERROR(status, "Cannot create first hit data buffer");
+    materialBuffer_     = context_.CreateBuffer<DevMaterialRep>(materials.size(), &materials[0]);
+    textureBuffer_      = context_.CreateBuffer<cl_float>(TEXTURE_BUFFER_SIZE);
+    textureDescBuffer_  = context_.CreateBuffer<DevTextureDesc>(MAX_TEXTURE_HANDLES);
+    areaLightsBuffer_   = context_.CreateBuffer<cl_uint>(MAX_AREA_LIGHTS, &areaLights[0]);
+    pathStartBuffer_    = context_.CreateBuffer<DevPathStart>(outputSize_.s[0] * outputSize_.s[1]);
+    bvhIndicesBuffer_   = context_.CreateBuffer<cl_uint>(bvh.GetPrimitiveIndexCount(), (void*)bvh.GetPrimitiveIndices());
+    firstHitBuffer_     = context_.CreateBuffer<DevPathVertex>(outputSize_.s[0] * outputSize_.s[1]);
 }
 
 void OCLRender::Commit()
@@ -376,7 +240,7 @@ void OCLRender::Commit()
 
     configData_.uNumAreaLights = 2;
 
-    CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, configBuffer_, CL_FALSE, 0, sizeof(configData_), &configData_, 0, nullptr, nullptr), "Cannot update param buffer");
+    context_.WriteBuffer(0, configBuffer_, &configData_, 1).Wait();
 
     if (TexturesDirty())
     {
@@ -387,35 +251,7 @@ void OCLRender::Commit()
 
 OCLRender::~OCLRender()
 {
-    /// TODO: implement RAII for CL objects
     glDeleteTextures(1, &glDepthTexture_);
-
-    clReleaseMemObject(firstHitBuffer_);
-    clReleaseMemObject(bvhIndicesBuffer_);
-    clReleaseMemObject(taskCounterBuffer_);
-    clReleaseMemObject(pathStartBuffer_);
-    clReleaseMemObject(areaLightsBuffer_);
-    clReleaseMemObject(textureBuffer_);
-    clReleaseMemObject(textureDescBuffer_);
-    clReleaseMemObject(materialBuffer_);
-    clReleaseMemObject(intermediateBuffer_);
-    clReleaseMemObject(pathBuffer_);
-    clReleaseMemObject(randomBuffer_);
-    clReleaseMemObject(outputDepthTexture_);
-    clReleaseMemObject(pointLights_);
-    clReleaseMemObject(vertexBuffer_);
-    clReleaseMemObject(indexBuffer_);
-    clReleaseMemObject(bvhBuffer_);
-    clReleaseMemObject(configBuffer_);
-    clReleaseContext(context_);
-    clReleaseProgram(program_);
-    clReleaseCommandQueue(commandQueue_);
-
-    clReleaseKernel(directIlluminationKernel_);
-    clReleaseKernel(traceExperiments_);
-    clReleaseKernel(pathShadeAndExportKernel_);
-    clReleaseKernel(pathGenerationKernel_);
-    clReleaseKernel(pathTraceKernel_);
 }
 
 void OCLRender::Render()
@@ -423,13 +259,15 @@ void OCLRender::Render()
     cl_event kernelExecutionEvent1, kernelExecutionEvent2, kernelExecutionEvent3, kernelExecutionEvent4, kernelExecutionEvent5;
 
     glFinish();
-    cl_mem gl_objects[] = {outputDepthTexture_};
+   
+    std::vector<cl_mem> glObjects;
+    glObjects.push_back(outputDepthTexture_);
 
-    CHECK_ERROR(clEnqueueAcquireGLObjects(commandQueue_, 1, gl_objects, 0,0,0), "Cannot acquire OpenGL objects");
+    context_.AcquireGLObjects(0, glObjects);
 
     size_t localWorkSize[2];
 
-    if (deviceType_ == CL_DEVICE_TYPE_CPU)
+    if (device_.GetType() == CL_DEVICE_TYPE_CPU)
     {
         localWorkSize[0] = localWorkSize[1] = 1;
     }
@@ -445,98 +283,128 @@ void OCLRender::Render()
     
     // new architecture
     {
-        CHECK_ERROR(clSetKernelArg(pathGenerationKernel_, 0, sizeof(cl_mem), &configBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathGenerationKernel_, 1, sizeof(cl_mem), &pathStartBuffer_), "SetKernelArg failed");
-        
-        cl_int status = clEnqueueNDRangeKernel(commandQueue_, pathGenerationKernel_, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, &kernelExecutionEvent1);
-        CHECK_ERROR(status, "Path generation kernel launch failed");
+        CLWKernel pathGenerationKernel = program_.GetKernel("GeneratePath");
+        pathGenerationKernel.SetArg(0, configBuffer_);
+        pathGenerationKernel.SetArg(1, pathStartBuffer_);
 
+        context_.Launch2D(0, globalWorkSize, localWorkSize, pathGenerationKernel); 
+
+        //std::vector<DevPathStart> hPathStart(outputSize_.s[0] * outputSize_.s[1]);
+        //context_.ReadBuffer(0, pathStartBuffer_, &hPathStart[0], hPathStart.size()).Wait();
+
+        //cl_int status = clEnqueueNDRangeKernel(commandQueue_, pathGenerationKernel_, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, &kernelExecutionEvent1);
+        //CHECK_ERROR(status, "Path generation kernel launch failed");
+        
         int numTasks = outputSize_.s[0] * outputSize_.s[1];
 
         size_t localWorkSize1 = 64;
         size_t globalWorkSize1 = 32 * 40 * localWorkSize1;
 
-        cl_int initialTaskCount = globalWorkSize1;
-        CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, taskCounterBuffer_, CL_FALSE, 0, sizeof(cl_int), &initialTaskCount, 0, nullptr, nullptr), "Cannot update task counter buffer");
+        //cl_int initialTaskCount = globalWorkSize1;
+        //CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, taskCounterBuffer_, CL_FALSE, 0, sizeof(cl_int), &initialTaskCount, 0, nullptr, nullptr), "Cannot update task counter buffer");
 
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 0, sizeof(cl_mem), &configBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 1, sizeof(cl_mem), &pathStartBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 2, sizeof(cl_mem), &bvhBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 3, sizeof(cl_mem), &bvhIndicesBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 4, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 5, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 6, sizeof(cl_mem), &materialBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 7, sizeof(cl_mem), &areaLightsBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 8, sizeof(cl_mem), &textureDescBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 9, sizeof(cl_mem), &textureBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 10, sizeof(cl_mem), &pathBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 11, sizeof(cl_mem), &taskCounterBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 12, sizeof(cl_int), &numTasks), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 0, sizeof(cl_mem), &configBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 1, sizeof(cl_mem), &pathStartBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 2, sizeof(cl_mem), &bvhBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 3, sizeof(cl_mem), &bvhIndicesBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 4, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 5, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 6, sizeof(cl_mem), &materialBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 7, sizeof(cl_mem), &areaLightsBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 8, sizeof(cl_mem), &textureDescBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 9, sizeof(cl_mem), &textureBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 10, sizeof(cl_mem), &pathBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 11, sizeof(cl_mem), &taskCounterBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathTraceKernel_, 12, sizeof(cl_int), &numTasks), "SetKernelArg failed");
         
         //status = clEnqueueNDRangeKernel(commandQueue_, pathTraceKernel_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent2);
-        CHECK_ERROR(status, "Path tracing kernel launch failed");
+        //CHECK_ERROR(status, "Path tracing kernel launch failed");
 
-        CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, taskCounterBuffer_, CL_FALSE, 0, sizeof(cl_int), &initialTaskCount, 0, nullptr, nullptr), "Cannot update task counter buffer");
+        //CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, taskCounterBuffer_, CL_FALSE, 0, sizeof(cl_int), &initialTaskCount, 0, nullptr, nullptr), "Cannot update task counter buffer");
 
-        CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 0, sizeof(cl_mem), &configBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 1, sizeof(cl_mem), &bvhBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 2, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 3, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 4, sizeof(cl_mem), &pathStartBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 5, sizeof(cl_mem), &materialBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 6, sizeof(cl_mem), &textureDescBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 7, sizeof(cl_mem), &textureBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 8, sizeof(cl_mem), &areaLightsBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 9, sizeof(cl_mem), &pathBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 10, sizeof(cl_mem), &intermediateBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 11, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 12, sizeof(cl_mem), &taskCounterBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 13, sizeof(cl_int), &numTasks), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 0, sizeof(cl_mem), &configBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 1, sizeof(cl_mem), &bvhBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 2, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 3, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 4, sizeof(cl_mem), &pathStartBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 5, sizeof(cl_mem), &materialBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 6, sizeof(cl_mem), &textureDescBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 7, sizeof(cl_mem), &textureBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 8, sizeof(cl_mem), &areaLightsBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 9, sizeof(cl_mem), &pathBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 10, sizeof(cl_mem), &intermediateBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 11, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 12, sizeof(cl_mem), &taskCounterBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(pathShadeAndExportKernel_, 13, sizeof(cl_int), &numTasks), "SetKernelArg failed");
 
         //status = clEnqueueNDRangeKernel(commandQueue_, pathShadeAndExportKernel_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent3);
-        CHECK_ERROR(status, "Shade kernel launch failed");
+        //CHECK_ERROR(status, "Shade kernel launch failed");
 
-        CHECK_ERROR(clSetKernelArg(traceExperiments_, 0, sizeof(cl_mem), &pathStartBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(traceExperiments_, 1, sizeof(cl_mem), &bvhBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(traceExperiments_, 2, sizeof(cl_mem), &bvhIndicesBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(traceExperiments_, 3, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(traceExperiments_, 4, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(traceExperiments_, 5, sizeof(cl_mem), &firstHitBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(traceExperiments_, 0, sizeof(cl_mem), &pathStartBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(traceExperiments_, 1, sizeof(cl_mem), &bvhBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(traceExperiments_, 2, sizeof(cl_mem), &bvhIndicesBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(traceExperiments_, 3, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(traceExperiments_, 4, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(traceExperiments_, 5, sizeof(cl_mem), &firstHitBuffer_), "SetKernelArg failed");
+
+        CLWKernel firstHitKernel = program_.GetKernel("TraceExperiments");
+        firstHitKernel.SetArg(0, pathStartBuffer_);
+        firstHitKernel.SetArg(1, bvhBuffer_);
+        firstHitKernel.SetArg(2, bvhIndicesBuffer_);
+        firstHitKernel.SetArg(3, vertexBuffer_);
+        firstHitKernel.SetArg(4, indexBuffer_);
+        firstHitKernel.SetArg(5, firstHitBuffer_);
 
         localWorkSize1 = 64;
         globalWorkSize1 = configData_.uOutputHeight * configData_.uOutputWidth;
-        status = clEnqueueNDRangeKernel(commandQueue_, traceExperiments_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent4);
-        CHECK_ERROR(status, "Shade kernel launch failed");
+        context_.Launch1D(0, globalWorkSize1, localWorkSize1, firstHitKernel);
 
-        CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 0, sizeof(cl_mem), &bvhBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 1, sizeof(cl_mem), &bvhIndicesBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 2, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 3, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 4, sizeof(cl_mem), &firstHitBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 5, sizeof(cl_mem), &materialBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 6, sizeof(cl_mem), &textureDescBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 7, sizeof(cl_mem), &textureBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 8, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 9, sizeof(cl_mem), &intermediateBuffer_), "SetKernelArg failed");
-        CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 10, sizeof(cl_uint), &frameCount_), "SetKernelArg failed");
-        status = clEnqueueNDRangeKernel(commandQueue_, directIlluminationKernel_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent5);
-        CHECK_ERROR(status, "Shade kernel launch failed");
+        CLWKernel directIlluminationKernel = program_.GetKernel("DirectIllumination");
+
+        directIlluminationKernel.SetArg(0, bvhBuffer_);
+        directIlluminationKernel.SetArg(1, bvhIndicesBuffer_);
+        directIlluminationKernel.SetArg(2, vertexBuffer_);
+        directIlluminationKernel.SetArg(3, indexBuffer_);
+        directIlluminationKernel.SetArg(4, firstHitBuffer_);
+        directIlluminationKernel.SetArg(5, materialBuffer_);
+        directIlluminationKernel.SetArg(6, textureDescBuffer_);
+        directIlluminationKernel.SetArg(7, textureBuffer_);
+        directIlluminationKernel.SetArg(8, outputDepthTexture_);
+        directIlluminationKernel.SetArg(9, intermediateBuffer_);
+        directIlluminationKernel.SetArg(10, frameCount_);
+
+        //CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 0, sizeof(cl_mem), &bvhBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 1, sizeof(cl_mem), &bvhIndicesBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 2, sizeof(cl_mem), &vertexBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 3, sizeof(cl_mem), &indexBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 4, sizeof(cl_mem), &firstHitBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 5, sizeof(cl_mem), &materialBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 6, sizeof(cl_mem), &textureDescBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 7, sizeof(cl_mem), &textureBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 8, sizeof(cl_mem), &outputDepthTexture_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 9, sizeof(cl_mem), &intermediateBuffer_), "SetKernelArg failed");
+        //CHECK_ERROR(clSetKernelArg(directIlluminationKernel_, 10, sizeof(cl_uint), &frameCount_), "SetKernelArg failed");
+        //status = clEnqueueNDRangeKernel(commandQueue_, directIlluminationKernel_, 1, nullptr, &globalWorkSize1, &localWorkSize1, 0, nullptr, &kernelExecutionEvent5);
+        //CHECK_ERROR(status, "Shade kernel launch failed");
+        context_.Launch1D(0, globalWorkSize1, localWorkSize1, directIlluminationKernel);
     }
 
-    CHECK_ERROR(clEnqueueReleaseGLObjects(commandQueue_, 1, gl_objects, 0,0,0), "Cannot release OpenGL objects");
+    context_.ReleaseGLObjects(0, glObjects);
 
-    CHECK_ERROR(clFinish(commandQueue_), "Cannot flush command queue");
+    //CHECK_ERROR(clEnqueueReleaseGLObjects(commandQueue_, 1, gl_objects, 0,0,0), "Cannot release OpenGL objects");
+
+    //CHECK_ERROR(clFinish(commandQueue_), "Cannot flush command queue");
 
     //CHECK_ERROR(clWaitForEvents(1, &kernelExecutionEvent), "Wait for events failed");
 
-    cl_ulong startTime, endTime;
-    double totalTime;
+    //cl_ulong startTime, endTime;
+    //double totalTime;
 
-    clGetEventProfilingInfo(kernelExecutionEvent1, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
-    clGetEventProfilingInfo(kernelExecutionEvent1, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
-    totalTime = (double)(endTime - startTime)/1000000.0;
+    //clGetEventProfilingInfo(kernelExecutionEvent1, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
+    //clGetEventProfilingInfo(kernelExecutionEvent1, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
+    //totalTime = (double)(endTime - startTime)/1000000.0;
 
-    std::cout << "Ray generation time " << totalTime << " msec\n";
+    //std::cout << "Ray generation time " << totalTime << " msec\n";
 
     //clGetEventProfilingInfo(kernelExecutionEvent2, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
     //clGetEventProfilingInfo(kernelExecutionEvent2, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
@@ -548,17 +416,17 @@ void OCLRender::Render()
     //clGetEventProfilingInfo(kernelExecutionEvent3, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
     //totalTime = (double)(endTime - startTime)/1000000.0;
 
-    clGetEventProfilingInfo(kernelExecutionEvent4, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
-    clGetEventProfilingInfo(kernelExecutionEvent4, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
-    totalTime = (double)(endTime - startTime)/1000000.0;
+    //clGetEventProfilingInfo(kernelExecutionEvent4, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
+    //clGetEventProfilingInfo(kernelExecutionEvent4, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
+    //totalTime = (double)(endTime - startTime)/1000000.0;
 
-    std::cout << "Primary path tracing " << totalTime << " msec\n";
+    //std::cout << "Primary path tracing " << totalTime << " msec\n";
 
-    clGetEventProfilingInfo(kernelExecutionEvent5, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
-    clGetEventProfilingInfo(kernelExecutionEvent5, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
-    totalTime = (double)(endTime - startTime)/1000000.0;
+    //clGetEventProfilingInfo(kernelExecutionEvent5, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
+    //clGetEventProfilingInfo(kernelExecutionEvent5, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
+    //totalTime = (double)(endTime - startTime)/1000000.0;
 
-    std::cout << "Shading time " << totalTime << " msec\n";
+    //std::cout << "Shading time " << totalTime << " msec\n";
 
     ++frameCount_;
 }
@@ -573,8 +441,12 @@ void OCLRender::CompileTextures()
     cl_int status = CL_SUCCESS;
     std::vector<DevTextureDesc> textureDescs;
 
-    float* data = (float*)clEnqueueMapBuffer(commandQueue_, textureBuffer_, CL_TRUE, CL_MAP_WRITE, 0, TEXTURE_BUFFER_SIZE * sizeof(cl_float), 0, nullptr, nullptr, &status);
-    CHECK_ERROR(status, "Cannot map buffer");
+    float* data = nullptr;
+    context_.MapBuffer(0, textureBuffer_, &data).Wait();
+
+
+    //(float*)clEnqueueMapBuffer(commandQueue_, textureBuffer_, CL_TRUE, CL_MAP_WRITE, 0, TEXTURE_BUFFER_SIZE * sizeof(cl_float), 0, nullptr, nullptr, &status);
+    //CHECK_ERROR(status, "Cannot map buffer");
 
     unsigned offset = 0;
 
@@ -598,9 +470,12 @@ void OCLRender::CompileTextures()
         textureDescs.push_back(desc);
     }
 
-    CHECK_ERROR(clEnqueueUnmapMemObject(commandQueue_, textureBuffer_, data, 0, nullptr, nullptr), "Cannot unmap buffer");
+    context_.UnmapBuffer(0, textureBuffer_, data);
 
-    CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, textureDescBuffer_, CL_TRUE, 0, sizeof(DevTextureDesc) * textureDescs.size(), &textureDescs[0], 0, nullptr, nullptr), "Cannot update texture desc buffer");
+    //CHECK_ERROR(clEnqueueUnmapMemObject(commandQueue_, textureBuffer_, data, 0, nullptr, nullptr), "Cannot unmap buffer");
+
+    //CHECK_ERROR(clEnqueueWriteBuffer(commandQueue_, textureDescBuffer_, CL_TRUE, 0, sizeof(DevTextureDesc) * textureDescs.size(), &textureDescs[0], 0, nullptr, nullptr), "Cannot update texture desc buffer");
+    context_.WriteBuffer(0, textureDescBuffer_, &textureDescs[0], textureDescs.size()).Wait();
 
     configData_.uTextureCount = static_cast<unsigned>(textureDescs.size());
 

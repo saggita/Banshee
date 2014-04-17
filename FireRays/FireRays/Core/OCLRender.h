@@ -22,6 +22,7 @@
 #include "GLUT/GLUT.h"
 #endif
 
+#include "../../CLW/CLW.h"
 #include "Common.h"
 #include "RenderBase.h"
 #include "CommonTypes.h"
@@ -157,43 +158,26 @@ private:
     };
 
 
-	cl_platform_id      platform_;
-	cl_device_id        device_;
-	cl_device_type      deviceType_;
-	cl_context          context_;
-	cl_command_queue    commandQueue_;
-	cl_program          program_;
-	cl_kernel           traceDepthKernel_;
+    CLWDevice  device_;
+    CLWContext context_;
+    CLWProgram program_;
 
-    /// EXPERIMENTAL
-    cl_kernel           traceExperiments_;
-    cl_kernel           directIlluminationKernel_;
-    cl_mem              firstHitBuffer_;
+    CLWBuffer<DevPathVertex> firstHitBuffer_;
+    CLWBuffer<DevVertex>	vertexBuffer_;
+    CLWBuffer<cl_uint4>		indexBuffer_;
+    CLWBuffer<DevBVHNode>	bvhBuffer_;
+    CLWBuffer<DevConfig>	configBuffer_;
+    CLWImage2D	            outputDepthTexture_;
+    CLWBuffer<cl_float4>     intermediateBuffer_;
 
-	cl_mem		vertexBuffer_;
-	cl_mem		indexBuffer_;
-	cl_mem		bvhBuffer_;
-	cl_mem		configBuffer_;
-	cl_mem		outputDepthTexture_;
-	cl_mem      pointLights_;
-	cl_mem      randomBuffer_;
-	cl_mem      pathBuffer_;
-	cl_mem      intermediateBuffer_;
-	cl_mem		materialBuffer_;
-    cl_mem      textureBuffer_;
-    cl_mem      textureDescBuffer_;
-	cl_mem      areaLightsBuffer_;
-    cl_mem      bvhIndicesBuffer_;
-    
-    
-    /// new architecture
-    cl_kernel pathGenerationKernel_;
-    cl_kernel pathTraceKernel_;
-    cl_kernel pathShadeAndExportKernel_;
-    cl_mem pathStartBuffer_;
-    cl_mem pathCounterBuffer_;
-    cl_mem taskCounterBuffer_;
-    cl_mem firstHitsBuffer_;
+
+    CLWBuffer<DevMaterialRep>  materialBuffer_;
+    CLWBuffer<cl_float>       textureBuffer_;
+    CLWBuffer<DevTextureDesc>  textureDescBuffer_;
+    CLWBuffer<cl_uint>         areaLightsBuffer_;
+    CLWBuffer<uint>            bvhIndicesBuffer_;
+
+    CLWBuffer<DevPathStart> pathStartBuffer_;
 
 	GLuint		glDepthTexture_;
 

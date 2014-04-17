@@ -1,5 +1,7 @@
 #include "CLWImage2D.h" 
 
+#include "GLUT\GLUT.h"
+
 CLWImage2D CLWImage2D::Create(cl_context context, cl_image_format const* imgFormat, size_t width, size_t height, size_t rowPitch)
 {
     cl_int status = CL_SUCCESS;

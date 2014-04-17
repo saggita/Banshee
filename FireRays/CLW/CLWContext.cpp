@@ -80,7 +80,47 @@ CLWEvent CLWContext::Launch1D(unsigned int idx, size_t globalSize, size_t localS
     for (unsigned i = 0; i < events.size(); ++i)
         eventsToWait[i] = events[i];
 
-    status = clEnqueueNDRangeKernel(commandQueues_[idx], kernel, 1, nullptr, &wgGlobalSize, &wgLocalSize, (cl_uint)eventsToWait.size(), &eventsToWait[0], &event);
+    status = clEnqueueNDRangeKernel(commandQueues_[idx], kernel, 2, nullptr, &wgGlobalSize, &wgLocalSize, (cl_uint)eventsToWait.size(), &eventsToWait[0], &event);
+    assert(status == CL_SUCCESS);
+
+    return CLWEvent::Create(event);
+}
+
+CLWEvent CLWContext::Launch2D(unsigned int idx, size_t* globalSize, size_t* localSize, cl_kernel kernel)
+{
+    cl_int status = CL_SUCCESS;
+    cl_event event = nullptr;
+
+    status = clEnqueueNDRangeKernel(commandQueues_[idx], kernel, 2, nullptr, globalSize, localSize, 0, nullptr, &event);
+    assert(status == CL_SUCCESS);
+
+    return CLWEvent::Create(event);
+}
+
+CLWEvent CLWContext::Launch2D(unsigned int idx, size_t* globalSize, size_t* localSize, cl_kernel kernel, CLWEvent depEvent)
+{
+    cl_int status = CL_SUCCESS;
+    cl_event event = nullptr;
+    cl_event eventToWait = depEvent;
+
+    status = clEnqueueNDRangeKernel(commandQueues_[idx], kernel, 2, nullptr, globalSize, localSize, 1, &eventToWait, &event);
+    assert(status == CL_SUCCESS);
+
+    return CLWEvent::Create(event);
+
+}
+
+CLWEvent CLWContext::Launch2D(unsigned int idx, size_t* globalSize, size_t* localSize, cl_kernel kernel, std::vector<CLWEvent> const& events)
+{
+    cl_int status = CL_SUCCESS;
+    cl_event event = nullptr;
+
+    std::vector<cl_event> eventsToWait(events.size());
+
+    for (unsigned i = 0; i < events.size(); ++i)
+        eventsToWait[i] = events[i];
+
+    status = clEnqueueNDRangeKernel(commandQueues_[idx], kernel, 1, nullptr, globalSize, localSize, (cl_uint)eventsToWait.size(), &eventsToWait[0], &event);
     assert(status == CL_SUCCESS);
 
     return CLWEvent::Create(event);
@@ -141,4 +181,21 @@ CLWProgram CLWContext::CreateProgram(std::vector<char> const& sourceCode) const
     return CLWProgram::CreateFromSource(sourceCode, *this);
 }
 
+CLWImage2D CLWContext::CreateImage2DFromGLTexture(cl_GLint texture) const
+{
+    return CLWImage2D::CreateFromGLTexture(*this, texture);
+}
 
+void CLWContext::AcquireGLObjects(unsigned int idx, std::vector<cl_mem> const& objects) const
+{
+    cl_int status = clEnqueueAcquireGLObjects(commandQueues_[idx], objects.size(), &objects[0], 0,0,0);
+
+    assert (status == CL_SUCCESS);
+}
+
+void CLWContext::ReleaseGLObjects(unsigned int idx, std::vector<cl_mem> const& objects) const
+{
+    cl_int status = clEnqueueReleaseGLObjects(commandQueues_[idx], objects.size(), &objects[0], 0,0,0);
+
+    assert (status == CL_SUCCESS);
+}

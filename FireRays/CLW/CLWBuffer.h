@@ -29,7 +29,9 @@
 template <typename T> class CLWBuffer : public ReferenceCounter<cl_mem, clRetainMemObject, clReleaseMemObject>
 {
 public:
-    static CLWBuffer<T> Create(size_t elementCount, cl_context context);
+    static CLWBuffer<T> Create(cl_context context, size_t elementCount);
+    static CLWBuffer<T> Create(cl_context context, size_t elementCount, void* data);
+
     CLWBuffer(){}
     virtual ~CLWBuffer();
     
@@ -44,7 +46,9 @@ private:
     CLWEvent WriteDeviceBuffer(CLWCommandQueue cmdQueue, T const* hostBuffer, size_t elemCount);
     CLWEvent ReadDeviceBuffer(CLWCommandQueue cmdQueue, T* hostBuffer, size_t elemCount);
     CLWEvent ReadDeviceBuffer(CLWCommandQueue cmdQueue, T* hostBuffer, size_t offset, size_t elemCount);
-    
+    CLWEvent MapDeviceBuffer(CLWCommandQueue cmdQueue, T** mappedData);
+    CLWEvent UnmapDeviceBuffer(CLWCommandQueue cmdQueue, T* mappedData);
+
     CLWBuffer(cl_mem buffer, size_t elementCount);
 
     size_t elementCount_;
@@ -52,10 +56,23 @@ private:
     friend class CLWContext;
 };
 
-template <typename T> CLWBuffer<T> CLWBuffer<T>::Create(size_t elementCount, cl_context context)
+template <typename T> CLWBuffer<T> CLWBuffer<T>::Create(cl_context context, size_t elementCount)
 {
     cl_int status = CL_SUCCESS;
     cl_mem deviceBuffer = clCreateBuffer(context, CL_MEM_READ_WRITE, elementCount * sizeof(T), nullptr, &status);
+    
+    assert(status == CL_SUCCESS);
+    CLWBuffer<T> buffer(deviceBuffer, elementCount);
+    
+    clReleaseMemObject(deviceBuffer);
+    
+    return buffer;
+}
+
+template <typename T> CLWBuffer<T> CLWBuffer<T>::Create(cl_context context, size_t elementCount, void* data)
+{
+    cl_int status = CL_SUCCESS;
+    cl_mem deviceBuffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, elementCount * sizeof(T), data, &status);
     
     assert(status == CL_SUCCESS);
     CLWBuffer<T> buffer(deviceBuffer, elementCount);
@@ -104,6 +121,37 @@ template <typename T> CLWEvent CLWBuffer<T>::ReadDeviceBuffer(CLWCommandQueue cm
     cl_event event = nullptr;
     status = clEnqueueReadBuffer(cmdQueue, *this, false, sizeof(T)*offset, sizeof(T)*elemCount, hostBuffer, 0, nullptr, &event);
     
+    assert(status == CL_SUCCESS);
+    // TODO: handle errors
+    return CLWEvent::Create(event);
+}
+
+template <typename T> CLWEvent CLWBuffer<T>::MapDeviceBuffer(CLWCommandQueue cmdQueue, T** mappedData)
+{
+    assert(mappedData);
+
+    cl_int status = CL_SUCCESS;
+    cl_event event = nullptr;
+
+    T* data = (T*)clEnqueueMapBuffer(cmdQueue, *this, false, CL_MAP_WRITE, 0, sizeof(T)*elementCount_, 0, nullptr, &event, &status);
+
+    assert(status == CL_SUCCESS);
+
+    *mappedData = data;
+
+    // TODO: handle errors
+    return CLWEvent::Create(event);
+}
+
+template <typename T> CLWEvent CLWBuffer<T>::UnmapDeviceBuffer(CLWCommandQueue cmdQueue, T* mappedData)
+{
+    assert(mappedData);
+
+    cl_int status = CL_SUCCESS;
+    cl_event event = nullptr;
+
+    status = clEnqueueUnmapMemObject(cmdQueue, *this,  mappedData, 0, nullptr, &event);
+
     assert(status == CL_SUCCESS);
     // TODO: handle errors
     return CLWEvent::Create(event);

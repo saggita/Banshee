@@ -1,6 +1,14 @@
-#include "CLWImage2D.h" 
+#include "CLWImage2D.h"
 
-#include "GLUT\GLUT.h"
+#ifdef __APPLE__
+#include <OpenGL/OpenGL.h>
+#include <GLUT/GLUT.h>
+#elif WIN32
+#define NOMINMAX
+#include <Windows.h>
+#include "GL/glew.h"
+#include "GLUT/GLUT.h"
+#endif
 
 CLWImage2D CLWImage2D::Create(cl_context context, cl_image_format const* imgFormat, size_t width, size_t height, size_t rowPitch)
 {

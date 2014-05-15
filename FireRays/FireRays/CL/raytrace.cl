@@ -17,7 +17,7 @@ DEFINES
 //#define TRAVERSAL_STACKLESS
 #define TRAVERSAL_STACKED
 //#define LOCAL_STACK
-#define NODE_STACK_SIZE 32
+#define NODE_STACK_SIZE 64
 #define MAX_PATH_LENGTH 3
 
 #define RAY_EPSILON 0.01f
@@ -262,34 +262,34 @@ float4 TransformPoint(float16 mWVP, float4 vPoint)
     return vRes;
 }
 
-float4 make_float4(float x, float y, float z, float w)
-{
-    float4 res;
-    res.x = x;
-    res.y = y;
-    res.z = z;
-    res.w = w;
-    return res;
-}
-
-
-float3 make_float3(float x, float y, float z)
-{
-    float3 res;
-    res.x = x;
-    res.y = y;
-    res.z = z;
-    return res;
-}
-
-int2 make_int2(int x, int y)
-{
-    int2 res;
-    res.x = x;
-    res.y = y;
-    return res;
-}
-
+//float4 make_float4(float x, float y, float z, float w)
+//{
+//    float4 res;
+//    res.x = x;
+//    res.y = y;
+//    res.z = z;
+//    res.w = w;
+//    return res;
+//}
+//
+//
+//float3 make_float3(float x, float y, float z)
+//{
+//    float3 res;
+//    res.x = x;
+//    res.y = y;
+//    res.z = z;
+//    return res;
+//}
+//
+//int2 make_int2(int x, int y)
+//{
+//    int2 res;
+//    res.x = x;
+//    res.y = y;
+//    return res;
+//}
+//
 float4 tex2d(SceneData* sSceneData, uint texIdx, float2 uv)
 {
     uv.x -= floor(uv.x);
@@ -1213,8 +1213,8 @@ __kernel void TraceExperiments(__global PathStart*    sPathStartBuffer,
                                __global uint4*        uIndices,
                                __global PathVertex*   sIntersections)
 {
-    //__local uchar bThreadVotes[64];
-    //__local int   iSharedStack[64];
+    __local uchar bThreadVotes[64];
+    __local int   iSharedStack[64];
 
     int globalId  = get_global_id(0);
     int localId   = get_local_id(0);
@@ -1224,7 +1224,8 @@ __kernel void TraceExperiments(__global PathStart*    sPathStartBuffer,
 
     PathVertex  sPathVertex;
     sPathVertex.bHit = TraverseBVHStacked(sBvh, uBvhIdxBuffer, sVertices, uIndices, &r, &sPathVertex.sShadingData);
-
+    //sPathVertex.bHit = TraverseBVHPacket(localId, iSharedStack, bThreadVotes, sBvh, uBvhIdxBuffer, sVertices, uIndices, &r, &sPathVertex.sShadingData);
+    
     sPathVertex.vIncidentDir = r.d;
     sPathVertex.fDistance = r.maxt;
     sIntersections[globalId] = sPathVertex;
@@ -1286,15 +1287,16 @@ __kernel void DirectIllumination(__global BVHNode*      sBvh,
                                  __global MaterialRep*  materials,
                                  __global TextureDesc*  textureDescBuffer,
                                  __global float4*       textureBuffer,
+                                 __global uint*         uAreaLights,
+                                 uint                   uNumAreaLights,
                                  __write_only image2d_t tOutput,
                                  __global float4*       intermediateBuffer,
-                                 uint uFrameCount)
+                                 uint                   uFrameCount)
 {
     
     int globalId  = get_global_id(0);
     int localId   = get_local_id(0);
     int groupSize = get_local_size(0);
-
     TextureSystem textureSys;
     textureSys.sTextureDesc = textureDescBuffer;
     textureSys.vTextures = textureBuffer;
@@ -1308,19 +1310,38 @@ __kernel void DirectIllumination(__global BVHNode*      sBvh,
 
     if (myVertex.bHit)
     {
+        uint i = (uint)(RandFloat(&sRNG) * (uNumAreaLights + 1));
+        if (i == uNumAreaLights) --i;
+        float3 vLightSample, vLightNormal;
+        float fPDF;
+        
+        SampleTriangleUniform(sVertices, uIndices, uAreaLights[i], &sRNG, &vLightSample, &vLightNormal, &fPDF);
+        
+        float3 vLight = normalize(vLightSample - myVertex.sShadingData.vPos);
+        float  fDist = length(vLightSample - myVertex.sShadingData.vPos);
+        
         Ray sRay;
-        sRay.d = GetHemisphereSample(myVertex.sShadingData.vNormal, 1.f, &sRNG);
-        sRay.o = myVertex.sShadingData.vPos + RAY_EPSILON * sRay.d;
-        sRay.maxt = 10000.f;
+        sRay.o = myVertex.sShadingData.vPos + RAY_EPSILON * vLight;
+        sRay.d = vLight;
+        sRay.maxt = (1.f - 2 * RAY_EPSILON) * fDist;
         sRay.mint = 0.f;
+        
+        float fNdotL = dot(myVertex.sShadingData.vNormal, vLight);
+        float fNdotWo = dot(vLightNormal, -vLight);
+        
+        //Ray sRay;
+        //sRay.d = GetHemisphereSample(myVertex.sShadingData.vNormal, 1.f, &sRNG);
+        //sRay.o = myVertex.sShadingData.vPos + RAY_EPSILON * sRay.d;
+        //sRay.maxt = 10000.f;
+        //sRay.mint = 0.f;
 
         ShadingData sTempData;
         float fShadow = TraverseBVHStacked(sBvh, uBvhIdxBuffer, sVertices, uIndices, &sRay, &sTempData) ? 0.f : 1.f;
 
         // there is no NdotL term here as it is canceled by cos(Theta)/M_PI pdf
         MaterialRep material = materials[myVertex.sShadingData.uMaterialIdx];
-        //vRes = fShadow * make_float4(6,6,5,10);
-        vRes = fShadow * EvaluateMaterialSys(&textureSys, &material, &myVertex.sShadingData, sRay.d, -myVertex.vIncidentDir, make_float4(10,10,10,10)) / M_PI;
+        
+        vRes = fShadow * fNdotL * fNdotWo * EvaluateMaterialSys(&textureSys, &material, &myVertex.sShadingData, sRay.d, -myVertex.vIncidentDir, make_float4(0.7,0.7,0.7,0.7)) / (fDist * fDist * fPDF);
     }
 
     if (uFrameCount)

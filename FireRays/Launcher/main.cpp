@@ -30,10 +30,11 @@
 #include "QuatCamera.h"
 #include "MassiveScene.h"
 #include "TestScene.h"
+#include "ObjScene.h"
 
 
 std::unique_ptr<ShaderManager>	gShaderManager;
-std::unique_ptr<OCLRender>		gRender;
+std::unique_ptr<RenderBase>		gRender;
 std::shared_ptr<SceneBase>		gScene;
 std::shared_ptr<QuatCamera>		gCamera;
 
@@ -49,8 +50,8 @@ GLuint gIndexBufferId;
 
 #define WINDOW_WIDTH  400
 #define WINDOW_HEIGHT 300
-#define CAMERA_POSITION vector3(12,12,12)
-#define CAMERA_AT vector3(0,0,0)
+#define CAMERA_POSITION vector3(0.1,0.75,5)
+#define CAMERA_AT vector3(0,0.75,0)
 #define CAMERA_UP vector3(0,1,0)
 #define CAMERA_NEAR_PLANE 0.01f
 #define CAMERA_PIXEL_SIZE 0.0000125f
@@ -257,7 +258,7 @@ void InitGraphics()
 void InitData()
 {
 	//gScene = SimpleScene::CreateFromObj("sibenik.objm");
-    gScene  = TestScene::Create();
+    gScene  = ObjScene::Create("../../../Resources/cornell-box/CornellBox-Glossy.obj");
 	gCamera = QuatCamera::LookAt(CAMERA_POSITION, CAMERA_AT, CAMERA_UP);
 
 	gCamera->SetNearZ(CAMERA_NEAR_PLANE);

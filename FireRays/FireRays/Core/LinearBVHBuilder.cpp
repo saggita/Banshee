@@ -334,7 +334,7 @@ void LinearBVHBuilder::InitOpenCL()
     platforms.clear();
     
     // Create OpenCL context
-    context_ = CLWContext::Create(platform.GetDevice(0));
+    context_ = CLWContext::Create(platform.GetDevice(1));
     
     // Load source code
     std::vector<char> sourceCode;

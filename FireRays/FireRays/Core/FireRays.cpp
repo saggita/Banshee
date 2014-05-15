@@ -1,9 +1,11 @@
 #include "FireRays.h"
 
-std::unique_ptr<OCLRender> CreateRender()
+#include "OCLRender.h"
+
+std::unique_ptr<RenderBase> CreateRender()
 {
 	cl_platform_id platform[1];
 	clGetPlatformIDs(1, platform, nullptr);
 
-	return std::unique_ptr<OCLRender>(new OCLRender(platform[0]));
+	return std::unique_ptr<RenderBase>(new OCLRender(platform[0]));
 }

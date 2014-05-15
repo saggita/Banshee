@@ -14,8 +14,7 @@
 #include "RenderBase.h"
 #include "CameraBase.h"
 #include "TextureBase.h"
-#include "OCLRender.h"
 
-std::unique_ptr<OCLRender> CreateRender();
+std::unique_ptr<RenderBase> CreateRender();
 
 #endif

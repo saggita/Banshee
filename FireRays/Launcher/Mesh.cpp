@@ -59,7 +59,7 @@ void Mesh::LoadFromFile(std::string const& fileName)
 
 	for (int m = 0; m < scene->mNumMeshes; ++m)
 	{
-		const aiMesh* Mesh = scene->mMeshes[0];
+		const aiMesh* Mesh = scene->mMeshes[m];
 	
 		for (int i = 0; i < Mesh->mNumFaces; ++i)
 		{

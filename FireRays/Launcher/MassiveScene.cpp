@@ -25,8 +25,8 @@ MassiveScene::MassiveScene()
     BuildMaterials();
     
     {
-        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/crytek-sponza/sponza.objm");
-        //mesh_ptr->Rescale(0.1);
+        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/cornell-box/CornellBox-Glossy.obj");
+        mesh_ptr->Rescale(5);
         Mesh::Vertex const* vertexData = mesh_ptr->GetVertexArrayPtr();
         unsigned const* indexData = mesh_ptr->GetIndexArrayPtr();
 
@@ -119,20 +119,23 @@ void MassiveScene::BuildMaterials()
 
     materialRep.eBsdf = 1;
     materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 0;
-    materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0.6;
+    materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 1;
     materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.0;
+    materialRep.uTd = -1;
     materialReps_.push_back(materialRep);
 
     materialRep.eBsdf = 1;
     materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 0;
-    materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0.6;
+    materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 1;
     materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.0;
+    materialRep.uTd = -1;
     materialReps_.push_back(materialRep);
 
     materialRep.eBsdf = 3;
     materialRep.vKe.x() = materialRep.vKe.y() = materialRep.vKe.z() = materialRep.vKe.w() = 1.0;
     materialRep.vKd.x() = materialRep.vKd.y() = materialRep.vKd.z() = materialRep.vKd.w() = 0.0;
     materialRep.vKs.x() = materialRep.vKs.y() = materialRep.vKs.z() = materialRep.vKs.w() = 0.0;
+    materialRep.uTd = -1;
     materialReps_.push_back(materialRep);
 }
 

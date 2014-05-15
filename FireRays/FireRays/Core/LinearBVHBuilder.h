@@ -117,8 +117,10 @@ template <typename T> LinearBVHBuilder::LinearBVHBuilder(T const* vertices, unsi
     prims_.resize(indexCount/3);
     for (unsigned i = 0; i < indexCount; i += 3)
     {
-        BBox b(vertices[indices[i]].position, vertices[indices[i+1]].position);
-        b = BBoxUnion(b, vertices[indices[i+2]].position);
+        BBox b(vector3opt(vertices[indices[i]].position.x(), vertices[indices[i]].position.y(), vertices[indices[i]].position.z()),
+               vector3opt(vertices[indices[i + 1]].position.x(), vertices[indices[i + 1]].position.y(), vertices[indices[i + 1]].position.z()));
+        
+        b = BBoxUnion(b, vector3opt(vertices[indices[i + 2]].position.x(), vertices[indices[i + 2]].position.y(), vertices[indices[i + 2]].position.z()));
         
         Primitive t = {indices[i], indices[i + 1], indices[i + 2], materials[i/3]};
         prims_[i/3] = t;

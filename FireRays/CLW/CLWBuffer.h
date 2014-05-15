@@ -46,7 +46,8 @@ private:
     CLWEvent WriteDeviceBuffer(CLWCommandQueue cmdQueue, T const* hostBuffer, size_t elemCount);
     CLWEvent ReadDeviceBuffer(CLWCommandQueue cmdQueue, T* hostBuffer, size_t elemCount);
     CLWEvent ReadDeviceBuffer(CLWCommandQueue cmdQueue, T* hostBuffer, size_t offset, size_t elemCount);
-    CLWEvent MapDeviceBuffer(CLWCommandQueue cmdQueue, T** mappedData);
+    CLWEvent MapDeviceBuffer(CLWCommandQueue cmdQueue, cl_map_flags flags, T** mappedData);
+    CLWEvent MapDeviceBuffer(CLWCommandQueue cmdQueue, cl_map_flags flags, size_t offset, size_t elemCount, T** mappedData);
     CLWEvent UnmapDeviceBuffer(CLWCommandQueue cmdQueue, T* mappedData);
 
     CLWBuffer(cl_mem buffer, size_t elementCount);
@@ -126,19 +127,36 @@ template <typename T> CLWEvent CLWBuffer<T>::ReadDeviceBuffer(CLWCommandQueue cm
     return CLWEvent::Create(event);
 }
 
-template <typename T> CLWEvent CLWBuffer<T>::MapDeviceBuffer(CLWCommandQueue cmdQueue, T** mappedData)
+template <typename T> CLWEvent CLWBuffer<T>::MapDeviceBuffer(CLWCommandQueue cmdQueue, cl_map_flags flags, T** mappedData)
 {
     assert(mappedData);
 
     cl_int status = CL_SUCCESS;
     cl_event event = nullptr;
 
-    T* data = (T*)clEnqueueMapBuffer(cmdQueue, *this, false, CL_MAP_WRITE, 0, sizeof(T)*elementCount_, 0, nullptr, &event, &status);
+    T* data = (T*)clEnqueueMapBuffer(cmdQueue, *this, false, flags, 0, sizeof(T)*elementCount_, 0, nullptr, &event, &status);
 
     assert(status == CL_SUCCESS);
 
     *mappedData = data;
 
+    // TODO: handle errors
+    return CLWEvent::Create(event);
+}
+
+template <typename T> CLWEvent CLWBuffer<T>::MapDeviceBuffer(CLWCommandQueue cmdQueue, cl_map_flags flags, size_t offset, size_t elemCount, T** mappedData)
+{
+    assert(mappedData);
+    
+    cl_int status = CL_SUCCESS;
+    cl_event event = nullptr;
+    
+    T* data = (T*)clEnqueueMapBuffer(cmdQueue, *this, false, flags, sizeof(T) * offset, sizeof(T)*elemCount, 0, nullptr, &event, &status);
+    
+    assert(status == CL_SUCCESS);
+    
+    *mappedData = data;
+    
     // TODO: handle errors
     return CLWEvent::Create(event);
 }

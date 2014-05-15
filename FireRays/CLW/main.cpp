@@ -14,36 +14,9 @@
 #include <functional>
 #include <algorithm>
 
-void load_file_contents(std::string const& name, std::vector<char>& contents, bool binary)
-{
-	std::ifstream in(name, std::ios::in | (binary?std::ios::binary : 0));
-    
-	if (in)
-	{
-		contents.clear();
-        
-		std::streamoff beg = in.tellg();
-        
-		in.seekg(0, std::ios::end);
-        
-		std::streamoff fileSize = in.tellg() - beg;
-        
-		in.seekg(0, std::ios::beg);
-        
-		contents.resize(static_cast<unsigned>(fileSize));
-        
-		in.read(&contents[0], fileSize);
-	}
-	else
-	{
-		throw std::runtime_error("Cannot read the contents of a file");
-	}
-}
-
 void sort_test(CLWContext context)
 {
     int const ARRAY_SIZE = 7942;
-    
     
     auto deviceArray = context.CreateBuffer<cl_int>(ARRAY_SIZE);
     auto deviceArray1 = context.CreateBuffer<cl_int>(ARRAY_SIZE);

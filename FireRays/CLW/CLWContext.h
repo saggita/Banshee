@@ -53,7 +53,8 @@ public:
     template <typename T> CLWEvent  ReadBuffer(unsigned int idx,  CLWBuffer<T> buffer, T* hostBuffer, size_t elemCount) const;
     template <typename T> CLWEvent  ReadBuffer(unsigned int idx,  CLWBuffer<T> buffer, T* hostBuffer, size_t offset, size_t elemCount) const;
     template <typename T> CLWEvent  CopyBuffer(unsigned int idx,  CLWBuffer<T> source, CLWBuffer<T> dest, size_t srcOffset, size_t destOffset, size_t elemCount) const;
-    template <typename T> CLWEvent  MapBuffer(unsigned int idx,  CLWBuffer<T> buffer, T** mappedData) const;
+    template <typename T> CLWEvent  MapBuffer(unsigned int idx,  CLWBuffer<T> buffer, cl_map_flags flags, T** mappedData) const;
+    template <typename T> CLWEvent  MapBuffer(unsigned int idx,  CLWBuffer<T> buffer, cl_map_flags flags, size_t offset, size_t elemCount, T** mappedData) const;
     template <typename T> CLWEvent  UnmapBuffer(unsigned int idx,  CLWBuffer<T> buffer, T* mappedData) const;
 
     //variadic temporarily disabled due to VS13 requirement 
@@ -136,9 +137,14 @@ template <typename T> CLWEvent  CLWContext::CopyBuffer(unsigned int idx, CLWBuff
     return CLWEvent::Create(event);
 }
 
-template <typename T> CLWEvent  CLWContext::MapBuffer(unsigned int idx,  CLWBuffer<T> buffer, T** mappedData) const
+template <typename T> CLWEvent  CLWContext::MapBuffer(unsigned int idx,  CLWBuffer<T> buffer, cl_map_flags flags, T** mappedData) const
 {
-    return buffer.MapDeviceBuffer(commandQueues_[idx], mappedData);
+    return buffer.MapDeviceBuffer(commandQueues_[idx], flags, mappedData);
+}
+
+template <typename T> CLWEvent  CLWContext::MapBuffer(unsigned int idx,  CLWBuffer<T> buffer, cl_map_flags flags, size_t offset, size_t elemCount, T** mappedData) const
+{
+    return buffer.MapDeviceBuffer(commandQueues_[idx], flags, offset, elemCount, mappedData);
 }
 
 template <typename T> CLWEvent  CLWContext::UnmapBuffer(unsigned int idx,  CLWBuffer<T> buffer, T* mappedData) const

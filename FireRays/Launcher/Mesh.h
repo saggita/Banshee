@@ -24,7 +24,7 @@ public:
 
 	static std::shared_ptr<Mesh>  CreateFromFile(std::string const& fileName);
 
-	Vertex const* GetVertexArrayPtr() const;
+	Vertex const*   GetVertexArrayPtr() const;
 	unsigned const* GetIndexArrayPtr() const;
 	uint GetVertexCount() const;
 	uint GetIndexCount() const;

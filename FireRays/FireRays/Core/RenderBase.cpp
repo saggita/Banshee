@@ -11,7 +11,6 @@
 #include "TextureBase.h"
 
 
-
 void RenderBase::AttachTexture(std::string const& name, std::shared_ptr<TextureBase> texture)
 {
     textures_.insert(std::make_pair(name, texture));

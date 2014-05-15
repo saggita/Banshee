@@ -22,7 +22,7 @@ public:
     CLWParallelPrimitives(){}
     ~CLWParallelPrimitives();
 
-    /// Make these templates at some point
+    ///  TODO: Make these templates at some point
     CLWEvent ScanExclusiveAdd(unsigned int deviceIdx, CLWBuffer<cl_int> input, CLWBuffer<cl_int> output);
     //CLWEvent ScanExclusiveAdd(unsigned int deviceIdx, CLWBuffer<cl_uint> input, CLWBuffer<cl_uint> output);
     //CLWEvent ScanExclusiveAdd(unsigned int deviceIdx, CLWBuffer<cl_short> input, CLWBuffer<cl_short> output);

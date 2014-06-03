@@ -35,7 +35,7 @@ public:
 	~OCLRender();
 
 	void		Init(unsigned width, unsigned height);
-	void		Render();
+	void		Render(float timeDeltaSecs);
 	void		Commit();
     
 	unsigned	GetOutputTexture() const;
@@ -117,6 +117,7 @@ private:
 		cl_float3 vIncidentDir;
 		cl_float4 vRadiance;
 		cl_uint	  uMaterialIdx;
+        cl_int    iPixelRef;
         cl_float  fDistance;
         cl_bool   bHit;
 	};
@@ -157,34 +158,73 @@ private:
         cl_uint   ePathType;
     };
 
+    struct __declspec(align(16)) DevPathExtensionRequest
+    {
+        DevRay  sRay;
+        cl_uint uData;
+    };
 
     CLWDevice  device_;
     CLWContext context_;
     CLWProgram program_;
+    CLWParallelPrimitives prims_;
 
+    // Stores first hit information
     CLWBuffer<DevPathVertex> firstHitBuffer_;
+    // Stores second hit information
+    CLWBuffer<DevPathVertex> secondHitBuffer_;
+    // Stores second hit information
+    CLWBuffer<DevPathExtensionRequest> secondaryRaysBuffer_;
+    // Stores scene geometry
     CLWBuffer<DevVertex>	vertexBuffer_;
+    // Stores scene index data
     CLWBuffer<cl_uint4>		indexBuffer_;
+    // Stores BVH nodes
     CLWBuffer<DevBVHNode>	bvhBuffer_;
+    // Stores current render configuration
     CLWBuffer<DevConfig>	configBuffer_;
+    // Texture to output raytraced image
     CLWImage2D	            outputDepthTexture_;
-    CLWBuffer<cl_float4>     intermediateBuffer_;
+    // Intermediate buffer for samples accumulation
+    CLWBuffer<cl_float4>     radianceBuffer_;
+    // Intermediate buffer for samples accumulation
+    CLWBuffer<cl_float4>     radianceBuffer1_;
+    // Log luminance buffer for tone-mapping
+    CLWBuffer<cl_float>      logLumBuffer_;
+    // Stores hit predicates for a compact operation
+    CLWBuffer<cl_int>        hitPredicateBuffer_;
+    // Stores sample predicates for a compact operation
+    CLWBuffer<cl_int>        samplePredicateBuffer_;
+    // Stores initial path indices
+    CLWBuffer<cl_int>        initialPathIndicesBuffer_;
+    // Stores compacted path indices;
+    CLWBuffer<cl_int>        compactedPathIndicesBuffer_;
 
-
+    // Stores material representations for the scene
     CLWBuffer<DevMaterialRep>  materialBuffer_;
-    CLWBuffer<cl_float>       textureBuffer_;
+    // Stores texture data for the scene
+    CLWBuffer<cl_float>        textureBuffer_;
+    // Stores texture descriptions
     CLWBuffer<DevTextureDesc>  textureDescBuffer_;
+    // Stores area light indices
     CLWBuffer<cl_uint>         areaLightsBuffer_;
+    // Stores BVH intermediate indices
     CLWBuffer<uint>            bvhIndicesBuffer_;
 
-    CLWBuffer<DevPathStart> pathStartBuffer_;
+    // Stores path start information
+    CLWBuffer<DevPathExtensionRequest> pathStartBuffer_;
 
-	GLuint		glDepthTexture_;
+    // Framebuffer size
+    cl_uint2  outputSize_;
 
-	cl_uint2  outputSize_;
-	cl_uint   frameCount_;
+    // Frame count
+    cl_uint   frameCount_;
 
-	DevConfig configData_;
+    // Render configuration on the host side
+    DevConfig configData_;
+
+    // OpenGL texture for interop
+    GLuint glDepthTexture_;
 };
 
 #endif // OCLRENDER_H

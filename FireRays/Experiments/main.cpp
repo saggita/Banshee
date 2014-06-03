@@ -13,7 +13,9 @@
 #include <iostream>
 #include <limits>
 #include <stdlib.h>
+#include <iterator>
 
+#include "CLW.h"
 
 #include "BVH.h"
 #include "SplitBVHBuilder.h"
@@ -21,84 +23,85 @@
 #include "OCLBVHBackEnd.h"
 #include "TestScene.h"
 
-int main(int argc, const char * argv[])
+void test_1()
 {
+
     auto scene  = TestScene::Create();
-    
+
     BVH bvh;
     SplitBVHBuilder builder(scene->GetVertices(), scene->GetVertexCount(), scene->GetIndices(), scene->GetIndexCount(), scene->GetMaterials(), 32U, 1.f, 1.f);
-   
+
     //LinearBVHBuilder builder(scene->GetVertices(), scene->GetVertexCount(), scene->GetIndices(), scene->GetIndexCount(), scene->GetMaterials());
-    
-	static auto prevTime = std::chrono::high_resolution_clock::now();
-    
-	builder.SetBVH(&bvh);
+
+    static auto prevTime = std::chrono::high_resolution_clock::now();
+
+    builder.SetBVH(&bvh);
     builder.Build();
-    
+
     auto currentTime = std::chrono::high_resolution_clock::now();
-	auto deltaTime   = std::chrono::duration_cast<std::chrono::duration<double> >(currentTime - prevTime);
-    
+    auto deltaTime   = std::chrono::duration_cast<std::chrono::duration<double> >(currentTime - prevTime);
+
     std::cout << "\nBuilding time " << deltaTime.count() << " secs\n";
-    
+
     // generate points
     BVH::Iterator* iter       = bvh.CreateDepthFirstIterator();
     BBox           rootBounds = bvh.GetNodeBbox(iter->GetNodeId());
-    
-    
+
+
     std::vector<vector3opt> points;
     float xrange = rootBounds.GetExtents().x * 2;
     float yrange = rootBounds.GetExtents().y * 2;
     float zrange = rootBounds.GetExtents().z * 2;
-    
+
     const int NUM_POINTS = 100000;
     for (int i = 0; i < NUM_POINTS; ++i)
     {
         float x = ((float)rand() / RAND_MAX) * xrange;
         float y = ((float)rand() / RAND_MAX) * yrange;
         float z = ((float)rand() / RAND_MAX) * zrange;
-        
+
         vector3opt p = rootBounds.min - rootBounds.GetExtents() * 0.5f;
         p += vector3opt(x,y,z);
         points.push_back(p);
     }
-    
+
     BVH::RayQueryStatistics globalStat;
-    
+
     globalStat.maxDepthVisited = 0;
     globalStat.numNodesVisited = 0;
     globalStat.numTrianglesTested = 0;
-    
+
     int globalRayHits = 0;
     int globalRayLeafHits = 0;
-    
+
     const int NUM_RAYS = 100000;
     for (int i = 0; i < NUM_RAYS; ++i)
     {
         int idx1 = rand() % points.size();
         int idx2 = rand() % points.size();
-        
+
         BVH::RayQuery q;
         q.o = points[idx1];
         q.d = (points[idx2] - points[idx1]).normalize();
         q.t = std::numeric_limits<float>::max();
-        
+
         BVH::RayQueryStatistics stat;
         bvh.CastRay(q, stat, scene->GetVertices(), scene->GetIndices());
-        
+
         if (stat.hitBvh)
         {
             globalStat.numNodesVisited += stat.numNodesVisited;
             globalStat.numTrianglesTested += stat.numTrianglesTested;
             globalStat.maxDepthVisited += stat.maxDepthVisited;
             globalRayHits++;
-            
+
             if (stat.numTrianglesTested > 0)
             {
                 globalRayLeafHits++;
             }
         }
     }
-    
+
     std::cout << "-------\n";
     std::cout << "BVH node count " << bvh.GetNodeCount() << "\n";
     std::cout << "Rays emitted: " << NUM_RAYS << "\n";
@@ -107,8 +110,69 @@ int main(int argc, const char * argv[])
     std::cout << "Avg nodes visited per ray: " << ((float)globalStat.numNodesVisited) / globalRayHits << "\n";
     std::cout << "Avg triangles tested per ray: " << ((float)globalStat.numTrianglesTested) / globalRayHits << "\n";
     std::cout << "Avg max depth visited per ray: " << ((float)globalStat.maxDepthVisited) / globalRayHits << "\n";
-    
-	return 0;
+
+}
+
+
+int main(int argc, const char * argv[])
+{
+    try
+    {
+        std::vector<CLWPlatform> platforms;
+
+        CLWPlatform::CreateAllPlatforms(platforms);
+
+        CLWContext context = CLWContext::Create(platforms[0].GetDevice(0));
+
+        CLWParallelPrimitives prims(context);
+
+        int NUM_ELEMS = 1204848;
+        std::vector<cl_int> input(NUM_ELEMS);
+        std::vector<cl_int> output(NUM_ELEMS);
+        std::vector<cl_int> predicate(NUM_ELEMS);
+
+        for(int i = 0; i < NUM_ELEMS; ++i)
+        {
+            input[i] = i;
+            predicate[i] = (i % 3 == 0);
+        }
+
+        auto devInput = context.CreateBuffer<cl_int>(NUM_ELEMS, &input[0]);
+        auto devOutput = context.CreateBuffer<cl_int>(NUM_ELEMS);
+        auto devPred = context.CreateBuffer<cl_int>(NUM_ELEMS, &predicate[0]);
+
+        cl_int newSize = 0;
+        prims.Compact(0, devPred, devInput, devOutput, newSize).Wait();
+
+        context.ReadBuffer(0, devOutput, &output[0], NUM_ELEMS).Wait();
+
+        if (newSize != std::count(predicate.begin(), predicate.end(), 1))
+        {
+            std::cout << "Test failed due to count mismatch\n";
+            exit(-1);
+        }
+
+        int k = 0;
+        for (int i = 0; i < NUM_ELEMS; ++i)
+        {
+            if (predicate[i])
+            {
+                if (output[k++] != input[i])
+                {
+                    std::cout << "Test failed \n";
+                    exit(-1);
+                }
+            }
+        }
+
+        std::copy(output.begin(), output.begin() + 10, std::ostream_iterator<cl_int>(std::cout, " "));
+    }
+    catch (std::runtime_error& e)
+    {
+        std::cout << "\n" << e.what() << "\n";
+    }
+
+    return 0;
 }
 
 

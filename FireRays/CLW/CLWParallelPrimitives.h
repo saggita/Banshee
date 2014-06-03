@@ -24,12 +24,15 @@ public:
 
     ///  TODO: Make these templates at some point
     CLWEvent ScanExclusiveAdd(unsigned int deviceIdx, CLWBuffer<cl_int> input, CLWBuffer<cl_int> output);
+    CLWEvent ScanExclusiveAdd(unsigned int deviceIdx, CLWBuffer<cl_float> input, CLWBuffer<cl_float> output);
     //CLWEvent ScanExclusiveAdd(unsigned int deviceIdx, CLWBuffer<cl_uint> input, CLWBuffer<cl_uint> output);
     //CLWEvent ScanExclusiveAdd(unsigned int deviceIdx, CLWBuffer<cl_short> input, CLWBuffer<cl_short> output);
     //CLWEvent ScanExclusiveAdd(unsigned int deviceIdx, CLWBuffer<cl_ushort> input, CLWBuffer<cl_ushort> output);
 
     CLWEvent SortRadix(unsigned int deviceIdx, CLWBuffer<cl_int> inputKeys, CLWBuffer<cl_int> outputKeys,
                                                CLWBuffer<cl_int> inputValues, CLWBuffer<cl_int> outputValues);
+
+    CLWEvent Compact(unsigned int deviceIdx, CLWBuffer<cl_int> predicate, CLWBuffer<cl_int> input, CLWBuffer<cl_int> output, cl_int& newSize);
 
     void ReclaimDeviceMemory();
 
@@ -38,14 +41,21 @@ protected:
     CLWEvent ScanExclusiveAddTwoLevel(unsigned int deviceIdx, CLWBuffer<cl_int> input, CLWBuffer<cl_int> output);
     CLWEvent ScanExclusiveAddThreeLevel(unsigned int deviceIdx, CLWBuffer<cl_int> input, CLWBuffer<cl_int> output);
 
+    CLWEvent ScanExclusiveAddWG(unsigned int deviceIdx, CLWBuffer<cl_float> input, CLWBuffer<cl_float> output);
+    CLWEvent ScanExclusiveAddTwoLevel(unsigned int deviceIdx, CLWBuffer<cl_float> input, CLWBuffer<cl_float> output);
+    CLWEvent ScanExclusiveAddThreeLevel(unsigned int deviceIdx, CLWBuffer<cl_float> input, CLWBuffer<cl_float> output);
+
     CLWBuffer<cl_int> GetTempIntBuffer(size_t size);
     void              ReclaimTempIntBuffer(CLWBuffer<cl_int> buffer);
+    CLWBuffer<cl_float> GetTempFloatBuffer(size_t size);
+    void               ReclaimTempFloatBuffer(CLWBuffer<cl_float> buffer);
 
 private:
     CLWContext context_;
     CLWProgram program_;
 
     std::map<size_t, CLWBuffer<cl_int> > intBufferCache_;
+    std::map<size_t, CLWBuffer<cl_float> > floatBufferCache_;
 };
 
 

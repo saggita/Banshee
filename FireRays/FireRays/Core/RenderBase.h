@@ -15,6 +15,7 @@
 class SceneBase;
 class CameraBase;
 class TextureBase;
+class KernelProviderBase;
 
 /// Main interface for the renderer
 /// The renderer queries scene data through
@@ -26,46 +27,51 @@ class RenderBase
 public:
     /// Abstract interafce
     RenderBase();
-	virtual						~RenderBase() = 0;
-    
+    virtual      ~RenderBase() = 0;
+
+    /// Set kernel source for the render
+    virtual void                SetKernelProvider(std::shared_ptr<KernelProviderBase> kernelProvider);
+
     /// Init renderer for outputting into width x height target
-	virtual void				Init(unsigned width, unsigned height) = 0;
+    virtual void                Init(unsigned width, unsigned height) = 0;
     
     /// Commit camera and scene changes if any
-	virtual void				Commit() = 0;
-    
+    virtual void                Commit() = 0;
+
     /// Render scene
-	virtual void				Render() = 0;
-    
+    virtual void                Render(float timeDeltaSecs) = 0;
+
     /// Get output texture
-	virtual unsigned			GetOutputTexture() const = 0;
-    
+    virtual unsigned            GetOutputTexture() const = 0;
+
     /// Stop accumulating samples and clear render target
     /// (required if camera, scene or lights are changed)
-	virtual void				FlushFrame() = 0;
-    
+    virtual void                FlushFrame() = 0;
+
     /// This part has default implementation
     virtual void                AttachTexture(std::string const& name, std::shared_ptr<TextureBase> texture);
     virtual void                DetachTexture(std::string const& name);
-	
+
     /// Concrete methods to set and get scene and camera
-	void						SetScene(std::shared_ptr<SceneBase>  scene);
-	void						SetCamera(std::shared_ptr<CameraBase> camera);
-	
-	std::shared_ptr<SceneBase>	GetScene() const;
-	std::shared_ptr<CameraBase>	GetCamera() const;
-    
+    void                        SetScene(std::shared_ptr<SceneBase>  scene);
+    void                        SetCamera(std::shared_ptr<CameraBase> camera);
+
+    std::shared_ptr<SceneBase>	GetScene() const;
+    std::shared_ptr<CameraBase>	GetCamera() const;
+
 protected:
     /// Texture storage
     typedef     std::map<std::string, std::shared_ptr<TextureBase> > TextureMap;
-    
+
     TextureMap::const_iterator TexturesCBegin();
     TextureMap::const_iterator TexturesCEnd();
-    
+
     /// Have textures been changed since last commit?
     bool TexturesDirty() const;
     /// Reset dirty flag
     void ResetTexturesDirty();
+
+    virtual std::shared_ptr<KernelProviderBase> GetKernelProvider() const;
 
 private:
 	RenderBase& operator = (RenderBase const& other);
@@ -73,6 +79,7 @@ private:
     /// Scene and camera
 	std::shared_ptr<SceneBase>	scene_;
 	std::shared_ptr<CameraBase>	camera_;
+    std::shared_ptr<KernelProviderBase> kernelProvider_;
 
     /// Textures storage
     bool        texturesDirty_;

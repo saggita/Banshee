@@ -14,6 +14,7 @@
 #include "RenderBase.h"
 #include "CameraBase.h"
 #include "TextureBase.h"
+#include "KernelProviderBase.h"
 
 std::unique_ptr<RenderBase> CreateRender();
 

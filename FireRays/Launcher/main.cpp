@@ -32,7 +32,6 @@
 #include "TestScene.h"
 #include "ObjScene.h"
 
-
 std::unique_ptr<ShaderManager>	gShaderManager;
 std::unique_ptr<RenderBase>		gRender;
 std::shared_ptr<SceneBase>		gScene;
@@ -42,20 +41,20 @@ static bool     gIsLeftPressed	= false;
 static bool     gIsRightPressed = false;
 static bool     gIsFwdPressed	= false;
 static bool     gIsBackPressed	= false;
+static bool     gIsMouseTracked = false;
 static vector2  gMousePosition = vector2(0,0);
 static vector2  gMouseDelta = vector2(0,0);
+static int      gWindowWidth = 400;
+static int      gWindowHeight = 400;
 
 GLuint gVertexBufferId;
 GLuint gIndexBufferId;
 
-#define WINDOW_WIDTH  400
-#define WINDOW_HEIGHT 300
 #define CAMERA_POSITION vector3(0.1,0.75,5)
 #define CAMERA_AT vector3(0,0.75,0)
 #define CAMERA_UP vector3(0,1,0)
 #define CAMERA_NEAR_PLANE 0.01f
 #define CAMERA_PIXEL_SIZE 0.0000125f
-
 
 struct PointLightData
 {
@@ -73,7 +72,6 @@ struct SpotLightData
 
 std::vector<PointLightData> gPointLights;
 std::vector<SpotLightData>  gSpotLights;
-
 
 /// TODO: debug texture
 class CheckerboardTexture : public TextureBase
@@ -123,7 +121,7 @@ void Display()
 	{
 		{
 			glDisable(GL_DEPTH_TEST);
-			glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+            glViewport(0, 0, gWindowWidth, gWindowHeight);
 
 			glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferId);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBufferId);
@@ -207,80 +205,102 @@ void Update()
 	}
 
 	gRender->Commit();
-	gRender->Render();
+	gRender->Render(deltaTime.count());
 
 	glutPostRedisplay();
 }
 
-void Reshape(GLint w, GLint h)
-{
-}
-
-
 void InitGraphics()
 {
-	gShaderManager.reset(new ShaderManager());
+    gShaderManager.reset(new ShaderManager());
 
-	glClearColor(1.0, 1.0, 1.0, 1.0);
-	glCullFace(GL_NONE);
-	glDisable(GL_DEPTH_TEST);
-	glEnable(GL_TEXTURE_2D);
+    glClearColor(1.0, 1.0, 1.0, 1.0);
+    glCullFace(GL_NONE);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_TEXTURE_2D);
 
-	glGenBuffers(1, &gVertexBufferId);
-	glGenBuffers(1, &gIndexBufferId);
+    glGenBuffers(1, &gVertexBufferId);
+    glGenBuffers(1, &gIndexBufferId);
 
-	// create Vertex buffer
-	glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferId);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBufferId);
+    // create Vertex buffer
+    glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferId);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBufferId);
 
-	float quadVertexData[] =
-	{
-		-1, -1, 0.5, 0, 0,
-		1, -1, 0.5, 1, 0,
-		1,  1, 0.5, 1, 1,
-		-1,  1, 0.5, 0, 1
-	};
+    float quadVertexData[] =
+    {
+        -1, -1, 0.5, 0, 0,
+        1, -1, 0.5, 1, 0,
+        1,  1, 0.5, 1, 1,
+        -1,  1, 0.5, 0, 1
+    };
 
-	GLshort quadIndexData[] =
-	{
-		0, 1, 3,
-		3, 1, 2
-	};
+    GLshort quadIndexData[] =
+    {
+        0, 1, 3,
+        3, 1, 2
+    };
 
-	// fill data
-	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertexData), quadVertexData, GL_STATIC_DRAW);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndexData), quadIndexData, GL_STATIC_DRAW);
+    // fill data
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertexData), quadVertexData, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndexData), quadIndexData, GL_STATIC_DRAW);
 
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void InitData()
 {
-	//gScene = SimpleScene::CreateFromObj("sibenik.objm");
-    gScene  = ObjScene::Create("../../../Resources/cornell-box/CornellBox-Glossy.obj");
-	gCamera = QuatCamera::LookAt(CAMERA_POSITION, CAMERA_AT, CAMERA_UP);
+    //gScene = SimpleScene::CreateFromObj("sibenik.objm");
+    //gScene  = ObjScene::Create("../../../Resources/cornell-box/untitled.obj");
+    gScene  = ObjScene::Create("../../../Resources/cornell-box/CornellBox-Glossy.objm");
+    gCamera = QuatCamera::LookAt(CAMERA_POSITION, CAMERA_AT, CAMERA_UP);
 
-	gCamera->SetNearZ(CAMERA_NEAR_PLANE);
-	gCamera->SetPixelSize(CAMERA_PIXEL_SIZE);
-	gCamera->SetFilmResolution(ui_size(WINDOW_WIDTH, WINDOW_HEIGHT));
+    gCamera->SetNearZ(CAMERA_NEAR_PLANE);
+    gCamera->SetPixelSize(CAMERA_PIXEL_SIZE);
+    gCamera->SetFilmResolution(ui_size(gWindowWidth, gWindowHeight));
 
-	gRender = CreateRender();
-	//gRender.reset(new simple_rt_render());
-	gRender->SetScene(gScene);
-	gRender->SetCamera(gCamera);
-    
+    gRender = CreateRender();
+    //gRender.reset(new simple_rt_render());
+    gRender->SetScene(gScene);
+    gRender->SetCamera(gCamera);
+
     auto texture = std::make_shared<CheckerboardTexture>(500, 500, 10);
     gRender->AttachTexture("checker", texture);
 
-	gRender->Init(WINDOW_WIDTH, WINDOW_HEIGHT);
+    gRender->Init(gWindowWidth, gWindowHeight);
 }
 
+void Reshape(GLint w, GLint h)
+{
+    gWindowWidth = w;
+    gWindowHeight = h;
+}
 
 void OnMouseMove(int x, int y)
 {
-	gMouseDelta = vector2(x,y) - gMousePosition;
-	gMousePosition = vector2(x,y);
+    if (gIsMouseTracked)
+    {
+        gMouseDelta = vector2(x,y) - gMousePosition;
+        gMousePosition = vector2(x,y);
+    }
+}
+
+void OnMouseButton(int btn, int state, int x, int y)
+{
+    if (btn == GLUT_LEFT_BUTTON)
+    {
+        if (state == GLUT_DOWN)
+        {
+            gIsMouseTracked = true;
+            gMousePosition = vector2(x,y);
+            gMouseDelta = vector2(0,0);
+        }
+        else if (state == GLUT_UP && gIsMouseTracked)
+        {
+            gIsMouseTracked = true;
+            gMouseDelta = vector2(0,0);
+        }
+    }
 }
 
 void OnKey(int key, int x, int y)
@@ -330,7 +350,7 @@ int main(int argc, const char * argv[])
 {
 	// GLUT Window Initialization:
 	glutInit (&argc, (char**)argv);
-	glutInitWindowSize (WINDOW_WIDTH, WINDOW_HEIGHT);
+	glutInitWindowSize (gWindowWidth, gWindowHeight);
 	glutInitDisplayMode (GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
 	glutCreateWindow ("test");
 
@@ -353,7 +373,8 @@ int main(int argc, const char * argv[])
 		glutReshapeFunc (Reshape);
 		glutSpecialFunc(OnKey);
 		glutSpecialUpFunc(OnKeyUp);
-		glutPassiveMotionFunc(OnMouseMove);
+        glutMouseFunc(OnMouseButton);
+		glutMotionFunc(OnMouseMove);
 		glutIdleFunc (Update);
 		glutMainLoop ();
 

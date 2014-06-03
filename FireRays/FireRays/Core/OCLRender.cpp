@@ -74,8 +74,9 @@ void OCLRender::Init(unsigned width, unsigned height)
     };
 #endif
     
-    device_ = platforms[0].GetDevice(1);
+    device_ = platforms[0].GetDevice(0);
     context_ = CLWContext::Create(device_, props);
+    prims_ = CLWParallelPrimitives(context_);
     
     std::vector<char> sourceCode;
     LoadFileContents("../../../FireRays/CL/raytrace.cl", sourceCode);
@@ -118,6 +119,33 @@ void OCLRender::Init(unsigned width, unsigned height)
     };
     
     vertexBuffer_ = context_.CreateBuffer<DevVertex>(vertices.size(), &vertices[0]);
+
+
+    std::vector<DevMaterialRep> materials(GetScene()->GetMaterialRepCount());
+    
+    SceneBase::MaterialRep const* sceneMaterials = GetScene()->GetMaterialReps();
+    
+    for (int i = 0; i < materials.size(); ++i)
+    {
+        materials[i].eBsdf = sceneMaterials[i].eBsdf;
+        materials[i].vKe.s[0] = sceneMaterials[i].vKe.x();
+        materials[i].vKe.s[1] = sceneMaterials[i].vKe.y();
+        materials[i].vKe.s[2] = sceneMaterials[i].vKe.z();
+        materials[i].vKe.s[3] = sceneMaterials[i].vKe.w();
+        
+        materials[i].vKd.s[0] = sceneMaterials[i].vKd.x();
+        materials[i].vKd.s[1] = sceneMaterials[i].vKd.y();
+        materials[i].vKd.s[2] = sceneMaterials[i].vKd.z();
+        materials[i].vKd.s[3] = sceneMaterials[i].vKd.w();
+        
+        materials[i].vKs.s[0] = sceneMaterials[i].vKs.x();
+        materials[i].vKs.s[1] = sceneMaterials[i].vKs.y();
+        materials[i].vKs.s[2] = sceneMaterials[i].vKs.z();
+        materials[i].vKs.s[3] = sceneMaterials[i].vKs.w();
+        
+        materials[i].fEs = sceneMaterials[i].fEs;
+        materials[i].uTd = sceneMaterials[i].uTd;
+    }
     
     std::vector<cl_uint4> triangles(builder.GetPrimitiveCount());
     std::vector<cl_uint>  areaLights;
@@ -130,7 +158,7 @@ void OCLRender::Init(unsigned width, unsigned height)
         triangles[i].s[2] = sceneTriangles[i].i3;
         triangles[i].s[3] = sceneTriangles[i].m;
         
-        if (sceneTriangles[i].m == 8)
+        if (materials[sceneTriangles[i].m].eBsdf == 3)
             areaLights.push_back(i);
     }
     
@@ -166,50 +194,38 @@ void OCLRender::Init(unsigned width, unsigned height)
     glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    
+
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F_ARB, outputSize_.s[0], outputSize_.s[1], 0, GL_RGBA, GL_FLOAT, nullptr);
-    
+
     outputDepthTexture_ = context_.CreateImage2DFromGLTexture(glDepthTexture_);
-    
+
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    radianceBuffer_  = context_.CreateBuffer<cl_float4>(outputSize_.s[0] * outputSize_.s[1]);
+    radianceBuffer1_ = context_.CreateBuffer<cl_float4>(outputSize_.s[0] * outputSize_.s[1]);
     
     
-    intermediateBuffer_ = context_.CreateBuffer<cl_float4>(outputSize_.s[0] * outputSize_.s[1]);
-    
-    std::vector<DevMaterialRep> materials(GetScene()->GetMaterialRepCount());
-    
-    SceneBase::MaterialRep const* sceneMaterials = GetScene()->GetMaterialReps();
-    
-    for (int i = 0; i < materials.size(); ++i)
-    {
-        materials[i].eBsdf = sceneMaterials[i].eBsdf;
-        materials[i].vKe.s[0] = sceneMaterials[i].vKe.x();
-        materials[i].vKe.s[1] = sceneMaterials[i].vKe.y();
-        materials[i].vKe.s[2] = sceneMaterials[i].vKe.z();
-        materials[i].vKe.s[3] = sceneMaterials[i].vKe.w();
-        
-        materials[i].vKd.s[0] = sceneMaterials[i].vKd.x();
-        materials[i].vKd.s[1] = sceneMaterials[i].vKd.y();
-        materials[i].vKd.s[2] = sceneMaterials[i].vKd.z();
-        materials[i].vKd.s[3] = sceneMaterials[i].vKd.w();
-        
-        materials[i].vKs.s[0] = sceneMaterials[i].vKs.x();
-        materials[i].vKs.s[1] = sceneMaterials[i].vKs.y();
-        materials[i].vKs.s[2] = sceneMaterials[i].vKs.z();
-        materials[i].vKs.s[3] = sceneMaterials[i].vKs.w();
-        
-        materials[i].fEs = sceneMaterials[i].fEs;
-        materials[i].uTd = sceneMaterials[i].uTd;
-    }
     
     materialBuffer_     = context_.CreateBuffer<DevMaterialRep>(materials.size(), &materials[0]);
     textureBuffer_      = context_.CreateBuffer<cl_float>(TEXTURE_BUFFER_SIZE);
     textureDescBuffer_  = context_.CreateBuffer<DevTextureDesc>(MAX_TEXTURE_HANDLES);
     areaLightsBuffer_   = context_.CreateBuffer<cl_uint>(MAX_AREA_LIGHTS, &areaLights[0]);
-    pathStartBuffer_    = context_.CreateBuffer<DevPathStart>(outputSize_.s[0] * outputSize_.s[1]);
+    pathStartBuffer_    = context_.CreateBuffer<DevPathExtensionRequest>(outputSize_.s[0] * outputSize_.s[1]);
     bvhIndicesBuffer_   = context_.CreateBuffer<cl_uint>(bvh.GetPrimitiveIndexCount(), (void*)bvh.GetPrimitiveIndices());
     firstHitBuffer_     = context_.CreateBuffer<DevPathVertex>(outputSize_.s[0] * outputSize_.s[1]);
-    
+    secondHitBuffer_    = context_.CreateBuffer<DevPathVertex>(outputSize_.s[0] * outputSize_.s[1]);
+    secondaryRaysBuffer_     = context_.CreateBuffer<DevPathExtensionRequest>(outputSize_.s[0] * outputSize_.s[1]);
+    hitPredicateBuffer_ = context_.CreateBuffer<cl_int>(outputSize_.s[0] * outputSize_.s[1]);
+    samplePredicateBuffer_ = context_.CreateBuffer<cl_int>(outputSize_.s[0] * outputSize_.s[1]);
+    logLumBuffer_ = context_.CreateBuffer<cl_float>(outputSize_.s[0] * outputSize_.s[1]);
+
+    std::vector<cl_int> initialIndices(outputSize_.s[0] * outputSize_.s[1]);
+    for (int i = 0; i < outputSize_.s[0] * outputSize_.s[1]; ++i)
+        initialIndices[i] = i;
+
+    initialPathIndicesBuffer_  = context_.CreateBuffer<cl_int>(outputSize_.s[0] * outputSize_.s[1], &initialIndices[0]);
+    compactedPathIndicesBuffer_ = context_.CreateBuffer<cl_int>(outputSize_.s[0] * outputSize_.s[1]);
+
     configData_.uNumAreaLights = areaLights.size();
 }
 
@@ -234,7 +250,7 @@ void OCLRender::Commit()
     configData_.uNumPointLights = 0;
     configData_.uNumRandomNumbers = RANDOM_BUFFER_SIZE;
     configData_.uFrameCount = frameCount_;
-    
+
     configData_.vBackgroundColor.s[0] = 5.f;
     configData_.vBackgroundColor.s[1] = 4.f;
     configData_.vBackgroundColor.s[2] = 5.1f;
@@ -254,17 +270,10 @@ OCLRender::~OCLRender()
     glDeleteTextures(1, &glDepthTexture_);
 }
 
-void OCLRender::Render()
+void OCLRender::Render(float timeDeltaDesc)
 {
-    glFinish();
-    
-    std::vector<cl_mem> glObjects;
-    glObjects.push_back(outputDepthTexture_);
-    
-    context_.AcquireGLObjects(0, glObjects);
-    
+    // Initialize work sizes
     size_t localWorkSize[2];
-    
     if (device_.GetType() == CL_DEVICE_TYPE_CPU)
     {
         localWorkSize[0] = localWorkSize[1] = 1;
@@ -273,62 +282,268 @@ void OCLRender::Render()
     {
         localWorkSize[0] = localWorkSize[1] = 8;
     }
-    
+
+
     size_t globalWorkSize[2] = {
         (outputSize_.s[0] + localWorkSize[0] - 1)/(localWorkSize[0]) * localWorkSize[0] ,
         (outputSize_.s[1] + localWorkSize[1] - 1)/(localWorkSize[1]) * localWorkSize[1]
     };
-    
-    CLWKernel pathGenerationKernel = program_.GetKernel("GeneratePath");
-    pathGenerationKernel.SetArg(0, configBuffer_);
-    pathGenerationKernel.SetArg(1, pathStartBuffer_);
-    
-    context_.Launch2D(0, globalWorkSize, localWorkSize, pathGenerationKernel);
-    
-    CLWKernel firstHitKernel = program_.GetKernel("TraceExperiments");
-    firstHitKernel.SetArg(0, pathStartBuffer_);
-    firstHitKernel.SetArg(1, bvhBuffer_);
-    firstHitKernel.SetArg(2, bvhIndicesBuffer_);
-    firstHitKernel.SetArg(3, vertexBuffer_);
-    firstHitKernel.SetArg(4, indexBuffer_);
-    firstHitKernel.SetArg(5, firstHitBuffer_);
-    
+
+    // PART I: Path generation kernel launch
+    // The kernel is supposed to fill initial extension request buffer
+    // based on camera parameters
+    {
+        CLWKernel pathGenerationKernel = program_.GetKernel("generate_rays");
+        pathGenerationKernel.SetArg(0, configBuffer_);
+        pathGenerationKernel.SetArg(1, pathStartBuffer_);
+
+        context_.Launch2D(0, globalWorkSize, localWorkSize, pathGenerationKernel);
+    }
+
     size_t localWorkSize1 = 64;
-    size_t globalWorkSize1 = configData_.uOutputHeight * configData_.uOutputWidth;
-    context_.Launch1D(0, globalWorkSize1, localWorkSize1, firstHitKernel);
-    
-    CLWKernel directIlluminationKernel = program_.GetKernel("DirectIllumination");
-    directIlluminationKernel.SetArg(0, bvhBuffer_);
-    directIlluminationKernel.SetArg(1, bvhIndicesBuffer_);
-    directIlluminationKernel.SetArg(2, vertexBuffer_);
-    directIlluminationKernel.SetArg(3, indexBuffer_);
-    directIlluminationKernel.SetArg(4, firstHitBuffer_);
-    directIlluminationKernel.SetArg(5, materialBuffer_);
-    directIlluminationKernel.SetArg(6, textureDescBuffer_);
-    directIlluminationKernel.SetArg(7, textureBuffer_);
-    directIlluminationKernel.SetArg(8, areaLightsBuffer_);
-    directIlluminationKernel.SetArg(9, configData_.uNumAreaLights);
-    directIlluminationKernel.SetArg(10, outputDepthTexture_);
-    directIlluminationKernel.SetArg(11, intermediateBuffer_);
-    directIlluminationKernel.SetArg(12, frameCount_);
-    
-    context_.Launch1D(0, globalWorkSize1, localWorkSize1, directIlluminationKernel);
-    
+    size_t globalWorkSize1 = localWorkSize1 * ((configData_.uOutputHeight * configData_.uOutputWidth + localWorkSize1 - 1) / localWorkSize1);
+
+    // PART II : Extension kernel launch
+    // Extension kernel is launched to process extension requests buffer, traces rays against BVH
+    // and fills in hit information into hits buffer along with hit predicate 
+    // information which might be used to compact away missing rays
+    {
+        CLWKernel extensionKernel = program_.GetKernel("process_extension_request");
+        extensionKernel.SetArg(0, pathStartBuffer_);
+        extensionKernel.SetArg(1, initialPathIndicesBuffer_);
+        extensionKernel.SetArg(2, bvhBuffer_);
+        extensionKernel.SetArg(3, bvhIndicesBuffer_);
+        extensionKernel.SetArg(4, vertexBuffer_);
+        extensionKernel.SetArg(5, indexBuffer_);
+        extensionKernel.SetArg(6, firstHitBuffer_);
+        extensionKernel.SetArg(7, hitPredicateBuffer_);
+        extensionKernel.SetArg(8, (cl_uint)(configData_.uOutputHeight * configData_.uOutputWidth));
+
+        context_.Launch1D(0, globalWorkSize1, localWorkSize1, extensionKernel);
+    }
+
+    // PART III: Compaction
+    // To avoid thread divergence on further phases we 
+    // compact hits buffer throwing away unactive rays and collecting
+    // active ray indices into a separate buffer
+    cl_int numActiveRays = 0;
+    prims_.Compact(0, hitPredicateBuffer_, initialPathIndicesBuffer_, compactedPathIndicesBuffer_, numActiveRays).Wait();
+
+    //std::cout << "\n" << ((float)numActiveRays/(configData_.uOutputHeight * configData_.uOutputWidth)) * 100 << "% active rays"; 
+
+    /// PART IV: Direct illumination
+    /// Calculate direct illumination using hit information along with active ray indices
+    /// to fill radiance buffer
+    {
+        CLWKernel directIlluminationKernel = program_.GetKernel("sample_direct_illumination");
+        directIlluminationKernel.SetArg(0, bvhBuffer_);
+        directIlluminationKernel.SetArg(1, bvhIndicesBuffer_);
+        directIlluminationKernel.SetArg(2, vertexBuffer_);
+        directIlluminationKernel.SetArg(3, indexBuffer_);
+        directIlluminationKernel.SetArg(4, firstHitBuffer_);
+        directIlluminationKernel.SetArg(5, compactedPathIndicesBuffer_);
+        directIlluminationKernel.SetArg(6, materialBuffer_);
+        directIlluminationKernel.SetArg(7, textureDescBuffer_);
+        directIlluminationKernel.SetArg(8, textureBuffer_);
+        directIlluminationKernel.SetArg(9, areaLightsBuffer_);
+        directIlluminationKernel.SetArg(10, configData_.uNumAreaLights);
+        directIlluminationKernel.SetArg(11, radianceBuffer_);
+        directIlluminationKernel.SetArg(12, (cl_uint)numActiveRays);
+        directIlluminationKernel.SetArg(13, (cl_uint)frameCount_);
+
+        globalWorkSize1 = localWorkSize1 * ((numActiveRays + localWorkSize1 - 1) / localWorkSize1);
+
+        context_.Launch1D(0, globalWorkSize1, localWorkSize1, directIlluminationKernel);
+    }
+
+    /// PART V: Materials sampling
+    /// Materials sampling kernel is supposed to generate secondary extension requests
+    {
+        CLWKernel sampleMaterialKernel = program_.GetKernel("sample_material");
+        sampleMaterialKernel.SetArg(0, firstHitBuffer_);
+        sampleMaterialKernel.SetArg(1, compactedPathIndicesBuffer_);
+        sampleMaterialKernel.SetArg(2, materialBuffer_);
+        sampleMaterialKernel.SetArg(3, textureDescBuffer_);
+        sampleMaterialKernel.SetArg(4, textureBuffer_);
+        sampleMaterialKernel.SetArg(5, areaLightsBuffer_);
+        sampleMaterialKernel.SetArg(6, configData_.uNumAreaLights);
+        sampleMaterialKernel.SetArg(7, (cl_uint)numActiveRays);
+        sampleMaterialKernel.SetArg(8, (cl_uint)frameCount_);
+        sampleMaterialKernel.SetArg(9, secondaryRaysBuffer_);
+        sampleMaterialKernel.SetArg(10, samplePredicateBuffer_);
+
+        globalWorkSize1 = localWorkSize1 * ((numActiveRays + localWorkSize1 - 1) / localWorkSize1);
+
+        context_.FillBuffer(0, samplePredicateBuffer_, 0, samplePredicateBuffer_.GetElementCount()).Wait();
+        context_.Launch1D(0, globalWorkSize1, localWorkSize1, sampleMaterialKernel);
+    }
+
+    // PART VI: Compaction
+    // To avoid thread divergence on further phases we 
+    // compact hits buffer throwing away unactive secondary rays and collecting
+    // active ray indices into a separate buffer
+    cl_int numActiveSecondaryRays = 0;
+    prims_.Compact(0, samplePredicateBuffer_, initialPathIndicesBuffer_, compactedPathIndicesBuffer_, numActiveSecondaryRays).Wait();
+    //std::cout << "\n" << ((float)numActiveSecondaryRays/(configData_.uOutputHeight * configData_.uOutputWidth)) * 100 << "% active secondary rays after sampling";
+
+    // PART VII : Extension kernel launch
+    // Extension kernel is launched to process extension requests buffer, traces rays against BVH
+    // and fills in hit information into hits buffer along with hit predicate 
+    // information which might be used to compact away missing rays
+    {
+        CLWKernel extensionKernel = program_.GetKernel("process_extension_request");
+        extensionKernel.SetArg(0, secondaryRaysBuffer_);
+        extensionKernel.SetArg(1, compactedPathIndicesBuffer_);
+        extensionKernel.SetArg(2, bvhBuffer_);
+        extensionKernel.SetArg(3, bvhIndicesBuffer_);
+        extensionKernel.SetArg(4, vertexBuffer_);
+        extensionKernel.SetArg(5, indexBuffer_);
+        extensionKernel.SetArg(6, secondHitBuffer_);
+        extensionKernel.SetArg(7, hitPredicateBuffer_);
+        extensionKernel.SetArg(8, (cl_uint)(numActiveSecondaryRays));
+
+        globalWorkSize1 = localWorkSize1 * ((numActiveSecondaryRays + localWorkSize1 - 1) / localWorkSize1);
+        context_.FillBuffer(0, hitPredicateBuffer_, 0, hitPredicateBuffer_.GetElementCount()).Wait();
+        context_.Launch1D(0, globalWorkSize1, localWorkSize1, extensionKernel);
+    }
+
+    // PART VI: Compaction
+    // To avoid thread divergence on further phases we 
+    // compact hits buffer throwing away inactive secondary rays and collecting
+    // active ray indices into a separate buffer
+    numActiveRays = 0;
+    prims_.Compact(0, hitPredicateBuffer_, initialPathIndicesBuffer_, compactedPathIndicesBuffer_, numActiveRays).Wait();
+    //std::cout << "\n" << ((float)numActiveRays/(configData_.uOutputHeight * configData_.uOutputWidth)) * 100 << "% active secondary rays after tracing"; 
+
+    {
+        CLWKernel directIlluminationKernel = program_.GetKernel("sample_direct_illumination");
+        directIlluminationKernel.SetArg(0, bvhBuffer_);
+        directIlluminationKernel.SetArg(1, bvhIndicesBuffer_);
+        directIlluminationKernel.SetArg(2, vertexBuffer_);
+        directIlluminationKernel.SetArg(3, indexBuffer_);
+        directIlluminationKernel.SetArg(4, secondHitBuffer_);
+        directIlluminationKernel.SetArg(5, compactedPathIndicesBuffer_);
+        directIlluminationKernel.SetArg(6, materialBuffer_);
+        directIlluminationKernel.SetArg(7, textureDescBuffer_);
+        directIlluminationKernel.SetArg(8, textureBuffer_);
+        directIlluminationKernel.SetArg(9, areaLightsBuffer_);
+        directIlluminationKernel.SetArg(10, configData_.uNumAreaLights);
+        directIlluminationKernel.SetArg(11, radianceBuffer1_);
+        directIlluminationKernel.SetArg(12, (cl_uint)numActiveRays);
+        directIlluminationKernel.SetArg(13, (cl_uint)frameCount_);
+
+        cl_float4 zero = { 0.f, 0.f, 0.f, 0.f };
+        context_.FillBuffer(0, radianceBuffer1_, zero, radianceBuffer1_.GetElementCount()).Wait();
+
+        globalWorkSize1 = localWorkSize1 * ((numActiveRays + localWorkSize1 - 1) / localWorkSize1);
+        context_.Launch1D(0, globalWorkSize1, localWorkSize1, directIlluminationKernel);
+    }
+
+    // PART VII: Material evaluation
+    // This kernel operates on two radiance and hit buffers and 
+    // calculate BRDF for one bounce of illumination
+    {
+        CLWKernel evalMaterialKernel = program_.GetKernel("evaluate_material");
+        evalMaterialKernel.SetArg(0, firstHitBuffer_);
+        evalMaterialKernel.SetArg(1, secondHitBuffer_);
+        evalMaterialKernel.SetArg(2, compactedPathIndicesBuffer_);
+        evalMaterialKernel.SetArg(3, materialBuffer_);
+        evalMaterialKernel.SetArg(4, textureDescBuffer_);
+        evalMaterialKernel.SetArg(5, textureBuffer_);
+        evalMaterialKernel.SetArg(6, areaLightsBuffer_);
+        evalMaterialKernel.SetArg(7, configData_.uNumAreaLights);
+        evalMaterialKernel.SetArg(8, radianceBuffer1_);
+        evalMaterialKernel.SetArg(9, radianceBuffer_);
+        evalMaterialKernel.SetArg(10, (cl_uint)numActiveRays);
+        evalMaterialKernel.SetArg(11, (cl_uint)frameCount_);
+
+        globalWorkSize1 = localWorkSize1 * ((numActiveRays + localWorkSize1 - 1) / localWorkSize1);
+        context_.Launch1D(0, globalWorkSize1, localWorkSize1, evalMaterialKernel);
+    }
+
+    // PART VIII: Post-processing
+    // Resolve progressively refined buffer based on the number of accumulated frames
+    {
+        CLWKernel resolveRadianceKernel = program_.GetKernel("resolve_radiance");
+        resolveRadianceKernel.SetArg(0, radianceBuffer_);
+        resolveRadianceKernel.SetArg(1, radianceBuffer1_);
+        resolveRadianceKernel.SetArg(2, (cl_uint)(configData_.uOutputHeight * configData_.uOutputWidth));
+        resolveRadianceKernel.SetArg(3, (cl_uint)(frameCount_));
+
+        globalWorkSize1 = localWorkSize1 * ((configData_.uOutputHeight * configData_.uOutputWidth + localWorkSize1 - 1) / localWorkSize1);
+        context_.Launch1D(0, globalWorkSize1, localWorkSize1, resolveRadianceKernel);
+    }
+
+    /* USE SCAN FOR NOW: NEED TO SWITCH TO REDUCTION LATER */
+    // Log luminance evaluation for tonemapping
+    {
+        CLWKernel logLumKernel = program_.GetKernel("calculate_loglum");
+        logLumKernel.SetArg(0, radianceBuffer1_);
+        logLumKernel.SetArg(1, logLumBuffer_);
+        logLumKernel.SetArg(2, (cl_uint)(configData_.uOutputHeight * configData_.uOutputWidth));
+
+        globalWorkSize1 = localWorkSize1 * ((configData_.uOutputHeight * configData_.uOutputWidth + localWorkSize1 - 1) / localWorkSize1);
+        context_.Launch1D(0, globalWorkSize1, localWorkSize1, logLumKernel);
+    }
+
+    prims_.ScanExclusiveAdd(0, logLumBuffer_, logLumBuffer_).Wait();
+    cl_float logLum = 0.f;
+    context_.ReadBuffer(0, logLumBuffer_, &logLum, logLumBuffer_.GetElementCount() - 1, 1).Wait();
+
+    logLum /= (configData_.uOutputHeight * configData_.uOutputWidth - 1);
+    //std::cout << "\nAvg loglum: " << logLum;
+
+    // Tone mapping
+    {
+        CLWKernel tonemapRadianceKernel = program_.GetKernel("tonemap_radiance");
+        tonemapRadianceKernel.SetArg(0, radianceBuffer1_);
+        tonemapRadianceKernel.SetArg(1, radianceBuffer1_);
+        tonemapRadianceKernel.SetArg(2, (cl_uint)(configData_.uOutputHeight * configData_.uOutputWidth));
+        tonemapRadianceKernel.SetArg(3, (cl_float)(logLum));
+        tonemapRadianceKernel.SetArg(4, (cl_float)(timeDeltaDesc));
+
+        globalWorkSize1 = localWorkSize1 * ((configData_.uOutputHeight * configData_.uOutputWidth + localWorkSize1 - 1) / localWorkSize1);
+        context_.Launch1D(0, globalWorkSize1, localWorkSize1, tonemapRadianceKernel);
+    }
+
+    // Export radiance into an OpenGL interop texture
+    // Wait for GL commands to finish
+    glFinish();
+
+    // Prepare GL objects required for interop
+    std::vector<cl_mem> glObjects;
+    glObjects.push_back(outputDepthTexture_);
+
+    // Acquire them
+    context_.AcquireGLObjects(0, glObjects);
+
+    // Launch export radiance kernel
+    {
+        CLWKernel exportRadianceKernel = program_.GetKernel("export_radiance");
+        exportRadianceKernel.SetArg(0, configBuffer_);
+        exportRadianceKernel.SetArg(1, radianceBuffer1_);
+        exportRadianceKernel.SetArg(2, outputDepthTexture_);
+        exportRadianceKernel.SetArg(3, (cl_uint)(configData_.uOutputHeight * configData_.uOutputWidth));
+
+        globalWorkSize1 = localWorkSize1 * ((configData_.uOutputHeight * configData_.uOutputWidth + localWorkSize1 - 1) / localWorkSize1);
+        context_.Launch1D(0, globalWorkSize1, localWorkSize1, exportRadianceKernel);
+    }
+
+    context_.Finish(0);
+
     context_.ReleaseGLObjects(0, glObjects);
-    
-    //cl_ulong startTime, endTime;
-    //double totalTime;
-    
-    //clGetEventProfilingInfo(kernelExecutionEvent1, CL_PROFILING_COMMAND_START, sizeof(startTime), &startTime, nullptr);
-    //clGetEventProfilingInfo(kernelExecutionEvent1, CL_PROFILING_COMMAND_END, sizeof(endTime), &endTime, nullptr);
-    //totalTime = (double)(endTime - startTime)/1000000.0;
-    
+
     ++frameCount_;
 }
 
 void   OCLRender::FlushFrame()
 {
     frameCount_ = 0;
+
+    // Clear radiance buffer
+    cl_float4 zero = { 0.f, 0.f, 0.f, 0.f };
+    context_.FillBuffer(0, radianceBuffer_, zero, radianceBuffer_.GetElementCount()).Wait();
+    context_.FillBuffer(0, radianceBuffer1_, zero, radianceBuffer1_.GetElementCount()).Wait();
 }
 
 void OCLRender::CompileTextures()
@@ -365,7 +580,6 @@ void OCLRender::CompileTextures()
     context_.WriteBuffer(0, textureDescBuffer_, &textureDescs[0], textureDescs.size()).Wait();
     
     configData_.uTextureCount = static_cast<unsigned>(textureDescs.size());
-    
 }
 
 

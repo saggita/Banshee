@@ -1,7 +1,7 @@
 project "CLW"
     kind "StaticLib"
     location "../CLW"
-    includedirs { ".", "../3rdParty/freeglut/include" }
+    includedirs { ".", "../3rdParty/freeglut/include", "../3rdParty/glew/include" }
     files { "../CLW/**.h", "../CLW/**.cpp", "../CLW/**.cl" }
     buildoptions "-std=c++11 -stdlib=libc++"
 	

@@ -54,7 +54,7 @@ void safe_store_##type##4(type##4 val, __global type##4* dest, uint idx, uint si
 }
 
 #define DEFINE_GROUP_SCAN_EXCLUSIVE(type)\
-void group_scan_exclusive_##type( type localId, type groupSize, __local type* shmem)\
+void group_scan_exclusive_##type(int localId, int groupSize, __local type* shmem)\
 {\
     for (int stride = 1; stride <= (groupSize >> 1); stride <<= 1)\
     {\
@@ -80,7 +80,7 @@ void group_scan_exclusive_##type( type localId, type groupSize, __local type* sh
 }
 
 #define DEFINE_GROUP_SCAN_EXCLUSIVE_PART(type)\
-type group_scan_exclusive_part_##type( type localId, type groupSize, __local type* shmem)\
+type group_scan_exclusive_part_##type( int localId, int groupSize, __local type* shmem)\
 {\
     type sum = 0;\
     for (int stride = 1; stride <= (groupSize >> 1); stride <<= 1)\
@@ -179,7 +179,7 @@ __kernel void scan_exclusive_part_##type##4(__global type##4 const* in_array, __
 }
 
 #define DEFINE_GROUP_REDUCE(type)\
-void group_reduce_##type(type localId, type groupSize, __local type* shmem)\
+void group_reduce_##type(int localId, int groupSize, __local type* shmem)\
 {\
     for (int stride = 1; stride <= (groupSize >> 1); stride <<= 1)\
     {\
@@ -205,17 +205,33 @@ __kernel void distribute_part_sum_##type##4( __global type* in_sums, __global ty
     safe_store_##type##4(v1, inout_array, 2 * globalId, numElems);\
 }
 
-//DEFINE_MAKE_4(int)
-//DEFINE_MAKE_4(int)
-DEFINE_SAFE_LOAD_4(int)
-DEFINE_SAFE_STORE_4(int)
-DEFINE_GROUP_SCAN_EXCLUSIVE(int)
-DEFINE_GROUP_SCAN_EXCLUSIVE_PART(int)
-DEFINE_SCAN_EXCLUSIVE(int)
-DEFINE_SCAN_EXCLUSIVE_4(int)
-DEFINE_SCAN_EXCLUSIVE_PART_4(int)
-DEFINE_DISTRIBUTE_PART_SUM_4(int)
 
+DEFINE_MAKE_4(int)
+DEFINE_MAKE_4(float)
+
+DEFINE_SAFE_LOAD_4(int)
+DEFINE_SAFE_LOAD_4(float)
+
+DEFINE_SAFE_STORE_4(int)
+DEFINE_SAFE_STORE_4(float)
+
+DEFINE_GROUP_SCAN_EXCLUSIVE(int)
+DEFINE_GROUP_SCAN_EXCLUSIVE(float)
+
+DEFINE_GROUP_SCAN_EXCLUSIVE_PART(int)
+DEFINE_GROUP_SCAN_EXCLUSIVE_PART(float)
+
+DEFINE_SCAN_EXCLUSIVE(int)
+DEFINE_SCAN_EXCLUSIVE(float)
+
+DEFINE_SCAN_EXCLUSIVE_4(int)
+DEFINE_SCAN_EXCLUSIVE_4(float)
+
+DEFINE_SCAN_EXCLUSIVE_PART_4(int)
+DEFINE_SCAN_EXCLUSIVE_PART_4(float)
+
+DEFINE_DISTRIBUTE_PART_SUM_4(int)
+DEFINE_DISTRIBUTE_PART_SUM_4(float)
 
 /// Specific function for radix-sort needs
 /// Group exclusive add multiscan on 4 arrays of shorts in parallel
@@ -500,4 +516,22 @@ __kernel void scatter_keys(int bitshift,
         safe_store_int(value.w, (__global int*)out_values, scatterAddr, numElems);
     }
 }
+
+__kernel void compact_int( __global int* in_predicate, __global int* in_address, 
+                       __global int* in_input, uint in_size,
+                       __global int* out_output)
+{
+    int global_id  = get_global_id(0);
+    int group_id   = get_group_id(0);
+
+    if (global_id < in_size)
+    {
+        if (in_predicate[global_id])
+        {
+            out_output[in_address[global_id]] = in_input[global_id];
+        }
+    }
+}
+
+
 

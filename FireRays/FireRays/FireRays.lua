@@ -17,7 +17,7 @@ project "FireRays"
     configuration {}
 	
 	if os.is("windows") then
-		if _ACTION == "vs2010" then
+		if _ACTION == "vs2012" then
 		includedirs { "../3rdParty/assimp/include", "../3rdParty/glew/include", "../3rdParty/freeglut/include" }
 		end
 	end

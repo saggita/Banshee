@@ -121,10 +121,12 @@ unsigned int const* ObjScene::GetMaterials() const
 
 void ObjScene::BuildMaterials(aiScene const* scene)
 {
-    MaterialRep materialRep;
+
     
     for (int i = 0; i < scene->mNumMaterials; ++i)
     {
+        MaterialRep materialRep;
+
         aiMaterial* material = scene->mMaterials[i];
         
         aiColor3D diffuse(0,0,0);
@@ -141,12 +143,20 @@ void ObjScene::BuildMaterials(aiScene const* scene)
         
         if (name == aiString("light"))
         {
-            materialRep.vKe.x() = 10;//emissive.r;
-            materialRep.vKe.y() = 10;//emissive.g;
-            materialRep.vKe.z() = 10;//emissive.b;
+            materialRep.vKe.x() = 100;//emissive.r;
+            materialRep.vKe.y() = 100;//emissive.g;
+            materialRep.vKe.z() = 75;//emissive.b;
             materialRep.uTd = -1;
             materialRep.eBsdf = 3;
-            
+        }
+        else if(name == aiString("sphere"))
+        {
+            materialRep.vKs.x() = 1;//emissive.r;
+            materialRep.vKs.y() = 1;//emissive.g;
+            materialRep.vKs.z() = 1;//emissive.b;
+            materialRep.uTd = -1;
+            materialRep.eBsdf = 2;
+            materialRep.fEs = 4000.f;
         }
         else
         {

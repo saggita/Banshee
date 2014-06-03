@@ -44,6 +44,7 @@ public:
     
 private:
     CLWEvent WriteDeviceBuffer(CLWCommandQueue cmdQueue, T const* hostBuffer, size_t elemCount);
+    CLWEvent FillDeviceBuffer(CLWCommandQueue cmdQueue, T const& val, size_t elemCount);
     CLWEvent ReadDeviceBuffer(CLWCommandQueue cmdQueue, T* hostBuffer, size_t elemCount);
     CLWEvent ReadDeviceBuffer(CLWCommandQueue cmdQueue, T* hostBuffer, size_t offset, size_t elemCount);
     CLWEvent MapDeviceBuffer(CLWCommandQueue cmdQueue, cl_map_flags flags, T** mappedData);
@@ -170,6 +171,17 @@ template <typename T> CLWEvent CLWBuffer<T>::UnmapDeviceBuffer(CLWCommandQueue c
 
     status = clEnqueueUnmapMemObject(cmdQueue, *this,  mappedData, 0, nullptr, &event);
 
+    assert(status == CL_SUCCESS);
+    // TODO: handle errors
+    return CLWEvent::Create(event);
+}
+
+template <typename T> CLWEvent CLWBuffer<T>::FillDeviceBuffer(CLWCommandQueue cmdQueue, T const& val, size_t elemCount)
+{
+    cl_int status = CL_SUCCESS;
+    cl_event event = nullptr;
+    status = clEnqueueFillBuffer(cmdQueue, *this, &val, sizeof(T), 0, sizeof(T)*elemCount, 0, nullptr, &event);
+    
     assert(status == CL_SUCCESS);
     // TODO: handle errors
     return CLWEvent::Create(event);

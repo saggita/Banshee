@@ -199,3 +199,10 @@ void CLWContext::ReleaseGLObjects(unsigned int idx, std::vector<cl_mem> const& o
 
     assert (status == CL_SUCCESS);
 }
+
+
+void CLWContext::Finish(unsigned int idx) const
+{
+    cl_int status = clFinish(commandQueues_[idx]);
+    assert (status == CL_SUCCESS);
+}

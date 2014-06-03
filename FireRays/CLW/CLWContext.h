@@ -50,6 +50,7 @@ public:
     CLWImage2D                          CreateImage2DFromGLTexture(cl_GLint texture) const;
 
     template <typename T> CLWEvent  WriteBuffer(unsigned int idx, CLWBuffer<T> buffer, T* const hostBuffer, size_t elemCount) const;
+    template <typename T> CLWEvent  FillBuffer(unsigned int idx, CLWBuffer<T> buffer, T const& val, size_t elemCount) const;
     template <typename T> CLWEvent  ReadBuffer(unsigned int idx,  CLWBuffer<T> buffer, T* hostBuffer, size_t elemCount) const;
     template <typename T> CLWEvent  ReadBuffer(unsigned int idx,  CLWBuffer<T> buffer, T* hostBuffer, size_t offset, size_t elemCount) const;
     template <typename T> CLWEvent  CopyBuffer(unsigned int idx,  CLWBuffer<T> source, CLWBuffer<T> dest, size_t srcOffset, size_t destOffset, size_t elemCount) const;
@@ -66,6 +67,8 @@ public:
     CLWEvent Launch2D(unsigned int idx, size_t* globalSize, size_t* localSize, cl_kernel kernel);
     CLWEvent Launch2D(unsigned int idx, size_t* globalSize, size_t* localSize, cl_kernel kernel, CLWEvent depEvent);
     CLWEvent Launch2D(unsigned int idx, size_t* globalSize, size_t* localSize, cl_kernel kernel, std::vector<CLWEvent> const& events);
+
+    void Finish(unsigned int idx) const;
 
     // GL interop 
     void AcquireGLObjects(unsigned int idx, std::vector<cl_mem> const& objects) const;
@@ -96,6 +99,11 @@ template <typename T> CLWBuffer<T> CLWContext::CreateBuffer(size_t elementCount,
 template <typename T> CLWEvent  CLWContext::WriteBuffer(unsigned int idx, CLWBuffer<T> buffer, T* const hostBuffer, size_t elemCount) const
 {
     return buffer.WriteDeviceBuffer(commandQueues_[idx], hostBuffer, elemCount);
+}
+
+template <typename T> CLWEvent  CLWContext::FillBuffer(unsigned int idx, CLWBuffer<T> buffer, T const& val, size_t elemCount) const
+{
+    return buffer.FillDeviceBuffer(commandQueues_[idx], val, elemCount);
 }
 
 template <typename T> CLWEvent  CLWContext::ReadBuffer(unsigned int idx, CLWBuffer<T> buffer, T* hostBuffer, size_t elemCount) const

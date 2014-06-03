@@ -20,7 +20,7 @@ DEFINES
 #define NODE_STACK_SIZE 64
 #define MAX_PATH_LENGTH 3
 
-#define RAY_EPSILON 0.01f
+#define RAY_EPSILON 0.00001f
 #define NUM_SAMPLES 1.f
 
 #define MATERIAL1 0
@@ -124,6 +124,7 @@ typedef struct _PathVertex{
     float3      vIncidentDir;
     float4      vRadiance;
     uint        uMaterialIdx;
+    int         iPixelRef;
     float       fDistance;
     bool        bHit;
 } PathVertex;
@@ -187,12 +188,18 @@ typedef struct
 {
     Ray  sRay;
     int  iId;
-    
+
     uint  uPathLength;
     uint  uPathOffset;
     uint  uLastMiss;
     uint  ePathType;
 } PathStart;
+
+typedef struct
+{
+    Ray  ray;
+    uint data;
+} path_extension_request;
 
 /*************************************************************************
 HELPER FUNCTIONS
@@ -262,34 +269,34 @@ float4 TransformPoint(float16 mWVP, float4 vPoint)
     return vRes;
 }
 
-//float4 make_float4(float x, float y, float z, float w)
-//{
-//    float4 res;
-//    res.x = x;
-//    res.y = y;
-//    res.z = z;
-//    res.w = w;
-//    return res;
-//}
-//
-//
-//float3 make_float3(float x, float y, float z)
-//{
-//    float3 res;
-//    res.x = x;
-//    res.y = y;
-//    res.z = z;
-//    return res;
-//}
-//
-//int2 make_int2(int x, int y)
-//{
-//    int2 res;
-//    res.x = x;
-//    res.y = y;
-//    return res;
-//}
-//
+float4 make_float4(float x, float y, float z, float w)
+{
+    float4 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    res.w = w;
+    return res;
+}
+
+
+float3 make_float3(float x, float y, float z)
+{
+    float3 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    return res;
+}
+
+int2 make_int2(int x, int y)
+{
+    int2 res;
+    res.x = x;
+    res.y = y;
+    return res;
+}
+
 float4 tex2d(SceneData* sSceneData, uint texIdx, float2 uv)
 {
     uv.x -= floor(uv.x);
@@ -412,7 +419,7 @@ bool IntersectLeaf(__global uint* uBVHIndices, __global Vertex* vertices, __glob
             shadingData->vTex = (1.f - a - b) * t1.xy + a * t2.xy + b * t3.xy;
 
             if (dot(-r->d, shadingData->vNormal) < 0)
-              shadingData->vNormal = - shadingData->vNormal;
+                shadingData->vNormal = - shadingData->vNormal;
 
             shadingData->uMaterialIdx = triangle.w;
         }
@@ -536,103 +543,8 @@ bool TraverseBVHStacked(
     }
     while (idx != NODE_STACK_GUARD);
 
-    //shadingData->bHit = hit;
     return hit;
 }
-
-//#define FROM_PARENT  1
-//#define FROM_CHILD   2
-//#define FROM_SIBLING 3
-//
-//#define uParent(x) (nodes[(x)].uParent)
-//#define LEFT_CHILD(x) ((x)+1)
-//#define RIGHT_CHILD(x) (nodes[(x)].uRight)
-//
-//#define IS_LEAF(x) (nodes[(x)].uNumPrims != 0)
-//
-//bool TraverseBVHStackless(__global BVHNode* nodes, __global Vertex* vertices, __global uint4* indices, Ray* r, ShadingData* shadingData)
-//{
-//    uint current = 1;
-//    int  state   = FROM_PARENT;
-//
-//    bool hit = false;
-//
-//    while (true)
-//    {
-//        switch (state)
-//        {
-//        case FROM_CHILD:
-//            {
-//                if (current == 0)
-//                {
-//                    return hit;
-//                }
-//
-//                else if (current == LEFT_CHILD(uParent(current)))
-//                {
-//                    current = RIGHT_CHILD(uParent(current));
-//                    state = FROM_SIBLING;
-//                }
-//                else
-//                {
-//                    current = uParent(current);
-//                    state = FROM_CHILD;
-//                }
-//                break;
-//            }
-//
-//        case FROM_SIBLING:
-//            {
-//                BBox box = nodes[current].box;
-//                if (!IntersectBox(r, box))
-//                {
-//                    current = uParent(current);
-//                    state = FROM_CHILD;
-//                }
-//                else if (IS_LEAF(current))
-//                {
-//                    hit |= IntersectLeaf(vertices, indices, nodes[current].uPrimStartIdx, nodes[current].uNumPrims, r, shadingData);
-//                    current = uParent(current);
-//                    state = FROM_CHILD;
-//                }
-//                else
-//                {
-//                    current = LEFT_CHILD(current);
-//                    state = FROM_PARENT;
-//                }
-//
-//                break;
-//            }
-//
-//        case FROM_PARENT:
-//            {
-//                BBox box = nodes[current].box;
-//                if (!IntersectBox(r, box))
-//                {
-//                    current = RIGHT_CHILD(uParent(current));
-//                    state = FROM_SIBLING;
-//                }
-//                else if (IS_LEAF(current))
-//                {
-//                    hit |= IntersectLeaf(vertices, indices, nodes[current].uPrimStartIdx, nodes[current].uNumPrims, r, shadingData);
-//                    current = RIGHT_CHILD(uParent(current));
-//                    state = FROM_SIBLING;
-//                }
-//                else
-//                {
-//                    current = LEFT_CHILD(current);
-//                    state = FROM_PARENT;
-//                }
-//
-//                break;
-//            }
-//        }
-//
-//    }
-//
-//    return false;
-//
-//}
 
 float3 GetOrthoVector(float3 n)
 {
@@ -669,7 +581,7 @@ float3 GetHemisphereSample(float3 vNormal, float e, RNG* sRNG)
 
 MaterialRep GetMaterial(uint uMaterialIdx, SceneData* sSceneData, RNG* sRNG)
 {
-   return sSceneData->sMaterials[uMaterialIdx];
+    return sSceneData->sMaterials[uMaterialIdx];
 }
 
 bool IsEmissive(MaterialRep* sMaterial)
@@ -677,34 +589,33 @@ bool IsEmissive(MaterialRep* sMaterial)
     return length(sMaterial->vKe) > 0.0;
 }
 
-bool SampleMaterial(MaterialRep* sMaterialRep, ShadingData* sShadingData, float3 vWo, RNG* sRNG, Ray* sRay)
+int SampleMaterial(MaterialRep* sMaterialRep, ShadingData* sShadingData, float3 vWo, RNG* sRNG, Ray* sRay)
 {
     switch (sMaterialRep->eBsdf)
     {
-    case BSDF_TYPE_EMISSIVE:
-        {
-            return false;
-        }
-
-    case BSDF_TYPE_LAMBERT:
-        {
+     case BSDF_TYPE_LAMBERT:
+         {
             sRay->d = GetHemisphereSample(sShadingData->vNormal, 1.f, sRNG);
             sRay->o = sShadingData->vPos + RAY_EPSILON * sRay->d;
             sRay->maxt = 10000.f;
             sRay->mint = 0.f;
-            return true;
+            return 1;
         }
-
+    case BSDF_TYPE_EMISSIVE:
+        {
+            return false;
+        }
     case BSDF_TYPE_SPECULAR:
         {
             if (dot( sShadingData->vNormal, vWo) > 0)
             {
-                float3 vReflDir = -vWo + 2*dot(vWo, sShadingData->vNormal) * sShadingData->vNormal;
+                float3 vReflDir = normalize(-vWo + 2*dot(vWo, sShadingData->vNormal) * sShadingData->vNormal);
 
                 sRay->o = sShadingData->vPos + RAY_EPSILON * vReflDir;
 
 
                 sRay->d = normalize(GetHemisphereSample(vReflDir, sMaterialRep->fEs, sRNG));
+
 
                 // As we generate the sample in the solid angle around reflection vector
                 // there is a chance of generating a ray under the tangent plane
@@ -722,513 +633,6 @@ bool SampleMaterial(MaterialRep* sMaterialRep, ShadingData* sShadingData, float3
             }
         }
     }
-}
-
-float4 EvaluateMaterial(SceneData* sSceneData, MaterialRep* sMaterialRep, ShadingData* sShadingData, float3 vWi, float3 vWo, float4 vRadiance)
-{
-    switch (sMaterialRep->eBsdf)
-    {
-    case BSDF_TYPE_LAMBERT:
-        {
-            float  fInvPi = 1.f /  M_PI;
-            float4 vColor = (sMaterialRep->uTd == -1) ? sMaterialRep->vKd : tex2d(sSceneData, sMaterialRep->uTd, sShadingData->vTex);
-            return fInvPi * vRadiance * vColor;
-        }
-
-    case BSDF_TYPE_SPECULAR:
-        {
-            float3 vReflDir = normalize(-vWi + 2.f*dot(vWi, sShadingData->vNormal) * sShadingData->vNormal);
-            return vRadiance * sMaterialRep->vKs * pow(max(0.f, dot(vReflDir, vWo)), sMaterialRep->fEs) / (dot(sShadingData->vNormal, vWi));
-        }
-    case BSDF_TYPE_EMISSIVE:
-        {
-            return sMaterialRep->vKe;
-        }
-    }
-}
-
-float4 SampleDirectIllumination(
-#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
-    __local int* iThreadStack,
-#endif
-    SceneData*      sSceneData,
-    MaterialRep*	sMaterialRep,
-    ShadingData*    sShadingData,
-    float3          vWo,
-    RNG* sRNG
-    )
-{
-    float4 vRes = make_float4(0, 0, 0, 0);
-
-    if (!IsEmissive(sMaterialRep))
-    {
-#ifdef AO_ENABLE
-        float fOcclusion = EstimateOcclusion(sSceneData, sShadingData, sRNG, AO_RADIUS);
-        float fMinAmount = AO_MIN;
-#else
-        float fOcclusion = 0.f;
-        float fMinAmount = 0.f;
-#endif
-
-
-        if (RandFloat(sRNG) > 0.5f)
-        {
-            uint i = (uint)(RandFloat(sRNG) * (sSceneData->sParams->uNumAreaLights + 1));
-            if (i == sSceneData->sParams->uNumAreaLights) --i;
-            float3 vLightSample, vLightNormal;
-            float fPDF;
-            SampleTriangleUniform(sSceneData->sVertices, sSceneData->sIndices, sSceneData->uAreaLights[i], sRNG, &vLightSample, &vLightNormal, &fPDF);
-
-            float3 vLight = normalize(vLightSample - sShadingData->vPos);
-            float  fDist = length(vLightSample - sShadingData->vPos);
-
-            Ray sRay;
-            sRay.o = sShadingData->vPos + RAY_EPSILON * vLight;
-            sRay.d = vLight;
-            sRay.maxt = (1.f - RAY_EPSILON) * fDist;
-            sRay.mint = 0.f;
-
-            ShadingData sTempData;
-
-            float fNdotL = dot(sShadingData->vNormal, vLight);
-            float fNdotWo = dot(vLightNormal, -vLight);
-
-            if (fNdotL > 0)
-            {
-                float fShadow = TraverseBVHStacked(
-#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
-                    iThreadStack,
-#endif
-                    sSceneData->sBVH, sSceneData->uBVHIndices, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
-
-                float4 vDirectContribution = fNdotL * EvaluateMaterial(sSceneData, sMaterialRep, sShadingData, vLight, vWo, GetMaterial(MATERIAL3, sSceneData, sRNG).vKe) *
-                    fNdotWo * GetMaterial(MATERIAL3, sSceneData, sRNG).vKe / (fDist * fDist * fPDF);
-                vRes += ((fShadow * vDirectContribution) * (1.f - fOcclusion) + vDirectContribution * AO_MIN);
-            }
-        }
-        else
-        /// Environment light sampling
-        {
-            Ray sRay;
-            sRay.d = GetHemisphereSample(sShadingData->vNormal, 1.f, sRNG);
-            sRay.o = sShadingData->vPos + RAY_EPSILON * sRay.d;
-            sRay.maxt = 10000.f;
-            sRay.mint = 0.f;
-
-            ShadingData sTempData;
-            float fShadow = TraverseBVHStacked(
-#if defined (TRAVERSAL_STACKED) && defined (LOCAL_STACK)
-                iThreadStack,
-#endif
-                sSceneData->sBVH, sSceneData->uBVHIndices, sSceneData->sVertices, sSceneData->sIndices, &sRay, &sTempData) ? 0.f : 1.f;
-
-            // there is no NdotL term here as it is canceled by cos(Theta)/M_PI pdf
-            vRes += fShadow * EvaluateMaterial(sSceneData, sMaterialRep, sShadingData, sRay.d, vWo, sSceneData->sParams->vBackgroundColor) / M_PI;
-        }
-    }
-    else
-    {
-        float fNdotWo = dot(sShadingData->vNormal, vWo);
-        if (fNdotWo > 0)
-        {
-            vRes = sMaterialRep->vKe * fNdotWo;
-        }
-    }
-
-    return vRes;
-}
-
-__kernel void GeneratePath(__global Config*       sParams,
-                           __global PathStart*    sPathStartBuffer)
-{
-    int2 globalId;
-    globalId.x = get_global_id(0);
-    globalId.y = get_global_id(1);
-    int flatGlobalId = globalId.y * sParams->uOutputWidth + globalId.x;
-
-    unsigned uWidth  = sParams->uOutputWidth;
-    unsigned uHeight = sParams->uOutputHeight;
-
-    int  iSubsample = flatGlobalId % (NUM_SAMPLES_X * NUM_SAMPLES_Y);
-    int  iPixel = flatGlobalId / (NUM_SAMPLES_X * NUM_SAMPLES_Y);
-    int2 iSubsampleIdx = make_int2(iSubsample % NUM_SAMPLES_X, iSubsample / NUM_SAMPLES_X);
-    int2 iPixelCoords = make_int2(iPixel % uWidth, iPixel / uWidth);
-    
-    if (iPixelCoords.x < uWidth && iPixelCoords.y < uHeight)
-    {
-        // 1. Calculate pixel coordinates
-        // 2. Calculate sample index
-        // 3. Construct path start
-        // 4. Add it into the buffer
-        RNG sRNG = CreateRNG((get_global_id(0) + 133) * (get_global_id(1) + 177) * (sParams->uFrameCount + 57));
-        
-        float fPixelSize = sParams->fCameraPixelSize;
-        float fNearZ     = sParams->fCameraNearZ;
-        
-        int iX = iPixelCoords.x - (uWidth >> 1);
-        int iY = iPixelCoords.y - (uHeight >> 1);
-        
-        float fY = iY + (iSubsampleIdx.y + RandFloat(&sRNG))/NUM_SAMPLES_Y;
-        float fX = iX + (iSubsampleIdx.x + RandFloat(&sRNG))/NUM_SAMPLES_X;
-        
-        Ray rr;
-        rr.o = sParams->vCameraPos;
-        rr.d.x = sParams->vCameraDir.x * fNearZ + sParams->vCameraUp.x * fY * fPixelSize + sParams->vCameraRight.x * fX * fPixelSize;
-        rr.d.y = sParams->vCameraDir.y * fNearZ + sParams->vCameraUp.y * fY * fPixelSize + sParams->vCameraRight.y * fX * fPixelSize;
-        rr.d.z = sParams->vCameraDir.z * fNearZ + sParams->vCameraUp.z * fY * fPixelSize + sParams->vCameraRight.z * fX * fPixelSize;
-        
-        rr.d = normalize(rr.d);
-        
-        rr.mint = 0.f;
-        rr.maxt = DEFAULT_DEPTH;
-        
-        sPathStartBuffer[flatGlobalId].sRay = rr;
-        sPathStartBuffer[flatGlobalId].iId = flatGlobalId;
-        sPathStartBuffer[flatGlobalId].ePathType = sParams->uFrameCount % 3;
-    }
-}
-
-//bool  AdvancePath(uint ePathType, __global Vertex* vertices, __global uint4* indices, __global uint* areaLights, uint numAreaLights, MaterialRep* sMaterialRep, ShadingData* sShadingData, float3 vWo, RNG* sRNG, Ray* sRay)
-//{
-//    if (IsEmissive(sMaterialRep))
-//    {
-//        return false;
-//    }
-//    else
-//    {
-//        switch (ePathType)
-//        {
-//            case PATH_TYPE_DIRECT:
-//                {
-//                uint uLightIdx = numAreaLights * RandFloat(sRNG);
-//                float3 vLightSample, vLightNormal;
-//                float fPDF;
-//                SampleTriangleUniform(vertices, indices, areaLights[uLightIdx], sRNG, &vLightSample, &vLightNormal, &fPDF);
-//
-//                float3 vLight = normalize(vLightSample - sShadingData->vPos);
-//                float  fDist = length(vLightSample - sShadingData->vPos);
-//
-//                sRay->o = sShadingData->vPos + RAY_EPSILON * vLight;
-//                sRay->d = vLight;
-//                sRay->maxt = (1.f - RAY_EPSILON) * fDist;
-//                sRay->mint = 0.f;
-//                return true;
-//                }
-//
-//            case PATH_TYPE_INDIRECT:
-//                return SampleMaterial(sMaterialRep, sShadingData, vWo, sRNG, sRay);
-//
-//            case PATH_TYPE_AO:
-//                {
-//                    sRay->d = GetHemisphereSample(sShadingData->vNormal, 1.f, sRNG);
-//                    sRay->o = sShadingData->vPos + RAY_EPSILON * sRay->d;
-//                    sRay->maxt = 10000.f;
-//                    sRay->mint = 0.f;
-//                    return true;
-//                }
-//
-//        }
-//    }
-//}
-
-
-__kernel void TracePath(__global Config*       params,
-                        __global PathStart*    pathStartBuffer,
-                        __global BVHNode*      bvh,
-                        __global uint*         bvhIdxBuffer,
-                        __global Vertex*       vertices,
-                        __global uint4*        indices,
-                        __global MaterialRep*  materials,
-                        __global uint*  areaLights,
-                        __global TextureDesc*  textureDescBuffer,
-                        __global float4*       textureBuffer,
-                        __global PathVertex*   residentPool,
-                        __global int*          iTaskCounter,
-                        int iNumTasks
-                        )
-{
-    int globalId = get_global_id(0);
-    int iTaskIdx = globalId;
-    
-    uint uPathOffset = globalId * MAX_PATH_LENGTH;
-    
-    RNG sRNG = CreateRNG((get_global_id(0) + 133) * (get_global_id(1) + 177) * (params->uFrameCount + 57));
-
-    SceneData sSceneData;
-    sSceneData.sBVH         = bvh;
-    sSceneData.uBVHIndices  = bvhIdxBuffer;
-    sSceneData.sVertices    = vertices,
-    sSceneData.sIndices     = indices;
-    sSceneData.sPointLights = NULL;
-    sSceneData.sParams      = params;
-    sSceneData.sMaterials   = materials;
-    sSceneData.sTextureDesc = textureDescBuffer;
-    sSceneData.vTextures    = textureBuffer;
-    sSceneData.uAreaLights  = areaLights;
-
-    while (iTaskIdx < iNumTasks )
-    {
-        int iNumPoolItems = 0;
-        bool bHit = false;
-        ShadingData sShadingData;
-
-        __global PathVertex* sPathStack = residentPool + uPathOffset;
-
-        Ray sThisRay = pathStartBuffer[iTaskIdx].sRay;
-        while (bHit = TraverseBVHStacked(bvh, bvhIdxBuffer, vertices, indices, &sThisRay, &sShadingData))
-        {
-            MaterialRep sMaterial = materials[sShadingData.uMaterialIdx];
-            sPathStack[iNumPoolItems].vIncidentDir = sThisRay.d;
-            sPathStack[iNumPoolItems].sShadingData = sShadingData;
-            sPathStack[iNumPoolItems].vRadiance = SampleDirectIllumination(&sSceneData, &sMaterial, &sShadingData, -sThisRay.d, &sRNG);
-
-            ++(iNumPoolItems);
-
-            if (iNumPoolItems >= MAX_PATH_LENGTH)
-                break;
-
-            if (!SampleMaterial(&sMaterial, &sShadingData, -sThisRay.d, &sRNG, &sThisRay))
-            {
-                break;
-            }
-        }
-        
-        if (!bHit & iNumPoolItems < MAX_PATH_LENGTH)
-        {
-            sPathStack[iNumPoolItems].vIncidentDir = sThisRay.d;
-            pathStartBuffer[iTaskIdx].uLastMiss = 1;
-            ++iNumPoolItems;
-        }
-        else
-        {
-            pathStartBuffer[iTaskIdx].uLastMiss = 0;
-        }
-
-        // Export stack
-        pathStartBuffer[iTaskIdx].uPathOffset = uPathOffset;
-        pathStartBuffer[iTaskIdx].uPathLength = iNumPoolItems;
-        
-        // Get next task
-        iTaskIdx = atomic_inc(iTaskCounter);
-        // Get next stack pointer
-        uPathOffset = iTaskIdx * MAX_PATH_LENGTH;
-    }
-}
-
-__kernel void ShadeAndExport(
-                             __global Config*       params,
-                             __global BVHNode*     bvh,
-                             __global Vertex*       vertices,
-                             __global uint4*        indices,
-                             __global PathStart*    pathStartBuffer,
-                             __global MaterialRep*  materials,
-                             __global TextureDesc*  textureDescBuffer,
-                             __global float4*       textureBuffer,
-                             __global uint*         areaLights,
-                             __global PathVertex*   residentPool,
-                             __global float4*       intermediateBuffer,
-                             __write_only image2d_t output,
-                             __global int*          iTaskCounter,
-                             int iNumTasks
-                             )
-{
-    int globalId = get_global_id(0);
-    int iTaskIdx = globalId;
-    
-    RNG sRNG = CreateRNG((get_global_id(0) + 133) * (get_global_id(1) + 177) * (params->uFrameCount + 57));
-
-    SceneData sSceneData;
-    sSceneData.sBVH         = bvh;
-    sSceneData.sVertices    = vertices,
-    sSceneData.sIndices     = indices;
-    sSceneData.sPointLights = NULL;
-    sSceneData.sParams      = params;
-    sSceneData.sMaterials   = materials;
-    sSceneData.sTextureDesc = textureDescBuffer;
-    sSceneData.vTextures    = textureBuffer;
-    sSceneData.uAreaLights  = areaLights;
-
-    while (iTaskIdx < iNumTasks )
-    {
-        int iNumPoolItems = pathStartBuffer[iTaskIdx].uPathLength;
-        uint uLastMiss    = pathStartBuffer[iTaskIdx].uLastMiss;
-        uint uPathOffset  = pathStartBuffer[iTaskIdx].uPathOffset;
-
-        __global PathVertex* sPathStack = residentPool + uPathOffset + iNumPoolItems - 1;
-        
-        if (uLastMiss)
-        {
-            sPathStack->vRadiance = params->vBackgroundColor;
-            --iNumPoolItems;
-            --sPathStack;
-        }
-        
-        while (iNumPoolItems > 0)
-        {
-            // Sample direct, account for indirect
-            ShadingData sShadingData = sPathStack->sShadingData;
-            MaterialRep sMaterial = GetMaterial(sShadingData.uMaterialIdx, &sSceneData, &sRNG);
-
-            if (iNumPoolItems < pathStartBuffer[iTaskIdx].uPathLength)
-            {
-                float3 vWi = (sPathStack + 1)->vIncidentDir;
-                float fNdotL = dot(vWi, sShadingData.vNormal);
-                sPathStack->vRadiance += fNdotL * EvaluateMaterial(&sSceneData, &sMaterial, &sShadingData, vWi, -sPathStack->vIncidentDir,  (sPathStack+1)->vRadiance);
-            }
-
-            --iNumPoolItems;
-            --sPathStack;
-        }
-
-        int iId = pathStartBuffer[iTaskIdx].iId;
-        int iPixel = iId / (NUM_SAMPLES_X * NUM_SAMPLES_Y);
-        int2 iPixelCoords = make_int2(iPixel % params->uOutputWidth, iPixel / params->uOutputWidth); 
-        
-        //Export
-        float4 fVal = (sPathStack + 1)->vRadiance / (NUM_SAMPLES_X * NUM_SAMPLES_Y);
-        uint uFrameCount = params->uFrameCount;
-        if (uFrameCount)
-        {
-            float4 vPrevValue =  intermediateBuffer[iPixel];
-            fVal = vPrevValue * ((float)(uFrameCount - 1.f)/uFrameCount) + fVal * (1.f/uFrameCount);
-        }
-
-        intermediateBuffer[iPixel] = fVal;
-        write_imagef(output, iPixelCoords, fVal);
-
-        //get to the next task
-        iTaskIdx = atomic_inc(iTaskCounter);
-    }
-}
-
-
-
-
-
-
-
-/// EXPERIMENTAL AREA
-
-uchar group_reduce(int localId, int groupSize, __local uchar* shmem)
-{
-    for (int stride = 1; stride <= (groupSize >> 1); stride <<= 1)
-    {
-        if (localId < groupSize/(2*stride))
-        {
-            shmem[2*(localId + 1)*stride-1] += shmem[(2*localId + 1)*stride-1];
-        }
-
-        barrier(CLK_LOCAL_MEM_FENCE);
-    }
-
-    return shmem[groupSize - 1];
-}
-
-
-// intersect Ray against the whole BVH structure
-bool TraverseBVHPacket(int localId, __local int* iSharedStack, __local uchar* bThreadVotes, __global BVHNode* nodes, __global uint* uBVHIndices, __global Vertex* vertices, __global uint4* indices, Ray* r, ShadingData* shadingData)
-{
-    __local int* stack_ptr = iSharedStack;
-
-    if (localId == 0)
-        *stack_ptr = -1;
-    ++stack_ptr;
-
-    //barrier(CLK_LOCAL_MEM_FENCE);
-
-    bool hit = false;
-
-    // start from the root
-    uint idx = 0;
-    do
-    {
-        //barrier(CLK_LOCAL_MEM_FENCE);
-        // load current node
-        BBox box = nodes[idx].box;
-        uint  uLeft  = idx + 1;
-        uint  uRight = nodes[idx].uRight;
-        uint  uPrimStartIdx = nodes[idx].uPrimStartIdx;
-        uint  uNumPrims = nodes[idx].uNumPrims;
-
-        // try intersecting against current node's bounding box
-        // if this is the leaf try to intersect against contained triangle
-        if (uNumPrims != 0)
-        {
-            hit |= IntersectLeaf(uBVHIndices, vertices, indices, uPrimStartIdx, uNumPrims, r, shadingData);
-        }
-        // traverse child nodes otherwise
-        else
-        {
-            BBox lbox = nodes[uLeft].box;
-            BBox rbox = nodes[uRight].box;
-
-            uchar radd = IntersectBox(r, rbox) ? 1 : 0;
-            uchar ladd = IntersectBox(r, lbox) ? 1 : 0;
-
-            bThreadVotes[localId] = radd;
-            barrier(CLK_LOCAL_MEM_FENCE);
-            radd = group_reduce(localId, 64, bThreadVotes) > 0 ? 1 : 0;
-
-            bThreadVotes[localId] = ladd;
-            barrier(CLK_LOCAL_MEM_FENCE);
-            ladd = group_reduce(localId, 64, bThreadVotes) > 0 ? 1 : 0;
-
-            if (radd)
-            {
-                if (ladd)
-                {
-                    if (localId == 0)
-                    *stack_ptr = uRight;
-
-                    ++stack_ptr;
-                }
-                else
-                {
-
-                    idx = uRight;
-                    continue;
-                }
-                //barrier(CLK_LOCAL_MEM_FENCE);
-            }
-
-            if (ladd)
-            {
-                idx = uLeft;
-                continue;
-                //barrier(CLK_LOCAL_MEM_FENCE);
-            }
-        }
-
-        idx = *--stack_ptr;
-    }
-    while (idx != -1);
-
-    return hit;
-}
-
-__kernel void TraceExperiments(__global PathStart*    sPathStartBuffer,
-                               __global BVHNode*      sBvh,
-                               __global uint*         uBvhIdxBuffer,
-                               __global Vertex*       sVertices,
-                               __global uint4*        uIndices,
-                               __global PathVertex*   sIntersections)
-{
-    __local uchar bThreadVotes[64];
-    __local int   iSharedStack[64];
-
-    int globalId  = get_global_id(0);
-    int localId   = get_local_id(0);
-    int groupSize = get_local_size(0);
-
-    Ray r = sPathStartBuffer[globalId].sRay;
-
-    PathVertex  sPathVertex;
-    sPathVertex.bHit = TraverseBVHStacked(sBvh, uBvhIdxBuffer, sVertices, uIndices, &r, &sPathVertex.sShadingData);
-    //sPathVertex.bHit = TraverseBVHPacket(localId, iSharedStack, bThreadVotes, sBvh, uBvhIdxBuffer, sVertices, uIndices, &r, &sPathVertex.sShadingData);
-    
-    sPathVertex.vIncidentDir = r.d;
-    sPathVertex.fDistance = r.maxt;
-    sIntersections[globalId] = sPathVertex;
 }
 
 
@@ -1262,11 +666,10 @@ float4 EvaluateMaterialSys(TextureSystem* sTextureSystem, MaterialRep* sMaterial
     {
     case BSDF_TYPE_LAMBERT:
         {
-            float  fInvPi = 1.f /  M_PI;
+            float  fInvPi = 1.f / M_PI;
             float4 vColor = (sMaterialRep->uTd == -1) ? sMaterialRep->vKd : tex2dsys(sTextureSystem, sMaterialRep->uTd, sShadingData->vTex);
             return fInvPi * vRadiance * vColor;
         }
-
     case BSDF_TYPE_SPECULAR:
         {
             float3 vReflDir = normalize(-vWi + 2.f*dot(vWi, sShadingData->vNormal) * sShadingData->vNormal);
@@ -1279,81 +682,329 @@ float4 EvaluateMaterialSys(TextureSystem* sTextureSystem, MaterialRep* sMaterial
     }
 }
 
-__kernel void DirectIllumination(__global BVHNode*      sBvh,
-                                 __global uint*         uBvhIdxBuffer,
-                                 __global Vertex*       sVertices,
-                                 __global uint4*        uIndices,
-                                 __global PathVertex*   sIntersections,
-                                 __global MaterialRep*  materials,
-                                 __global TextureDesc*  textureDescBuffer,
-                                 __global float4*       textureBuffer,
-                                 __global uint*         uAreaLights,
-                                 uint                   uNumAreaLights,
-                                 __write_only image2d_t tOutput,
-                                 __global float4*       intermediateBuffer,
-                                 uint                   uFrameCount)
+
+__kernel void generate_rays(__global Config*                    gp_params,
+                            __global path_extension_request*    gp_primary_rays
+                            )
 {
-    
-    int globalId  = get_global_id(0);
-    int localId   = get_local_id(0);
-    int groupSize = get_local_size(0);
-    TextureSystem textureSys;
-    textureSys.sTextureDesc = textureDescBuffer;
-    textureSys.vTextures = textureBuffer;
+    int2 global_id;
+    global_id.x = get_global_id(0);
+    global_id.y = get_global_id(1);
+    int flat_global_id = global_id.y * gp_params->uOutputWidth + global_id.x;
 
-    int  iId = globalId;
-    int2 iPixelCoords = make_int2(globalId % 400, globalId / 400);
+    unsigned width  = gp_params->uOutputWidth;
+    unsigned height = gp_params->uOutputHeight;
 
-    RNG sRNG = CreateRNG((get_global_id(0) + 133)*(uFrameCount + 57));
-    PathVertex myVertex = sIntersections[globalId];
-    float4 vRes = make_float4(1,1,1,1);
+    int  subsample = flat_global_id % (NUM_SAMPLES_X * NUM_SAMPLES_Y);
+    int  pixel = flat_global_id / (NUM_SAMPLES_X * NUM_SAMPLES_Y);
+    int2 subsample_idx = make_int2(subsample % NUM_SAMPLES_X, subsample / NUM_SAMPLES_X);
+    int2 pixel_coords = make_int2(pixel % width, pixel / width);
 
-    if (myVertex.bHit)
+    if (pixel_coords.x < width && pixel_coords.y < height)
     {
-        uint i = (uint)(RandFloat(&sRNG) * (uNumAreaLights + 1));
-        if (i == uNumAreaLights) --i;
-        float3 vLightSample, vLightNormal;
-        float fPDF;
-        
-        SampleTriangleUniform(sVertices, uIndices, uAreaLights[i], &sRNG, &vLightSample, &vLightNormal, &fPDF);
-        
-        float3 vLight = normalize(vLightSample - myVertex.sShadingData.vPos);
-        float  fDist = length(vLightSample - myVertex.sShadingData.vPos);
-        
-        Ray sRay;
-        sRay.o = myVertex.sShadingData.vPos + RAY_EPSILON * vLight;
-        sRay.d = vLight;
-        sRay.maxt = (1.f - 2 * RAY_EPSILON) * fDist;
-        sRay.mint = 0.f;
-        
-        float fNdotL = dot(myVertex.sShadingData.vNormal, vLight);
-        float fNdotWo = dot(vLightNormal, -vLight);
-        
+        // 1. Calculate pixel coordinates
+        // 2. Calculate sample index
+        // 3. Construct path start
+        // 4. Add it into the buffer
+        RNG rng = CreateRNG((get_global_id(0) + 133) * (get_global_id(1) + 177) * (gp_params->uFrameCount + 57));
+
+        float pixel_size = gp_params->fCameraPixelSize;
+        float near_z     = gp_params->fCameraNearZ;
+
+        int x = pixel_coords.x - (width >> 1);
+        int y = pixel_coords.y - (height >> 1);
+
+        float fy = y + (subsample_idx.y + RandFloat(&rng))/NUM_SAMPLES_Y;
+        float fx = x + (subsample_idx.x + RandFloat(&rng))/NUM_SAMPLES_X;
+
+        Ray rr;
+        rr.o = gp_params->vCameraPos;
+        rr.d.x = gp_params->vCameraDir.x * near_z + gp_params->vCameraUp.x * fy * pixel_size + gp_params->vCameraRight.x * fx * pixel_size;
+        rr.d.y = gp_params->vCameraDir.y * near_z  + gp_params->vCameraUp.y * fy * pixel_size+ gp_params->vCameraRight.y * fx * pixel_size;
+        rr.d.z = gp_params->vCameraDir.z * near_z  + gp_params->vCameraUp.z * fy * pixel_size + gp_params->vCameraRight.z * fx * pixel_size;
+
+        rr.d = normalize(rr.d);
+
+        rr.mint = 0.f;
+        rr.maxt = DEFAULT_DEPTH;
+
+        gp_primary_rays[flat_global_id].ray = rr;
+        gp_primary_rays[flat_global_id].data = flat_global_id;
+    }
+}
+
+__kernel void process_extension_request(__global path_extension_request*      gp_requests,
+                                        __global int*                         gp_active_request_indices,
+                                          __global BVHNode*                   gp_bvh,
+                                          __global uint*                      gp_bvh_indices,
+                                          __global Vertex*                    gp_vertices,
+                                          __global uint4*                     gp_indices,
+                                          __global PathVertex*                gp_intersections,
+                                          __global int*                       gp_hit_results,
+                                          uint                                gu_num_requests
+                                          )
+{
+
+    int global_id  = get_global_id(0);
+    int local_id   = get_local_id(0);
+    int group_size = get_local_size(0);
+
+    if (global_id < gu_num_requests)
+    {
+
+        Ray r = gp_requests[gp_active_request_indices[global_id]].ray;
+
+        PathVertex  path_vertex;
+        path_vertex.bHit = TraverseBVHStacked(gp_bvh, gp_bvh_indices, gp_vertices, gp_indices, &r, &path_vertex.sShadingData);
+        gp_hit_results[gp_active_request_indices[global_id]] = (int)path_vertex.bHit;
+
+        path_vertex.vIncidentDir = r.d;
+        path_vertex.fDistance = r.maxt;
+        gp_intersections[gp_active_request_indices[global_id]] = path_vertex;
+    }
+}
+
+
+__kernel void sample_direct_illumination(__global BVHNode*      gp_bvh,
+                                         __global uint*         gp_bvh_indices,
+                                         __global Vertex*       gp_vertices,
+                                         __global uint4*        gp_indices,
+                                         __global PathVertex*   gp_intersections,
+                                         __global int*          gp_active_ray_indices,
+                                         __global MaterialRep*  gp_materials,
+                                         __global TextureDesc*  gp_texture_descs,
+                                         __global float4*       gp_texture_data,
+                                         __global uint*         gp_area_light_indices,
+                                         uint                   gu_num_area_lights,
+                                         __global float4*       gp_radiance_values,
+                                         uint                   gu_num_active_paths,
+                                         uint                   gu_frame_count
+                                         )
+{
+
+    int global_id  = get_global_id(0);
+    int local_id   = get_local_id(0);
+    int group_size = get_local_size(0);
+
+    if (global_id < gu_num_active_paths)
+    {
+        TextureSystem texture_system;
+        texture_system.sTextureDesc = gp_texture_descs;
+        texture_system.vTextures = gp_texture_data;
+
+        int  ray_index = gp_active_ray_indices[global_id];
+
+        RNG rng = CreateRNG((get_global_id(0) + 133)*(gu_frame_count + 57));
+        PathVertex my_vertex = gp_intersections[ray_index];
+
+        float4 res = make_float4(0,0,0,0);
+
+        uint i = (uint)(RandFloat(&rng) * (gu_num_area_lights + 1));
+        if (i == gu_num_area_lights) --i;
+
+        float3 light_sample, light_normal;
+        float  pdf;
+
+        SampleTriangleUniform(gp_vertices, gp_indices, gp_area_light_indices[i], &rng, &light_sample, &light_normal, &pdf);
+
+        float3 light_dir = normalize(light_sample - my_vertex.sShadingData.vPos);
+        float  dist = length(light_sample - my_vertex.sShadingData.vPos);
+
+        Ray ray;
+        ray.o = my_vertex.sShadingData.vPos + RAY_EPSILON * light_dir;
+        ray.d = light_dir;
+        ray.maxt = (1.f - 2 * RAY_EPSILON) * dist;
+        ray.mint = 0.f;
+
+        float n_dot_l = dot(my_vertex.sShadingData.vNormal, light_dir);
+        float n_dot_wo = dot(light_normal, -light_dir);
+
         //Ray sRay;
         //sRay.d = GetHemisphereSample(myVertex.sShadingData.vNormal, 1.f, &sRNG);
         //sRay.o = myVertex.sShadingData.vPos + RAY_EPSILON * sRay.d;
         //sRay.maxt = 10000.f;
         //sRay.mint = 0.f;
 
-        ShadingData sTempData;
-        float fShadow = TraverseBVHStacked(sBvh, uBvhIdxBuffer, sVertices, uIndices, &sRay, &sTempData) ? 0.f : 1.f;
+        ShadingData temp_data;
+        float shadow_factor = TraverseBVHStacked(gp_bvh, gp_bvh_indices, gp_vertices, gp_indices, &ray, &temp_data) ? 0.f : 1.f;
 
-        // there is no NdotL term here as it is canceled by cos(Theta)/M_PI pdf
-        MaterialRep material = materials[myVertex.sShadingData.uMaterialIdx];
-        
-        vRes = fShadow * fNdotL * fNdotWo * EvaluateMaterialSys(&textureSys, &material, &myVertex.sShadingData, sRay.d, -myVertex.vIncidentDir, make_float4(0.7,0.7,0.7,0.7)) / (fDist * fDist * fPDF);
+        MaterialRep material = gp_materials[my_vertex.sShadingData.uMaterialIdx];
+
+        if (!IsEmissive(&material))
+        {
+            res = shadow_factor * n_dot_l * n_dot_wo * EvaluateMaterialSys(&texture_system, &material, &my_vertex.sShadingData, ray.d, -my_vertex.vIncidentDir, make_float4(100,100,75,100)) / (dist * dist * pdf);
+        }
+        else
+        {
+            res = material.vKe;
+        }
+
+        gp_radiance_values[ray_index] += res;
     }
-
-    if (uFrameCount)
-    {
-        float4 vPrevValue =  intermediateBuffer[globalId];
-        vRes = vPrevValue * ((float)(uFrameCount - 1.f)/uFrameCount) + vRes * (1.f/uFrameCount);
-    }
-
-    intermediateBuffer[globalId] = vRes;
-
-    write_imagef(tOutput, iPixelCoords, vRes);
 }
+
+__kernel void export_radiance(__global Config*                    gp_params,
+                               __global float4*    gp_radiance_values,
+                               __write_only image2d_t gt_output_image,
+                               uint gu_num_values)
+{
+    int global_id  = get_global_id(0);
+    int local_id   = get_local_id(0);
+    int group_size = get_local_size(0);
+
+    if (global_id < gu_num_values)
+    {
+        int2 pixel_coord = make_int2(global_id % gp_params->uOutputWidth, global_id / gp_params->uOutputWidth);
+        write_imagef(gt_output_image, pixel_coord, gp_radiance_values[global_id]);
+    }
+}
+
+__kernel void sample_material(
+                              __global PathVertex*   gp_intersections,
+                              __global int*          gp_active_ray_indices,
+                              __global MaterialRep*  gp_materials,
+                              __global TextureDesc*  gp_texture_descs,
+                              __global float4*       gp_texture_data,
+                              __global uint*         gp_area_light_indices,
+                              uint                   gu_num_area_lights,
+                              uint                   gu_num_active_paths,
+                              uint                   gu_frame_count,
+                              __global path_extension_request* gp_requests,
+                              __global int*          gp_sample_results
+                              )
+{
+    int global_id  = get_global_id(0);
+    int local_id   = get_local_id(0);
+    int group_size = get_local_size(0);
+
+    if (global_id < gu_num_active_paths)
+    {
+        TextureSystem texture_system;
+        texture_system.sTextureDesc = gp_texture_descs;
+        texture_system.vTextures = gp_texture_data;
+
+        int  ray_index = gp_active_ray_indices[global_id];
+
+        RNG rng = CreateRNG((get_global_id(0) + 133)*(gu_frame_count + 57));
+        PathVertex my_vertex = gp_intersections[ray_index];
+
+        MaterialRep material = gp_materials[my_vertex.sShadingData.uMaterialIdx];
+
+        Ray r;
+        bool result = SampleMaterial(&material, &my_vertex.sShadingData, -my_vertex.vIncidentDir, &rng, &r);
+        gp_sample_results[ray_index] = result ? 1 : 0;
+
+        if (result)
+        {
+            gp_requests[ray_index].ray = r;
+        }
+    }
+}
+
+
+__kernel void evaluate_material(
+                               __global PathVertex*   gp_intersections,
+                               __global PathVertex*   gp_intersections_prev,
+                               __global int*          gp_active_ray_indices,
+                               __global MaterialRep*  gp_materials,
+                               __global TextureDesc*  gp_texture_descs,
+                               __global float4*       gp_texture_data,
+                               __global uint*         gp_area_light_indices,
+                               uint                   gu_num_area_lights,
+                               __global float4*       gp_in_radiance_values,
+                               __global float4*       gp_out_radiance_values,
+                               uint                   gu_num_active_paths,
+                               uint                   gu_frame_count
+                               )
+{
+    int global_id  = get_global_id(0);
+    int local_id   = get_local_id(0);
+    int group_size = get_local_size(0);
+
+    if (global_id < gu_num_active_paths)
+    {
+        TextureSystem texture_system;
+        texture_system.sTextureDesc = gp_texture_descs;
+        texture_system.vTextures = gp_texture_data;
+
+        int  ray_index = gp_active_ray_indices[global_id];
+
+        RNG rng = CreateRNG((get_global_id(0) + 133)*(gu_frame_count + 57));
+        PathVertex my_vertex = gp_intersections[ray_index];
+        PathVertex prev_vertex = gp_intersections_prev[ray_index];
+        MaterialRep material = gp_materials[my_vertex.sShadingData.uMaterialIdx];
+
+        float n_dot_l = dot( my_vertex.sShadingData.vNormal, prev_vertex.vIncidentDir );
+        float dist = length(my_vertex.sShadingData.vPos - prev_vertex.sShadingData.vPos);
+        float4 res = n_dot_l * EvaluateMaterialSys(&texture_system, &material, &my_vertex.sShadingData, prev_vertex.vIncidentDir, -my_vertex.vIncidentDir, gp_in_radiance_values[ray_index]);
+        gp_out_radiance_values[ray_index] += res;
+    }
+}
+
+__kernel void resolve_radiance(
+                               __global float4*    gp_in_radiance_values,
+                               __global float4*    gp_out_radiance_values,
+                               uint gu_num_values,
+                               uint gu_frame_count
+                               )
+{
+    int global_id  = get_global_id(0);
+    int local_id   = get_local_id(0);
+    int group_size = get_local_size(0);
+
+    if (global_id < gu_num_values)
+    {
+        float4 val = gp_in_radiance_values[global_id] / (gu_frame_count + 1);
+        gp_out_radiance_values[global_id] = val;
+    }
+}
+
+__kernel void tonemap_radiance(
+                               __global float4*    gp_in_radiance_values,
+                               __global float4*    gp_out_radiance_values,
+                               uint  gu_num_values,
+                               float gf_avg_loglum,
+                               float gf_time_delta
+                               )
+{
+    int global_id  = get_global_id(0);
+    int local_id   = get_local_id(0);
+    int group_size = get_local_size(0);
+
+    if (global_id < gu_num_values)
+    {
+        float4 val = gp_in_radiance_values[global_id];
+        float mid_gray = 0.6f;
+
+        val.xyz *= mid_gray/(exp(gf_avg_loglum) + 0.001f);
+        val.x /= (1.0f + val.x);
+        val.y /= (1.0f + val.y);
+        val.z /= (1.0f + val.z);
+
+        gp_out_radiance_values[global_id] = val;
+    }
+}
+
+__kernel void calculate_loglum(
+                               __global float4*    gp_in_radiance_values,
+                               __global float*     gp_out_loglum_values,
+                               uint gu_num_values
+                               )
+{
+    int global_id  = get_global_id(0);
+    int local_id   = get_local_id(0);
+    int group_size = get_local_size(0);
+
+    if (global_id < gu_num_values)
+    {
+        float3 LUM = make_float3(0.2125f, 0.7154f, 0.0721f); 
+        float4 val = gp_in_radiance_values[global_id];
+        gp_out_loglum_values[global_id] = clamp(log(dot(val.xyz, LUM) + 0.001f), 0.f, 10000.f);
+    }
+}
+
+
+
 
 
 

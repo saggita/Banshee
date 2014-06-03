@@ -24,3 +24,14 @@ void RenderBase::DetachTexture(std::string const& name)
         textures_.erase(citer);
     texturesDirty_ = true;
 }
+
+
+void                                RenderBase::SetKernelProvider(std::shared_ptr<KernelProviderBase> kernelProvider)
+{
+    kernelProvider_ = kernelProvider;
+}
+
+std::shared_ptr<KernelProviderBase> RenderBase::GetKernelProvider() const
+{
+    return kernelProvider_;
+}

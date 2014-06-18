@@ -29,8 +29,8 @@
 template <typename T> class CLWBuffer : public ReferenceCounter<cl_mem, clRetainMemObject, clReleaseMemObject>
 {
 public:
-    static CLWBuffer<T> Create(cl_context context, size_t elementCount);
-    static CLWBuffer<T> Create(cl_context context, size_t elementCount, void* data);
+    static CLWBuffer<T> Create(cl_context context, cl_mem_flags flags, size_t elementCount);
+    static CLWBuffer<T> Create(cl_context context, cl_mem_flags flags, size_t elementCount, void* data);
 
     CLWBuffer(){}
     virtual ~CLWBuffer();
@@ -58,10 +58,10 @@ private:
     friend class CLWContext;
 };
 
-template <typename T> CLWBuffer<T> CLWBuffer<T>::Create(cl_context context, size_t elementCount)
+template <typename T> CLWBuffer<T> CLWBuffer<T>::Create(cl_context context, cl_mem_flags flags, size_t elementCount)
 {
     cl_int status = CL_SUCCESS;
-    cl_mem deviceBuffer = clCreateBuffer(context, CL_MEM_READ_WRITE, elementCount * sizeof(T), nullptr, &status);
+    cl_mem deviceBuffer = clCreateBuffer(context, flags, elementCount * sizeof(T), nullptr, &status);
     
     assert(status == CL_SUCCESS);
     CLWBuffer<T> buffer(deviceBuffer, elementCount);
@@ -71,10 +71,10 @@ template <typename T> CLWBuffer<T> CLWBuffer<T>::Create(cl_context context, size
     return buffer;
 }
 
-template <typename T> CLWBuffer<T> CLWBuffer<T>::Create(cl_context context, size_t elementCount, void* data)
+template <typename T> CLWBuffer<T> CLWBuffer<T>::Create(cl_context context, cl_mem_flags flags, size_t elementCount, void* data)
 {
     cl_int status = CL_SUCCESS;
-    cl_mem deviceBuffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, elementCount * sizeof(T), data, &status);
+    cl_mem deviceBuffer = clCreateBuffer(context, flags, elementCount * sizeof(T), data, &status);
     
     assert(status == CL_SUCCESS);
     CLWBuffer<T> buffer(deviceBuffer, elementCount);

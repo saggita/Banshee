@@ -332,7 +332,7 @@ CLWBuffer<cl_int> CLWParallelPrimitives::GetTempIntBuffer(size_t size)
         return tmp;
     }
 
-    return context_.CreateBuffer<cl_int>(size);
+    return context_.CreateBuffer<cl_int>(size, CL_MEM_READ_WRITE);
 }
 
 CLWBuffer<cl_float> CLWParallelPrimitives::GetTempFloatBuffer(size_t size)
@@ -346,7 +346,7 @@ CLWBuffer<cl_float> CLWParallelPrimitives::GetTempFloatBuffer(size_t size)
         return tmp;
     }
 
-    return context_.CreateBuffer<cl_float>(size);
+    return context_.CreateBuffer<cl_float>(size, CL_MEM_READ_WRITE);
 }
 
 CLWEvent CLWParallelPrimitives::SortRadix(unsigned int deviceIdx, CLWBuffer<cl_int> inputKeys, CLWBuffer<cl_int> outputKeys,

@@ -179,6 +179,7 @@ private:
     CLWBuffer<DevVertex>	vertexBuffer_;
     // Stores scene index data
     CLWBuffer<cl_uint4>		indexBuffer_;
+    CLWBuffer<cl_uint4>		indexBufferReordered_;
     // Stores BVH nodes
     CLWBuffer<DevBVHNode>	bvhBuffer_;
     // Stores current render configuration
@@ -208,6 +209,7 @@ private:
     CLWBuffer<DevTextureDesc>  textureDescBuffer_;
     // Stores area light indices
     CLWBuffer<cl_uint>         areaLightsBuffer_;
+    CLWBuffer<cl_int>         areaLightsCount_;
     // Stores BVH intermediate indices
     CLWBuffer<uint>            bvhIndicesBuffer_;
 

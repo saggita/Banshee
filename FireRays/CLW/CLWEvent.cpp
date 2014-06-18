@@ -33,3 +33,19 @@ void CLWEvent::Wait()
 CLWEvent::~CLWEvent()
 {
 }
+
+float CLWEvent::GetDuration() const
+{
+    cl_ulong commandStart, commandEnd;
+    cl_int status = CL_SUCCESS;
+    
+    status = clGetEventProfilingInfo(*this, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &commandStart, nullptr);
+    
+    assert(status == CL_SUCCESS);
+    
+    status = clGetEventProfilingInfo(*this, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &commandEnd, nullptr);
+    
+    assert(status == CL_SUCCESS);
+    
+    return (float)(commandEnd - commandStart) / 1000000.f;
+}

@@ -269,33 +269,33 @@ float4 TransformPoint(float16 mWVP, float4 vPoint)
     return vRes;
 }
 
-float4 make_float4(float x, float y, float z, float w)
-{
-    float4 res;
-    res.x = x;
-    res.y = y;
-    res.z = z;
-    res.w = w;
-    return res;
-}
-
-
-float3 make_float3(float x, float y, float z)
-{
-    float3 res;
-    res.x = x;
-    res.y = y;
-    res.z = z;
-    return res;
-}
-
-int2 make_int2(int x, int y)
-{
-    int2 res;
-    res.x = x;
-    res.y = y;
-    return res;
-}
+//float4 make_float4(float x, float y, float z, float w)
+//{
+//    float4 res;
+//    res.x = x;
+//    res.y = y;
+//    res.z = z;
+//    res.w = w;
+//    return res;
+//}
+//
+//
+//float3 make_float3(float x, float y, float z)
+//{
+//    float3 res;
+//    res.x = x;
+//    res.y = y;
+//    res.z = z;
+//    return res;
+//}
+//
+//int2 make_int2(int x, int y)
+//{
+//    int2 res;
+//    res.x = x;
+//    res.y = y;
+//    return res;
+//}
 
 float4 tex2d(SceneData* sSceneData, uint texIdx, float2 uv)
 {
@@ -389,12 +389,12 @@ bool IntersectBox(Ray* sRay, BBox sBox)
 BVH FUNCTIONS
 **************************************************************************/
 //  intersect a Ray with BVH leaf
-bool IntersectLeaf(__global uint* uBVHIndices, __global Vertex* vertices, __global uint4* indices, uint idx, int uNumPrims, Ray* r, ShadingData* shadingData)
+bool IntersectLeaf(__global Vertex* vertices, __global uint4* indices, uint idx, int uNumPrims, Ray* r, ShadingData* shadingData)
 {
     bool hit = false;
     for (int i = 0; i < uNumPrims; ++i)
     {
-        uint4 triangle = indices[uBVHIndices[idx + i]];
+        uint4 triangle = indices[idx + i];
 
         float4 v1 = vertices[triangle.x].vPos;
         float4 v2 = vertices[triangle.y].vPos;
@@ -474,7 +474,7 @@ bool TraverseBVHStacked(
 #ifdef LOCAL_STACK
     __local int* stack,
 #endif
-    __global BVHNode* nodes, __global uint* uBVHIndices, __global Vertex* vertices, __global uint4* indices, Ray* r, ShadingData* shadingData)
+    __global BVHNode* nodes, __global Vertex* vertices, __global uint4* indices, Ray* r, ShadingData* shadingData)
 {
     // init node stack
     NODE_STACK_INIT(NODE_STACK_SIZE);
@@ -498,7 +498,7 @@ bool TraverseBVHStacked(
         // if this is the leaf try to intersect against contained triangle
         if (uNumPrims != 0)
         {
-            hit |= IntersectLeaf(uBVHIndices, vertices, indices, uPrimStartIdx, uNumPrims, r, shadingData);
+            hit |= IntersectLeaf(vertices, indices, uPrimStartIdx, uNumPrims, r, shadingData);
         }
         // traverse child nodes otherwise
         else
@@ -736,7 +736,6 @@ __kernel void generate_rays(__global Config*                    gp_params,
 __kernel void process_extension_request(__global path_extension_request*      gp_requests,
                                         __global int*                         gp_active_request_indices,
                                           __global BVHNode*                   gp_bvh,
-                                          __global uint*                      gp_bvh_indices,
                                           __global Vertex*                    gp_vertices,
                                           __global uint4*                     gp_indices,
                                           __global PathVertex*                gp_intersections,
@@ -755,7 +754,7 @@ __kernel void process_extension_request(__global path_extension_request*      gp
         Ray r = gp_requests[gp_active_request_indices[global_id]].ray;
 
         PathVertex  path_vertex;
-        path_vertex.bHit = TraverseBVHStacked(gp_bvh, gp_bvh_indices, gp_vertices, gp_indices, &r, &path_vertex.sShadingData);
+        path_vertex.bHit = TraverseBVHStacked(gp_bvh, gp_vertices, gp_indices, &r, &path_vertex.sShadingData);
         gp_hit_results[gp_active_request_indices[global_id]] = (int)path_vertex.bHit;
 
         path_vertex.vIncidentDir = r.d;
@@ -766,7 +765,6 @@ __kernel void process_extension_request(__global path_extension_request*      gp
 
 
 __kernel void sample_direct_illumination(__global BVHNode*      gp_bvh,
-                                         __global uint*         gp_bvh_indices,
                                          __global Vertex*       gp_vertices,
                                          __global uint4*        gp_indices,
                                          __global PathVertex*   gp_intersections,
@@ -775,7 +773,7 @@ __kernel void sample_direct_illumination(__global BVHNode*      gp_bvh,
                                          __global TextureDesc*  gp_texture_descs,
                                          __global float4*       gp_texture_data,
                                          __global uint*         gp_area_light_indices,
-                                         uint                   gu_num_area_lights,
+                                         __global int*          gp_area_light_count,
                                          __global float4*       gp_radiance_values,
                                          uint                   gu_num_active_paths,
                                          uint                   gu_frame_count
@@ -799,8 +797,8 @@ __kernel void sample_direct_illumination(__global BVHNode*      gp_bvh,
 
         float4 res = make_float4(0,0,0,0);
 
-        uint i = (uint)(RandFloat(&rng) * (gu_num_area_lights + 1));
-        if (i == gu_num_area_lights) --i;
+        uint i = (uint)(RandFloat(&rng) * (*gp_area_light_count + 1));
+        if (i == *gp_area_light_count) --i;
 
         float3 light_sample, light_normal;
         float  pdf;
@@ -826,7 +824,7 @@ __kernel void sample_direct_illumination(__global BVHNode*      gp_bvh,
         //sRay.mint = 0.f;
 
         ShadingData temp_data;
-        float shadow_factor = TraverseBVHStacked(gp_bvh, gp_bvh_indices, gp_vertices, gp_indices, &ray, &temp_data) ? 0.f : 1.f;
+        float shadow_factor = TraverseBVHStacked(gp_bvh, gp_vertices, gp_indices, &ray, &temp_data) ? 0.f : 1.f;
 
         MaterialRep material = gp_materials[my_vertex.sShadingData.uMaterialIdx];
 
@@ -865,8 +863,6 @@ __kernel void sample_material(
                               __global MaterialRep*  gp_materials,
                               __global TextureDesc*  gp_texture_descs,
                               __global float4*       gp_texture_data,
-                              __global uint*         gp_area_light_indices,
-                              uint                   gu_num_area_lights,
                               uint                   gu_num_active_paths,
                               uint                   gu_frame_count,
                               __global path_extension_request* gp_requests,
@@ -909,8 +905,6 @@ __kernel void evaluate_material(
                                __global MaterialRep*  gp_materials,
                                __global TextureDesc*  gp_texture_descs,
                                __global float4*       gp_texture_data,
-                               __global uint*         gp_area_light_indices,
-                               uint                   gu_num_area_lights,
                                __global float4*       gp_in_radiance_values,
                                __global float4*       gp_out_radiance_values,
                                uint                   gu_num_active_paths,
@@ -1000,6 +994,30 @@ __kernel void calculate_loglum(
         float3 LUM = make_float3(0.2125f, 0.7154f, 0.0721f); 
         float4 val = gp_in_radiance_values[global_id];
         gp_out_loglum_values[global_id] = clamp(log(dot(val.xyz, LUM) + 0.001f), 0.f, 10000.f);
+    }
+}
+
+__kernel void reorder_bvh_indices(__global uint4* gp_in_indices,
+                                  __global uint*  gp_remap_indices,
+                                  __global MaterialRep*  gp_materials,
+                                           uint   gu_num_indices,
+                                  __global uint4* gp_out_indices,
+                                  __global uint*  gp_area_lights,
+                                  __global int*   gp_area_light_count
+                                  )
+{
+    int global_id  = get_global_id(0);
+    
+    if (global_id < gu_num_indices)
+    {
+        uint4 val = gp_in_indices[gp_remap_indices[global_id]];
+        gp_out_indices[global_id] = val;
+        
+        if (gp_materials[val.w].eBsdf == BSDF_TYPE_EMISSIVE)
+        {
+            int idx = atomic_add(gp_area_light_count, 1);
+            gp_area_lights[idx] = global_id;
+        }
     }
 }
 

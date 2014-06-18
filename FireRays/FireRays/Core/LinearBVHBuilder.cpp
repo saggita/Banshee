@@ -347,17 +347,17 @@ void LinearBVHBuilder::InitOpenCL()
     size_t numVertices = positions_.size();
     size_t numPrimitives = prims_.size();
     
-    gpu_positions_              = context_.CreateBuffer<cl_float3>(numVertices);
-    gpu_prims_                  = context_.CreateBuffer<cl_uint4>(numPrimitives);
-    gpu_morton_codes_           = context_.CreateBuffer<cl_int>(numPrimitives);
-    gpu_indices_                = context_.CreateBuffer<cl_int>(numPrimitives);
-    gpu_morton_codes_sorted_    = context_.CreateBuffer<cl_int>(numPrimitives);
-    gpu_indices_sorted_         = context_.CreateBuffer<cl_int>(numPrimitives);
-    gpu_prims_sorted_           = context_.CreateBuffer<cl_uint4>(numPrimitives);
-    gpu_split_request_queue_0_   = context_.CreateBuffer<SplitRequest>(numPrimitives * 3);
-    gpu_split_request_queue_1_   = context_.CreateBuffer<SplitRequest>(numPrimitives * 3);
-    gpu_split_request_count_     = context_.CreateBuffer<cl_int>(numPrimitives * 3);
-    gpu_nodes_                   = context_.CreateBuffer<Node>(numPrimitives * 10);
+    gpu_positions_              = context_.CreateBuffer<cl_float3>(numVertices, CL_MEM_READ_WRITE);
+    gpu_prims_                  = context_.CreateBuffer<cl_uint4>(numPrimitives, CL_MEM_READ_WRITE);
+    gpu_morton_codes_           = context_.CreateBuffer<cl_int>(numPrimitives, CL_MEM_READ_WRITE);
+    gpu_indices_                = context_.CreateBuffer<cl_int>(numPrimitives, CL_MEM_READ_WRITE);
+    gpu_morton_codes_sorted_    = context_.CreateBuffer<cl_int>(numPrimitives, CL_MEM_READ_WRITE);
+    gpu_indices_sorted_         = context_.CreateBuffer<cl_int>(numPrimitives, CL_MEM_READ_WRITE);
+    gpu_prims_sorted_           = context_.CreateBuffer<cl_uint4>(numPrimitives, CL_MEM_READ_WRITE);
+    gpu_split_request_queue_0_   = context_.CreateBuffer<SplitRequest>(numPrimitives * 3, CL_MEM_READ_WRITE);
+    gpu_split_request_queue_1_   = context_.CreateBuffer<SplitRequest>(numPrimitives * 3, CL_MEM_READ_WRITE);
+    gpu_split_request_count_     = context_.CreateBuffer<cl_int>(numPrimitives * 3, CL_MEM_READ_WRITE);
+    gpu_nodes_                   = context_.CreateBuffer<Node>(numPrimitives * 10, CL_MEM_READ_WRITE);
     
     // Write positions and primitive indices to GPU buffers
     context_.WriteBuffer(0, gpu_positions_, (cl_float3*)&positions_[0], numVertices  ).Wait();

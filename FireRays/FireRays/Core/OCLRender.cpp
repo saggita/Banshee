@@ -74,7 +74,7 @@ void OCLRender::Init(unsigned width, unsigned height)
     };
 #endif
     
-    device_ = platforms[0].GetDevice(0);
+    device_ = platforms[0].GetDevice(1);
     context_ = CLWContext::Create(device_, props);
     prims_ = CLWParallelPrimitives(context_);
     
@@ -118,7 +118,7 @@ void OCLRender::Init(unsigned width, unsigned height)
         vertices[i].vTex.s[1] = sceneVertices[i].texcoord.y();
     };
     
-    vertexBuffer_ = context_.CreateBuffer<DevVertex>(vertices.size(), &vertices[0]);
+    vertexBuffer_ = context_.CreateBuffer<DevVertex>(vertices.size(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &vertices[0]);
 
 
     std::vector<DevMaterialRep> materials(GetScene()->GetMaterialRepCount());
@@ -162,7 +162,8 @@ void OCLRender::Init(unsigned width, unsigned height)
             areaLights.push_back(i);
     }
     
-    indexBuffer_ = context_.CreateBuffer<cl_uint4>(triangles.size(), &triangles[0]);
+    indexBuffer_ = context_.CreateBuffer<cl_uint4>(triangles.size(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &triangles[0]);
+    indexBufferReordered_ = context_.CreateBuffer<cl_uint4>(bvh.GetPrimitiveIndexCount(), CL_MEM_READ_WRITE);
     
     std::vector<DevBVHNode> nodes(backEnd.GetNodeCount());
     OCLBVHBackEnd::Node const* accelNodes = backEnd.GetNodes();
@@ -182,9 +183,9 @@ void OCLRender::Init(unsigned width, unsigned height)
         nodes[i].uPrimCount = accelNodes[i].primCount;
     }
     
-    bvhBuffer_ = context_.CreateBuffer<DevBVHNode>(nodes.size(), &nodes[0]);
+    bvhBuffer_ = context_.CreateBuffer<DevBVHNode>(nodes.size(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &nodes[0]);
     
-    configBuffer_ = context_.CreateBuffer<DevConfig>(1);
+    configBuffer_ = context_.CreateBuffer<DevConfig>(1, CL_MEM_READ_WRITE);
     
     glActiveTexture(GL_TEXTURE0);
     glGenTextures(1, &glDepthTexture_);
@@ -201,32 +202,60 @@ void OCLRender::Init(unsigned width, unsigned height)
 
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    radianceBuffer_  = context_.CreateBuffer<cl_float4>(outputSize_.s[0] * outputSize_.s[1]);
-    radianceBuffer1_ = context_.CreateBuffer<cl_float4>(outputSize_.s[0] * outputSize_.s[1]);
+    radianceBuffer_  = context_.CreateBuffer<cl_float4>(outputSize_.s[0] * outputSize_.s[1], CL_MEM_READ_WRITE);
+    radianceBuffer1_ = context_.CreateBuffer<cl_float4>(outputSize_.s[0] * outputSize_.s[1], CL_MEM_READ_WRITE);
     
     
+    materialBuffer_     = context_.CreateBuffer<DevMaterialRep>(materials.size(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &materials[0]);
+    textureBuffer_      = context_.CreateBuffer<cl_float>(TEXTURE_BUFFER_SIZE, CL_MEM_READ_WRITE);
+    textureDescBuffer_  = context_.CreateBuffer<DevTextureDesc>(MAX_TEXTURE_HANDLES, CL_MEM_READ_WRITE);
     
-    materialBuffer_     = context_.CreateBuffer<DevMaterialRep>(materials.size(), &materials[0]);
-    textureBuffer_      = context_.CreateBuffer<cl_float>(TEXTURE_BUFFER_SIZE);
-    textureDescBuffer_  = context_.CreateBuffer<DevTextureDesc>(MAX_TEXTURE_HANDLES);
-    areaLightsBuffer_   = context_.CreateBuffer<cl_uint>(MAX_AREA_LIGHTS, &areaLights[0]);
-    pathStartBuffer_    = context_.CreateBuffer<DevPathExtensionRequest>(outputSize_.s[0] * outputSize_.s[1]);
-    bvhIndicesBuffer_   = context_.CreateBuffer<cl_uint>(bvh.GetPrimitiveIndexCount(), (void*)bvh.GetPrimitiveIndices());
-    firstHitBuffer_     = context_.CreateBuffer<DevPathVertex>(outputSize_.s[0] * outputSize_.s[1]);
-    secondHitBuffer_    = context_.CreateBuffer<DevPathVertex>(outputSize_.s[0] * outputSize_.s[1]);
-    secondaryRaysBuffer_     = context_.CreateBuffer<DevPathExtensionRequest>(outputSize_.s[0] * outputSize_.s[1]);
-    hitPredicateBuffer_ = context_.CreateBuffer<cl_int>(outputSize_.s[0] * outputSize_.s[1]);
-    samplePredicateBuffer_ = context_.CreateBuffer<cl_int>(outputSize_.s[0] * outputSize_.s[1]);
-    logLumBuffer_ = context_.CreateBuffer<cl_float>(outputSize_.s[0] * outputSize_.s[1]);
+    areaLightsBuffer_   = context_.CreateBuffer<cl_uint>(MAX_AREA_LIGHTS, CL_MEM_READ_WRITE);
+    pathStartBuffer_    = context_.CreateBuffer<DevPathExtensionRequest>(outputSize_.s[0] * outputSize_.s[1], CL_MEM_READ_WRITE);
+    bvhIndicesBuffer_   = context_.CreateBuffer<cl_uint>(bvh.GetPrimitiveIndexCount(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, (void*)bvh.GetPrimitiveIndices());
+    firstHitBuffer_     = context_.CreateBuffer<DevPathVertex>(outputSize_.s[0] * outputSize_.s[1], CL_MEM_READ_WRITE);
+    secondHitBuffer_    = context_.CreateBuffer<DevPathVertex>(outputSize_.s[0] * outputSize_.s[1], CL_MEM_READ_WRITE);
+    secondaryRaysBuffer_     = context_.CreateBuffer<DevPathExtensionRequest>(outputSize_.s[0] * outputSize_.s[1], CL_MEM_READ_WRITE);
+    hitPredicateBuffer_ = context_.CreateBuffer<cl_int>(outputSize_.s[0] * outputSize_.s[1], CL_MEM_READ_WRITE);
+    samplePredicateBuffer_ = context_.CreateBuffer<cl_int>(outputSize_.s[0] * outputSize_.s[1], CL_MEM_READ_WRITE);
+    logLumBuffer_ = context_.CreateBuffer<cl_float>(outputSize_.s[0] * outputSize_.s[1], CL_MEM_READ_WRITE);
+    areaLightsCount_ = context_.CreateBuffer<cl_int>(1, CL_MEM_READ_WRITE);
 
     std::vector<cl_int> initialIndices(outputSize_.s[0] * outputSize_.s[1]);
     for (int i = 0; i < outputSize_.s[0] * outputSize_.s[1]; ++i)
         initialIndices[i] = i;
 
-    initialPathIndicesBuffer_  = context_.CreateBuffer<cl_int>(outputSize_.s[0] * outputSize_.s[1], &initialIndices[0]);
-    compactedPathIndicesBuffer_ = context_.CreateBuffer<cl_int>(outputSize_.s[0] * outputSize_.s[1]);
+    initialPathIndicesBuffer_  = context_.CreateBuffer<cl_int>(outputSize_.s[0] * outputSize_.s[1], CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, &initialIndices[0]);
+    compactedPathIndicesBuffer_ = context_.CreateBuffer<cl_int>(outputSize_.s[0] * outputSize_.s[1], CL_MEM_READ_WRITE);
 
     configData_.uNumAreaLights = areaLights.size();
+    
+    
+    /// Reorder primitive indices accordingly to bvh nodes
+    size_t numIndices = bvhIndicesBuffer_.GetElementCount();
+    
+    size_t localWorkSize = 64;
+    size_t globalWorkSize = localWorkSize * ((numIndices + localWorkSize - 1) / localWorkSize);
+    
+    context_.FillBuffer(0, areaLightsCount_, 0, 1).Wait();
+    
+    CLWKernel reorderBvhIndicesKernel = program_.GetKernel("reorder_bvh_indices");
+    reorderBvhIndicesKernel.SetArg(0, indexBuffer_);
+    reorderBvhIndicesKernel.SetArg(1, bvhIndicesBuffer_);
+    reorderBvhIndicesKernel.SetArg(2, materialBuffer_);
+    reorderBvhIndicesKernel.SetArg(3, (cl_uint)numIndices);
+    reorderBvhIndicesKernel.SetArg(4, indexBufferReordered_);
+    reorderBvhIndicesKernel.SetArg(5, areaLightsBuffer_);
+    reorderBvhIndicesKernel.SetArg(6, areaLightsCount_);
+    
+
+    context_.Launch1D(0, globalWorkSize, localWorkSize, reorderBvhIndicesKernel);
+    
+    cl_int numAreaLights;
+    context_.ReadBuffer(0, areaLightsCount_, &numAreaLights, 1).Wait();
+    
+    std::cout << "Num area lights: " << numAreaLights << "\n";
+    
 }
 
 void OCLRender::Commit()
@@ -307,19 +336,19 @@ void OCLRender::Render(float timeDeltaDesc)
     // Extension kernel is launched to process extension requests buffer, traces rays against BVH
     // and fills in hit information into hits buffer along with hit predicate 
     // information which might be used to compact away missing rays
+    CLWEvent primaryRaysEvent;
     {
         CLWKernel extensionKernel = program_.GetKernel("process_extension_request");
         extensionKernel.SetArg(0, pathStartBuffer_);
         extensionKernel.SetArg(1, initialPathIndicesBuffer_);
         extensionKernel.SetArg(2, bvhBuffer_);
-        extensionKernel.SetArg(3, bvhIndicesBuffer_);
-        extensionKernel.SetArg(4, vertexBuffer_);
-        extensionKernel.SetArg(5, indexBuffer_);
-        extensionKernel.SetArg(6, firstHitBuffer_);
-        extensionKernel.SetArg(7, hitPredicateBuffer_);
-        extensionKernel.SetArg(8, (cl_uint)(configData_.uOutputHeight * configData_.uOutputWidth));
+        extensionKernel.SetArg(3, vertexBuffer_);
+        extensionKernel.SetArg(4, indexBufferReordered_);
+        extensionKernel.SetArg(5, firstHitBuffer_);
+        extensionKernel.SetArg(6, hitPredicateBuffer_);
+        extensionKernel.SetArg(7, (cl_uint)(configData_.uOutputHeight * configData_.uOutputWidth));
 
-        context_.Launch1D(0, globalWorkSize1, localWorkSize1, extensionKernel);
+        primaryRaysEvent = context_.Launch1D(0, globalWorkSize1, localWorkSize1, extensionKernel);
     }
 
     // PART III: Compaction
@@ -337,19 +366,18 @@ void OCLRender::Render(float timeDeltaDesc)
     {
         CLWKernel directIlluminationKernel = program_.GetKernel("sample_direct_illumination");
         directIlluminationKernel.SetArg(0, bvhBuffer_);
-        directIlluminationKernel.SetArg(1, bvhIndicesBuffer_);
-        directIlluminationKernel.SetArg(2, vertexBuffer_);
-        directIlluminationKernel.SetArg(3, indexBuffer_);
-        directIlluminationKernel.SetArg(4, firstHitBuffer_);
-        directIlluminationKernel.SetArg(5, compactedPathIndicesBuffer_);
-        directIlluminationKernel.SetArg(6, materialBuffer_);
-        directIlluminationKernel.SetArg(7, textureDescBuffer_);
-        directIlluminationKernel.SetArg(8, textureBuffer_);
-        directIlluminationKernel.SetArg(9, areaLightsBuffer_);
-        directIlluminationKernel.SetArg(10, configData_.uNumAreaLights);
-        directIlluminationKernel.SetArg(11, radianceBuffer_);
-        directIlluminationKernel.SetArg(12, (cl_uint)numActiveRays);
-        directIlluminationKernel.SetArg(13, (cl_uint)frameCount_);
+        directIlluminationKernel.SetArg(1, vertexBuffer_);
+        directIlluminationKernel.SetArg(2, indexBufferReordered_);
+        directIlluminationKernel.SetArg(3, firstHitBuffer_);
+        directIlluminationKernel.SetArg(4, compactedPathIndicesBuffer_);
+        directIlluminationKernel.SetArg(5, materialBuffer_);
+        directIlluminationKernel.SetArg(6, textureDescBuffer_);
+        directIlluminationKernel.SetArg(7, textureBuffer_);
+        directIlluminationKernel.SetArg(8, areaLightsBuffer_);
+        directIlluminationKernel.SetArg(9, areaLightsCount_);
+        directIlluminationKernel.SetArg(10, radianceBuffer_);
+        directIlluminationKernel.SetArg(11, (cl_uint)numActiveRays);
+        directIlluminationKernel.SetArg(12, (cl_uint)frameCount_);
 
         globalWorkSize1 = localWorkSize1 * ((numActiveRays + localWorkSize1 - 1) / localWorkSize1);
 
@@ -365,12 +393,10 @@ void OCLRender::Render(float timeDeltaDesc)
         sampleMaterialKernel.SetArg(2, materialBuffer_);
         sampleMaterialKernel.SetArg(3, textureDescBuffer_);
         sampleMaterialKernel.SetArg(4, textureBuffer_);
-        sampleMaterialKernel.SetArg(5, areaLightsBuffer_);
-        sampleMaterialKernel.SetArg(6, configData_.uNumAreaLights);
-        sampleMaterialKernel.SetArg(7, (cl_uint)numActiveRays);
-        sampleMaterialKernel.SetArg(8, (cl_uint)frameCount_);
-        sampleMaterialKernel.SetArg(9, secondaryRaysBuffer_);
-        sampleMaterialKernel.SetArg(10, samplePredicateBuffer_);
+        sampleMaterialKernel.SetArg(5, (cl_uint)numActiveRays);
+        sampleMaterialKernel.SetArg(6, (cl_uint)frameCount_);
+        sampleMaterialKernel.SetArg(7, secondaryRaysBuffer_);
+        sampleMaterialKernel.SetArg(8, samplePredicateBuffer_);
 
         globalWorkSize1 = localWorkSize1 * ((numActiveRays + localWorkSize1 - 1) / localWorkSize1);
 
@@ -390,21 +416,21 @@ void OCLRender::Render(float timeDeltaDesc)
     // Extension kernel is launched to process extension requests buffer, traces rays against BVH
     // and fills in hit information into hits buffer along with hit predicate 
     // information which might be used to compact away missing rays
+    CLWEvent secondayRaysEvent;
     {
         CLWKernel extensionKernel = program_.GetKernel("process_extension_request");
         extensionKernel.SetArg(0, secondaryRaysBuffer_);
         extensionKernel.SetArg(1, compactedPathIndicesBuffer_);
         extensionKernel.SetArg(2, bvhBuffer_);
-        extensionKernel.SetArg(3, bvhIndicesBuffer_);
-        extensionKernel.SetArg(4, vertexBuffer_);
-        extensionKernel.SetArg(5, indexBuffer_);
-        extensionKernel.SetArg(6, secondHitBuffer_);
-        extensionKernel.SetArg(7, hitPredicateBuffer_);
-        extensionKernel.SetArg(8, (cl_uint)(numActiveSecondaryRays));
+        extensionKernel.SetArg(3, vertexBuffer_);
+        extensionKernel.SetArg(4, indexBufferReordered_);
+        extensionKernel.SetArg(5, secondHitBuffer_);
+        extensionKernel.SetArg(6, hitPredicateBuffer_);
+        extensionKernel.SetArg(7, (cl_uint)(numActiveSecondaryRays));
 
         globalWorkSize1 = localWorkSize1 * ((numActiveSecondaryRays + localWorkSize1 - 1) / localWorkSize1);
         context_.FillBuffer(0, hitPredicateBuffer_, 0, hitPredicateBuffer_.GetElementCount()).Wait();
-        context_.Launch1D(0, globalWorkSize1, localWorkSize1, extensionKernel);
+        secondayRaysEvent = context_.Launch1D(0, globalWorkSize1, localWorkSize1, extensionKernel);
     }
 
     // PART VI: Compaction
@@ -418,19 +444,18 @@ void OCLRender::Render(float timeDeltaDesc)
     {
         CLWKernel directIlluminationKernel = program_.GetKernel("sample_direct_illumination");
         directIlluminationKernel.SetArg(0, bvhBuffer_);
-        directIlluminationKernel.SetArg(1, bvhIndicesBuffer_);
-        directIlluminationKernel.SetArg(2, vertexBuffer_);
-        directIlluminationKernel.SetArg(3, indexBuffer_);
-        directIlluminationKernel.SetArg(4, secondHitBuffer_);
-        directIlluminationKernel.SetArg(5, compactedPathIndicesBuffer_);
-        directIlluminationKernel.SetArg(6, materialBuffer_);
-        directIlluminationKernel.SetArg(7, textureDescBuffer_);
-        directIlluminationKernel.SetArg(8, textureBuffer_);
-        directIlluminationKernel.SetArg(9, areaLightsBuffer_);
-        directIlluminationKernel.SetArg(10, configData_.uNumAreaLights);
-        directIlluminationKernel.SetArg(11, radianceBuffer1_);
-        directIlluminationKernel.SetArg(12, (cl_uint)numActiveRays);
-        directIlluminationKernel.SetArg(13, (cl_uint)frameCount_);
+        directIlluminationKernel.SetArg(1, vertexBuffer_);
+        directIlluminationKernel.SetArg(2, indexBufferReordered_);
+        directIlluminationKernel.SetArg(3, secondHitBuffer_);
+        directIlluminationKernel.SetArg(4, compactedPathIndicesBuffer_);
+        directIlluminationKernel.SetArg(5, materialBuffer_);
+        directIlluminationKernel.SetArg(6, textureDescBuffer_);
+        directIlluminationKernel.SetArg(7, textureBuffer_);
+        directIlluminationKernel.SetArg(8, areaLightsBuffer_);
+        directIlluminationKernel.SetArg(9, areaLightsCount_);
+        directIlluminationKernel.SetArg(10, radianceBuffer1_);
+        directIlluminationKernel.SetArg(11, (cl_uint)numActiveRays);
+        directIlluminationKernel.SetArg(12, (cl_uint)frameCount_);
 
         cl_float4 zero = { 0.f, 0.f, 0.f, 0.f };
         context_.FillBuffer(0, radianceBuffer1_, zero, radianceBuffer1_.GetElementCount()).Wait();
@@ -450,12 +475,10 @@ void OCLRender::Render(float timeDeltaDesc)
         evalMaterialKernel.SetArg(3, materialBuffer_);
         evalMaterialKernel.SetArg(4, textureDescBuffer_);
         evalMaterialKernel.SetArg(5, textureBuffer_);
-        evalMaterialKernel.SetArg(6, areaLightsBuffer_);
-        evalMaterialKernel.SetArg(7, configData_.uNumAreaLights);
-        evalMaterialKernel.SetArg(8, radianceBuffer1_);
-        evalMaterialKernel.SetArg(9, radianceBuffer_);
-        evalMaterialKernel.SetArg(10, (cl_uint)numActiveRays);
-        evalMaterialKernel.SetArg(11, (cl_uint)frameCount_);
+        evalMaterialKernel.SetArg(6, radianceBuffer1_);
+        evalMaterialKernel.SetArg(7, radianceBuffer_);
+        evalMaterialKernel.SetArg(8, (cl_uint)numActiveRays);
+        evalMaterialKernel.SetArg(9, (cl_uint)frameCount_);
 
         globalWorkSize1 = localWorkSize1 * ((numActiveRays + localWorkSize1 - 1) / localWorkSize1);
         context_.Launch1D(0, globalWorkSize1, localWorkSize1, evalMaterialKernel);
@@ -532,6 +555,11 @@ void OCLRender::Render(float timeDeltaDesc)
     context_.Finish(0);
 
     context_.ReleaseGLObjects(0, glObjects);
+    
+    primaryRaysEvent.Wait();
+    secondayRaysEvent.Wait();
+    std::cout << "Primary rays tracing time " << primaryRaysEvent.GetDuration() << " ms\n";
+    std::cout << "Secondary rays tracing time " << secondayRaysEvent.GetDuration() << " ms\n";
 
     ++frameCount_;
 }

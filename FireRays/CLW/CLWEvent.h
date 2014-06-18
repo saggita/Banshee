@@ -30,6 +30,7 @@ public:
     virtual      ~CLWEvent();
 
     void Wait();
+    float GetDuration() const;
 
 private:
     CLWEvent(cl_event program);

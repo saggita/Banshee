@@ -44,8 +44,8 @@ public:
     CLWDevice                   GetDevice(unsigned int idx) const;
     CLWProgram                  CreateProgram(std::vector<char> const& sourceCode) const;
 
-    template <typename T> CLWBuffer<T>  CreateBuffer(size_t elementCount) const;
-    template <typename T> CLWBuffer<T>  CreateBuffer(size_t elementCount, void* data) const;
+    template <typename T> CLWBuffer<T>  CreateBuffer(size_t elementCount, cl_mem_flags flags) const;
+    template <typename T> CLWBuffer<T>  CreateBuffer(size_t elementCount, cl_mem_flags flags ,void* data) const;
 
     CLWImage2D                          CreateImage2DFromGLTexture(cl_GLint texture) const;
 
@@ -86,14 +86,14 @@ private:
     std::vector<CLWCommandQueue> commandQueues_;
 };
 
-template <typename T> CLWBuffer<T> CLWContext::CreateBuffer(size_t elementCount) const
+template <typename T> CLWBuffer<T> CLWContext::CreateBuffer(size_t elementCount, cl_mem_flags flags) const
 {
-    return CLWBuffer<T>::Create(*this, elementCount);
+    return CLWBuffer<T>::Create(*this, flags, elementCount);
 }
 
-template <typename T> CLWBuffer<T> CLWContext::CreateBuffer(size_t elementCount, void* data) const
+template <typename T> CLWBuffer<T> CLWContext::CreateBuffer(size_t elementCount, cl_mem_flags flags, void* data) const
 {
-    return CLWBuffer<T>::Create(*this, elementCount, data);
+    return CLWBuffer<T>::Create(*this, flags, elementCount, data);
 }
 
 template <typename T> CLWEvent  CLWContext::WriteBuffer(unsigned int idx, CLWBuffer<T> buffer, T* const hostBuffer, size_t elemCount) const

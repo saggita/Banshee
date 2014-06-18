@@ -18,10 +18,10 @@ void sort_test(CLWContext context)
 {
     int const ARRAY_SIZE = 7942;
     
-    auto deviceArray = context.CreateBuffer<cl_int>(ARRAY_SIZE);
-    auto deviceArray1 = context.CreateBuffer<cl_int>(ARRAY_SIZE);
-    auto deviceValuesArray = context.CreateBuffer<cl_int>(ARRAY_SIZE);
-    auto deviceValuesArray1 = context.CreateBuffer<cl_int>(ARRAY_SIZE);
+    auto deviceArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
+    auto deviceArray1 = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
+    auto deviceValuesArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
+    auto deviceValuesArray1 = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
     
     std::vector<int> hostArray(ARRAY_SIZE);
     std::vector<int> hostValuesArray(ARRAY_SIZE);
@@ -67,8 +67,8 @@ void scan_test(CLWContext context)
 {
     int const ARRAY_SIZE = 16444953;
     
-    auto deviceInputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE);
-    auto deviceOutputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE);
+    auto deviceInputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
+    auto deviceOutputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
     
     std::vector<int> hostArray(ARRAY_SIZE);
     std::vector<int> hostArrayGold(ARRAY_SIZE);

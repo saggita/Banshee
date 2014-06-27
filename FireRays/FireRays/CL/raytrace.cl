@@ -17,7 +17,7 @@ DEFINES
 //#define TRAVERSAL_STACKLESS
 #define TRAVERSAL_STACKED
 //#define LOCAL_STACK
-#define NODE_STACK_SIZE 64
+#define NODE_STACK_SIZE 44
 #define MAX_PATH_LENGTH 3
 
 #define RAY_EPSILON 0.00001f
@@ -269,33 +269,33 @@ float4 TransformPoint(float16 mWVP, float4 vPoint)
     return vRes;
 }
 
-//float4 make_float4(float x, float y, float z, float w)
-//{
-//    float4 res;
-//    res.x = x;
-//    res.y = y;
-//    res.z = z;
-//    res.w = w;
-//    return res;
-//}
-//
-//
-//float3 make_float3(float x, float y, float z)
-//{
-//    float3 res;
-//    res.x = x;
-//    res.y = y;
-//    res.z = z;
-//    return res;
-//}
-//
-//int2 make_int2(int x, int y)
-//{
-//    int2 res;
-//    res.x = x;
-//    res.y = y;
-//    return res;
-//}
+float4 make_float4(float x, float y, float z, float w)
+{
+    float4 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    res.w = w;
+    return res;
+}
+
+
+float3 make_float3(float x, float y, float z)
+{
+    float3 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    return res;
+}
+
+int2 make_int2(int x, int y)
+{
+    int2 res;
+    res.x = x;
+    res.y = y;
+    return res;
+}
 
 float4 tex2d(SceneData* sSceneData, uint texIdx, float2 uv)
 {
@@ -815,7 +815,7 @@ __kernel void sample_direct_illumination(__global BVHNode*      gp_bvh,
         ray.mint = 0.f;
 
         float n_dot_l = dot(my_vertex.sShadingData.vNormal, light_dir);
-        float n_dot_wo = dot(light_normal, -light_dir);
+        float n_dot_wo = max(0.f, dot(light_normal, -light_dir));
 
         //Ray sRay;
         //sRay.d = GetHemisphereSample(myVertex.sShadingData.vNormal, 1.f, &sRNG);
@@ -836,6 +836,77 @@ __kernel void sample_direct_illumination(__global BVHNode*      gp_bvh,
         {
             res = material.vKe;
         }
+
+        gp_radiance_values[ray_index] += res;
+    }
+}
+
+
+__kernel void sample_direct_illumination_env(__global BVHNode*      gp_bvh,
+                                         __global Vertex*       gp_vertices,
+                                         __global uint4*        gp_indices,
+                                         __global PathVertex*   gp_intersections,
+                                         __global int*          gp_active_ray_indices,
+                                         __global MaterialRep*  gp_materials,
+                                         __global TextureDesc*  gp_texture_descs,
+                                         __global float4*       gp_texture_data,
+                                         __global uint*         gp_area_light_indices,
+                                         __global int*          gp_area_light_count,
+                                         __global float4*       gp_radiance_values,
+                                         uint                   gu_num_active_paths,
+                                         uint                   gu_frame_count
+                                         )
+{
+
+    int global_id  = get_global_id(0);
+    int local_id   = get_local_id(0);
+    int group_size = get_local_size(0);
+
+    if (global_id < gu_num_active_paths)
+    {
+        TextureSystem texture_system;
+        texture_system.sTextureDesc = gp_texture_descs;
+        texture_system.vTextures = gp_texture_data;
+
+        int  ray_index = gp_active_ray_indices[global_id];
+
+        RNG rng = CreateRNG((get_global_id(0) + 133)*(gu_frame_count + 57));
+        PathVertex my_vertex = gp_intersections[ray_index];
+
+        float4 res = make_float4(0,0,0,0);
+
+        //uint i = (uint)(RandFloat(&rng) * (*gp_area_light_count + 1));
+        //if (i == *gp_area_light_count) --i;
+
+        //float3 light_sample, light_normal;
+        //float  pdf;
+
+        //SampleTriangleUniform(gp_vertices, gp_indices, gp_area_light_indices[i], &rng, &light_sample, &light_normal, &pdf);
+
+        //float3 light_dir = normalize(light_sample - my_vertex.sShadingData.vPos);
+        //float  dist = length(light_sample - my_vertex.sShadingData.vPos);
+
+        //Ray ray;
+        //ray.o = my_vertex.sShadingData.vPos + RAY_EPSILON * light_dir;
+        //ray.d = light_dir;
+        //ray.maxt = (1.f - 2 * RAY_EPSILON) * dist;
+        //ray.mint = 0.f;
+
+        Ray ray;
+        ray.d = GetHemisphereSample(my_vertex.sShadingData.vNormal, 1.f, &rng);
+        ray.o = my_vertex.sShadingData.vPos + RAY_EPSILON * ray.d;
+        ray.maxt = 10000.f;
+        ray.mint = 0.f;
+
+
+        float n_dot_l = dot(my_vertex.sShadingData.vNormal, ray.d);
+
+        ShadingData temp_data;
+        float shadow_factor = TraverseBVHStacked(gp_bvh, gp_vertices, gp_indices, &ray, &temp_data) ? 0.f : 1.f;
+
+        MaterialRep material = gp_materials[my_vertex.sShadingData.uMaterialIdx];
+
+        res = shadow_factor * n_dot_l * EvaluateMaterialSys(&texture_system, &material, &my_vertex.sShadingData, ray.d, -my_vertex.vIncidentDir, make_float4(160,160,160,100)) / M_PI;
 
         gp_radiance_values[ray_index] += res;
     }

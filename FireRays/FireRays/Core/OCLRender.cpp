@@ -54,7 +54,7 @@ void OCLRender::Init(unsigned width, unsigned height)
     std::vector<CLWPlatform> platforms;
     CLWPlatform::CreateAllPlatforms(platforms);
     
-    cl_platform_id platformId = platforms[0];
+    cl_platform_id platformId = platforms[1];
     
 #ifdef __APPLE__
     CGLContextObj kCGLContext = CGLGetCurrentContext(); // GL Context
@@ -74,7 +74,7 @@ void OCLRender::Init(unsigned width, unsigned height)
     };
 #endif
     
-    device_ = platforms[0].GetDevice(1);
+    device_ = platforms[1].GetDevice(0);
     context_ = CLWContext::Create(device_, props);
     prims_ = CLWParallelPrimitives(context_);
     
@@ -84,8 +84,8 @@ void OCLRender::Init(unsigned width, unsigned height)
     program_ = context_.CreateProgram(sourceCode);
     
     BVH bvh;
-    SplitBVHBuilder builder(GetScene()->GetVertices(), GetScene()->GetVertexCount(), GetScene()->GetIndices(), GetScene()->GetIndexCount(), GetScene()->GetMaterials(), 128U, 1.f, 1.f);
-    //LinearBVHBuilder builder(GetScene()->GetVertices(), GetScene()->GetVertexCount(), GetScene()->GetIndices(), GetScene()->GetIndexCount(), GetScene()->GetMaterials());
+    //SplitBVHBuilder builder(GetScene()->GetVertices(), GetScene()->GetVertexCount(), GetScene()->GetIndices(), GetScene()->GetIndexCount(), GetScene()->GetMaterials(), 128U, 1.f, 1.f);
+    LinearBVHBuilder builder(GetScene()->GetVertices(), GetScene()->GetVertexCount(), GetScene()->GetIndices(), GetScene()->GetIndexCount(), GetScene()->GetMaterials());
     builder.SetBVH(&bvh);
     
     static auto prevTime = std::chrono::high_resolution_clock::now();
@@ -400,7 +400,7 @@ void OCLRender::Render(float timeDeltaDesc)
 
         globalWorkSize1 = localWorkSize1 * ((numActiveRays + localWorkSize1 - 1) / localWorkSize1);
 
-        context_.FillBuffer(0, samplePredicateBuffer_, 0, samplePredicateBuffer_.GetElementCount()).Wait();
+        context_.FillBuffer(0, samplePredicateBuffer_, 0, samplePredicateBuffer_.GetElementCount());
         context_.Launch1D(0, globalWorkSize1, localWorkSize1, sampleMaterialKernel);
     }
 
@@ -429,7 +429,7 @@ void OCLRender::Render(float timeDeltaDesc)
         extensionKernel.SetArg(7, (cl_uint)(numActiveSecondaryRays));
 
         globalWorkSize1 = localWorkSize1 * ((numActiveSecondaryRays + localWorkSize1 - 1) / localWorkSize1);
-        context_.FillBuffer(0, hitPredicateBuffer_, 0, hitPredicateBuffer_.GetElementCount()).Wait();
+        context_.FillBuffer(0, hitPredicateBuffer_, 0, hitPredicateBuffer_.GetElementCount());
         secondayRaysEvent = context_.Launch1D(0, globalWorkSize1, localWorkSize1, extensionKernel);
     }
 

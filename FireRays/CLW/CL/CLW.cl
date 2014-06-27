@@ -125,6 +125,7 @@ __kernel void scan_exclusive_##type(__global type const* in_array, __global type
 }
 
 #define DEFINE_SCAN_EXCLUSIVE_4(type)\
+__attribute__((reqd_work_group_size(64, 1, 1)))\
 __kernel void scan_exclusive_##type##4(__global type##4 const* in_array, __global type##4* out_array, uint numElems, __local type* shmem)\
 {\
     int globalId  = get_global_id(0);\
@@ -151,6 +152,7 @@ __kernel void scan_exclusive_##type##4(__global type##4 const* in_array, __globa
 }
 
 #define DEFINE_SCAN_EXCLUSIVE_PART_4(type)\
+__attribute__((reqd_work_group_size(64, 1, 1)))\
 __kernel void scan_exclusive_part_##type##4(__global type##4 const* in_array, __global type##4* out_array, uint numElems, __global type* out_sums, __local type* shmem)\
 {\
     int globalId  = get_global_id(0);\
@@ -196,13 +198,10 @@ __kernel void distribute_part_sum_##type##4( __global type* in_sums, __global ty
 {\
     int globalId  = get_global_id(0);\
     int groupId   = get_group_id(0);\
-    type##4 v1 = safe_load_##type##4(inout_array, 2*globalId, numElems);\
-    type##4 v2 = safe_load_##type##4(inout_array, 2*globalId + 1, numElems);\
-    type    sum = in_sums[groupId];\
+    type##4 v1 = safe_load_##type##4(inout_array, globalId, numElems);\
+    type    sum = in_sums[groupId >> 1];\
     v1.xyzw += sum;\
-    v2.xyzw += sum;\
-    safe_store_##type##4(v2, inout_array, 2 * globalId + 1, numElems);\
-    safe_store_##type##4(v1, inout_array, 2 * globalId, numElems);\
+    safe_store_##type##4(v1, inout_array, globalId, numElems);\
 }
 
 
@@ -530,8 +529,19 @@ __kernel void compact_int( __global int* in_predicate, __global int* in_address,
         {
             out_output[in_address[global_id]] = in_input[global_id];
         }
-    }
+    } 
 }
+
+__kernel void copy(__global int4* in_input, 
+                                   uint  in_size,
+                          __global int4* out_output)
+{
+    int global_id  = get_global_id(0);
+    int4 value = safe_load_int4(in_input, global_id, in_size);
+    safe_store_int4(value, out_output, global_id, in_size);
+}
+
+
 
 
 

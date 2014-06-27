@@ -33,6 +33,7 @@ public:
                                                CLWBuffer<cl_int> inputValues, CLWBuffer<cl_int> outputValues);
 
     CLWEvent Compact(unsigned int deviceIdx, CLWBuffer<cl_int> predicate, CLWBuffer<cl_int> input, CLWBuffer<cl_int> output, cl_int& newSize);
+    CLWEvent Copy(unsigned int deviceIdx, CLWBuffer<cl_int> input, CLWBuffer<cl_int> output);
 
     void ReclaimDeviceMemory();
 

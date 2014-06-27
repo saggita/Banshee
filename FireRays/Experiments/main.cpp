@@ -14,6 +14,7 @@
 #include <limits>
 #include <stdlib.h>
 #include <iterator>
+#include <chrono>
 
 #include "CLW.h"
 
@@ -114,6 +115,108 @@ void test_1()
 }
 
 
+void scan_test(CLWContext context)
+{
+    int const ARRAY_SIZE = 200000000;
+    
+    auto deviceInputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
+    auto deviceOutputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
+    
+    std::vector<int> hostArray(ARRAY_SIZE);
+    std::vector<int> hostArrayGold(ARRAY_SIZE);
+    
+    std::generate(hostArray.begin(), hostArray.end(), []{return rand() % 1000; });
+    
+    int sum = 0;
+    for (int i = 0; i < ARRAY_SIZE; ++i)
+    {
+        hostArrayGold[i] = sum;
+        sum += hostArray[i];
+    }
+    
+    context.WriteBuffer(0, deviceInputArray, &hostArray[0], ARRAY_SIZE).Wait();
+
+    CLWParallelPrimitives prims(context);
+
+    prims.ScanExclusiveAdd(0, deviceInputArray, deviceOutputArray);
+    context.Finish(0);
+
+    auto startTime = std::chrono::high_resolution_clock::now();
+
+    for (int i = 0; i < 50; ++i)
+        prims.ScanExclusiveAdd(0, deviceInputArray, deviceOutputArray);
+
+    context.Finish(0);
+    auto endTime = std::chrono::high_resolution_clock::now();
+
+    auto deltaTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+
+    context.ReadBuffer(0, deviceOutputArray, &hostArray[0], ARRAY_SIZE).Wait();
+
+    for (int i = 0; i < ARRAY_SIZE; ++i)
+    {
+        if (hostArray[i] != hostArrayGold[i])
+        {
+            std::cout << "Incorrect scan result\n";
+            std::cout << "Done in " << deltaTime.count() / 50.f << " ms\n";
+            exit(-1);
+        }
+    }
+    
+    std::cout << "Correct scan result\n";
+    std::cout << "Done in " << deltaTime.count() / 50.f << " ms\n";
+}
+
+
+void copy_test(CLWContext context)
+{
+    int const ARRAY_SIZE = 100000000;
+    
+    auto deviceInputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
+    auto deviceOutputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
+    
+    std::vector<int> hostArray(ARRAY_SIZE);
+    std::vector<int> hostOutputArray(ARRAY_SIZE);
+
+    std::generate(hostArray.begin(), hostArray.end(), []{return rand() % 1000; });
+
+    context.WriteBuffer(0, deviceInputArray, &hostArray[0], ARRAY_SIZE).Wait();
+
+    CLWParallelPrimitives prims(context);
+
+    context.Finish(0);
+
+    prims.Copy(0, deviceInputArray, deviceOutputArray);
+
+    auto startTime = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < 50; ++i)
+    {
+        prims.Copy(0, deviceInputArray, deviceOutputArray);
+    }
+
+    context.Finish(0);
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+
+    auto deltaTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+
+    context.ReadBuffer(0, deviceOutputArray, &hostOutputArray[0], ARRAY_SIZE).Wait();
+
+    for (int i = 0; i < ARRAY_SIZE; ++i)
+    {
+        if (hostArray[i] != hostOutputArray[i])
+        {
+            std::cout << "Incorrect copy result\n";
+            exit(-1);
+        }
+    }
+    
+    std::cout << "Correct copy result\n";
+    std::cout << "Done in " << deltaTime.count() / 50.f << " ms\n";
+}
+
+
+
 int main(int argc, const char * argv[])
 {
     try
@@ -122,50 +225,29 @@ int main(int argc, const char * argv[])
 
         CLWPlatform::CreateAllPlatforms(platforms);
 
-        CLWContext context = CLWContext::Create(platforms[0].GetDevice(0));
-
-        CLWParallelPrimitives prims(context);
-
-        int NUM_ELEMS = 1204848;
-        std::vector<cl_int> input(NUM_ELEMS);
-        std::vector<cl_int> output(NUM_ELEMS);
-        std::vector<cl_int> predicate(NUM_ELEMS);
-
-        for(int i = 0; i < NUM_ELEMS; ++i)
+        CLWContext context;
+        bool       bAmdContext = false;
+        for (int i = 0; i < platforms.size(); ++i)
         {
-            input[i] = i;
-            predicate[i] = (i % 3 == 0);
-        }
-
-        auto devInput = context.CreateBuffer<cl_int>(NUM_ELEMS, &input[0]);
-        auto devOutput = context.CreateBuffer<cl_int>(NUM_ELEMS);
-        auto devPred = context.CreateBuffer<cl_int>(NUM_ELEMS, &predicate[0]);
-
-        cl_int newSize = 0;
-        prims.Compact(0, devPred, devInput, devOutput, newSize).Wait();
-
-        context.ReadBuffer(0, devOutput, &output[0], NUM_ELEMS).Wait();
-
-        if (newSize != std::count(predicate.begin(), predicate.end(), 1))
-        {
-            std::cout << "Test failed due to count mismatch\n";
-            exit(-1);
-        }
-
-        int k = 0;
-        for (int i = 0; i < NUM_ELEMS; ++i)
-        {
-            if (predicate[i])
+            if (platforms[i].GetVendor().find("AMD") != std::string::npos ||
+                platforms[i].GetVendor().find("Advanced Micro Devices") != std::string::npos)
             {
-                if (output[k++] != input[i])
-                {
-                    std::cout << "Test failed \n";
-                    exit(-1);
-                }
+                context = CLWContext::Create(platforms[i].GetDevice(0));
+                std::cout << "Platform in use: " << platforms[i].GetName() << "\n";
+                std::cout << "OpenCL version: " << platforms[i].GetVersion() << "\n";
+                bAmdContext = true;
             }
         }
 
-        std::copy(output.begin(), output.begin() + 10, std::ostream_iterator<cl_int>(std::cout, " "));
+        if (!bAmdContext)
+        {
+            context = CLWContext::Create(platforms[0].GetDevice(0));
+        }
+
+        std::cout << "Device in use: " << context.GetDevice(0).GetName() << "\n";
+        std::cout << "Extensions: " << context.GetDevice(0).GetExtensions() << "\n";
+
+        scan_test(context);
     }
     catch (std::runtime_error& e)
     {

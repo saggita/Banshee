@@ -140,7 +140,7 @@ __kernel void scan_exclusive_##type##4(__global type##4 const* in_array, __globa
     barrier(CLK_LOCAL_MEM_FENCE);\
     group_scan_exclusive_##type(localId, groupSize, shmem);\
     v2.w = shmem[localId];\
-    int t = v1.w; v1.w = v2.w; v2.w += t;\
+    type t = v1.w; v1.w = v2.w; v2.w += t;\
     t = v1.y; v1.y = v1.w; v1.w += t;\
     t = v2.y; v2.y = v2.w; v2.w += t;\
     t = v1.x; v1.x = v1.y; v1.y += t;\
@@ -149,6 +149,31 @@ __kernel void scan_exclusive_##type##4(__global type##4 const* in_array, __globa
     t = v2.z; v2.z = v2.w; v2.w += t;\
     safe_store_##type##4(v2, out_array, 2 * globalId + 1, numElems);\
     safe_store_##type##4(v1, out_array, 2 * globalId, numElems);\
+}
+
+#define DEFINE_SCAN_EXCLUSIVE_4_V1(type)\
+__attribute__((reqd_work_group_size(64, 1, 1)))\
+__kernel void scan_exclusive_##type##4##_v1(__global type##4 const* in_array, __global type##4* out_array, uint numElems, __local type* shmem)\
+{\
+int globalId  = get_global_id(0);\
+int localId   = get_local_id(0);\
+int groupSize = get_local_size(0);\
+type##4 v1 = safe_load_##type##4(in_array, 2*globalId, numElems);\
+type##4 v2 = safe_load_##type##4(in_array, 2*globalId + 1, numElems);\
+shmem[localId] = v1.x + v1.y + v1.z + v1.w + v2.x + v2.y + v2.z + v2.w;\
+barrier(CLK_LOCAL_MEM_FENCE);\
+group_scan_exclusive_##type(localId, groupSize, shmem);\
+type offset = shmem[localId];\
+type t = v1.x; v1.x = offset; offset += t;\
+t = v1.y; v1.y = offset; offset += t;\
+t = v1.z; v1.z = offset; offset += t;\
+t = v1.w; v1.w = offset; offset += t;\
+t = v2.x; v2.x = offset; offset += t;\
+t = v2.y; v2.y = offset; offset += t;\
+t = v2.z; v2.z = offset; offset += t;\
+v2.w = offset;\
+safe_store_##type##4(v2, out_array, 2 * globalId + 1, numElems);\
+safe_store_##type##4(v1, out_array, 2 * globalId, numElems);\
 }
 
 #define DEFINE_SCAN_EXCLUSIVE_PART_4(type)\
@@ -169,7 +194,7 @@ __kernel void scan_exclusive_part_##type##4(__global type##4 const* in_array, __
     type sum = group_scan_exclusive_part_##type(localId, groupSize, shmem);\
     if (localId == 0) out_sums[groupId] = sum;\
     v2.w = shmem[localId];\
-    int t = v1.w; v1.w = v2.w; v2.w += t;\
+    type t = v1.w; v1.w = v2.w; v2.w += t;\
     t = v1.y; v1.y = v1.w; v1.w += t;\
     t = v2.y; v2.y = v2.w; v2.w += t;\
     t = v1.x; v1.x = v1.y; v1.y += t;\
@@ -205,8 +230,8 @@ __kernel void distribute_part_sum_##type##4( __global type* in_sums, __global ty
 }
 
 
-DEFINE_MAKE_4(int)
-DEFINE_MAKE_4(float)
+//DEFINE_MAKE_4(int)
+//DEFINE_MAKE_4(float)
 
 DEFINE_SAFE_LOAD_4(int)
 DEFINE_SAFE_LOAD_4(float)
@@ -542,6 +567,288 @@ __kernel void copy(__global int4* in_input,
 }
 
 
+#define FLAG(x) (flags[(x)] & 0x1)
+#define FLAG_COMBINED(x) (flags[(x)])
+#define FLAG_ORIG(x) ((flags[(x)] >> 1) & 0x1)
+
+void group_segmented_scan_exclusive_int(
+                                        int localId,
+                                        int groupSize,
+                                        __local int* shmem,
+                                        __local char* flags
+                                        )
+{
+    for (int stride = 1; stride <= (groupSize >> 1); stride <<= 1)
+    {
+        if (localId < groupSize/(2*stride))
+        {
+            if (FLAG(2*(localId + 1)*stride-1) == 0)
+            {
+                shmem[2*(localId + 1)*stride-1] = shmem[2*(localId + 1)*stride-1] + shmem[(2*localId + 1)*stride-1];
+            }
+        
+            FLAG_COMBINED(2*(localId + 1)*stride-1) = FLAG_COMBINED(2*(localId + 1)*stride-1) | FLAG((2*localId + 1)*stride-1);
+        }
+        
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    
+    if (localId == 0)
+        shmem[groupSize - 1] = 0;
+    
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    for (int stride = (groupSize >> 1); stride > 0; stride >>= 1)
+    {
+        if (localId < groupSize/(2*stride))
+        {
+            int temp = shmem[(2*localId + 1)*stride-1];
+            shmem[(2*localId + 1)*stride-1] = shmem[2*(localId + 1)*stride-1];
+            
+            // optimize with a conditional = operator
+            if (FLAG_ORIG((2*localId + 1)*stride) == 1)
+            {
+                shmem[2*(localId + 1)*stride-1] = 0;
+            }
+            else if (FLAG((2*localId + 1)*stride-1) == 1)
+            {
+                shmem[2*(localId + 1)*stride-1] = temp;
+            }
+            else
+            {
+                shmem[2*(localId + 1)*stride-1] = shmem[2*(localId + 1)*stride-1] + temp;
+            }
+            
+            FLAG_COMBINED((2*localId + 1)*stride-1) = FLAG_COMBINED((2*localId + 1)*stride-1) & 2;
+        }
+        
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+}
+
+void group_segmented_scan_exclusive_int_nocut(
+                                        int localId,
+                                        int groupSize,
+                                        __local int* shmem,
+                                        __local char* flags
+                                        )
+{
+    for (int stride = 1; stride <= (groupSize >> 1); stride <<= 1)
+    {
+        if (localId < groupSize/(2*stride))
+        {
+            if (FLAG(2*(localId + 1)*stride-1) == 0)
+            {
+                shmem[2*(localId + 1)*stride-1] = shmem[2*(localId + 1)*stride-1] + shmem[(2*localId + 1)*stride-1];
+            }
+            
+            FLAG_COMBINED(2*(localId + 1)*stride-1) = FLAG_COMBINED(2*(localId + 1)*stride-1) | FLAG((2*localId + 1)*stride-1);
+        }
+        
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    
+    if (localId == 0)
+        shmem[groupSize - 1] = 0;
+    
+    barrier(CLK_LOCAL_MEM_FENCE);
+    
+    for (int stride = (groupSize >> 1); stride > 0; stride >>= 1)
+    {
+        if (localId < groupSize/(2*stride))
+        {
+            int temp = shmem[(2*localId + 1)*stride-1];
+            shmem[(2*localId + 1)*stride-1] = shmem[2*(localId + 1)*stride-1];
+            
+            if (FLAG((2*localId + 1)*stride-1) == 1)
+            {
+                shmem[2*(localId + 1)*stride-1] = temp;
+            }
+            else
+            {
+                shmem[2*(localId + 1)*stride-1] = shmem[2*(localId + 1)*stride-1] + temp;
+            }
+            
+            FLAG_COMBINED((2*localId + 1)*stride-1) = FLAG_COMBINED((2*localId + 1)*stride-1) & 2;
+        }
+        
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+}
+
+
+void group_segmented_scan_exclusive_int_part(
+                                        int localId,
+                                        int groupId,
+                                        int groupSize,
+                                        __local int* shmem,
+                                        __local char* flags,
+                                        __global int* part_sums,
+                                        __global int* part_flags
+                                        )
+{
+    for (int stride = 1; stride <= (groupSize >> 1); stride <<= 1)
+    {
+        if (localId < groupSize/(2*stride))
+        {
+            if (FLAG(2*(localId + 1)*stride-1) == 0)
+            {
+                shmem[2*(localId + 1)*stride-1] = shmem[2*(localId + 1)*stride-1] + shmem[(2*localId + 1)*stride-1];
+            }
+            
+            FLAG_COMBINED(2*(localId + 1)*stride-1) = FLAG_COMBINED(2*(localId + 1)*stride-1) | FLAG((2*localId + 1)*stride-1);
+        }
+        
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    
+    if (localId == 0)
+    {
+        part_sums[groupId] = shmem[groupSize - 1];
+        part_flags[groupId] = FLAG(groupSize - 1);
+        shmem[groupSize - 1] = 0;
+    }
+    
+    barrier(CLK_LOCAL_MEM_FENCE);
+    
+    for (int stride = (groupSize >> 1); stride > 0; stride >>= 1)
+    {
+        if (localId < groupSize/(2*stride))
+        {
+            int temp = shmem[(2*localId + 1)*stride-1];
+            shmem[(2*localId + 1)*stride-1] = shmem[2*(localId + 1)*stride-1];
+            
+            // optimize with a conditional = operator
+            if (FLAG_ORIG((2*localId + 1)*stride) == 1)
+            {
+                shmem[2*(localId + 1)*stride-1] = 0;
+            }
+            else if (FLAG((2*localId + 1)*stride-1) == 1)
+            {
+                shmem[2*(localId + 1)*stride-1] = temp;
+            }
+            else
+            {
+                shmem[2*(localId + 1)*stride-1] = shmem[2*(localId + 1)*stride-1] + temp;
+            }
+            
+            FLAG_COMBINED((2*localId + 1)*stride-1) = FLAG_COMBINED((2*localId + 1)*stride-1) & 2;
+        }
+        
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+}
+
+
+__kernel void segmented_scan_exclusive_int_nocut(__global int const* in_array,
+                                           __global int const* in_segment_heads_array,
+                                           __global int* out_array,
+                                           __local int* shmem)
+{
+    int globalId  = get_global_id(0);
+    int localId   = get_local_id(0);
+    int groupSize = get_local_size(0);
+    int groupId   = get_group_id(0);
+    
+    __local int* keys = shmem;
+    __local char* flags = (__local char*)(keys + groupSize);
+    
+    int4 v1 = in_array[2*globalId];
+    int4 v2 = in_array[2*globalId + 1];
+    int4 f1 = in_segment_heads_array[2*globalId];
+    int4 f2 = in_segment_heads_array[2*globalId + 1];
+    
+    keys[localId] = in_array[globalId];
+    flags[localId] = in_segment_heads_array[globalId] ? 3 : 0;
+    
+    barrier(CLK_LOCAL_MEM_FENCE);
+    
+    group_segmented_scan_exclusive_int_nocut(localId, groupSize, keys, flags);
+    
+    out_array[globalId] = keys[localId];
+}
+
+__kernel void segmented_scan_exclusive_int(__global int const* in_array,
+                                           __global int const* in_segment_heads_array,
+                                           __global int* out_array,
+                                           __local int* shmem)
+{
+    int globalId  = get_global_id(0);
+    int localId   = get_local_id(0);
+    int groupSize = get_local_size(0);
+    int groupId   = get_group_id(0);
+    
+    __local int* keys = shmem;
+    __local char* flags = (__local char*)(keys + groupSize);
+    
+    int4 v1 = in_array[2*globalId];
+    int4 v2 = in_array[2*globalId + 1];
+    int4 f1 = in_segment_heads_array[2*globalId];
+    int4 f2 = in_segment_heads_array[2*globalId + 1];
+    
+    keys[localId] = in_array[globalId];
+    flags[localId] = in_segment_heads_array[globalId] ? 3 : 0;
+    
+    barrier(CLK_LOCAL_MEM_FENCE);
+    
+    group_segmented_scan_exclusive_int(localId, groupSize, keys, flags);
+    
+    out_array[globalId] = keys[localId];
+}
+
+__kernel void segmented_scan_exclusive_int_part(__global int const* in_array,
+                                           __global int const* in_segment_heads_array,
+                                           __global int* out_array,
+                                           __global int* out_part_sums,
+                                           __global int* out_part_flags,
+                                           __local int* shmem)
+{
+    int globalId  = get_global_id(0);
+    int localId   = get_local_id(0);
+    int groupSize = get_local_size(0);
+    int groupId   = get_group_id(0);
+    
+    __local int* keys = shmem;
+    __local char* flags = (__local char*)(keys + groupSize);
+    
+    int4 v1 = in_array[2*globalId];
+    int4 v2 = in_array[2*globalId + 1];
+    int4 f1 = in_segment_heads_array[2*globalId];
+    int4 f2 = in_segment_heads_array[2*globalId + 1];
+    
+    keys[localId] = in_array[globalId];
+    flags[localId] = in_segment_heads_array[globalId] ? 3 : 0;
+    
+    barrier(CLK_LOCAL_MEM_FENCE);
+    
+    group_segmented_scan_exclusive_int_part(localId, groupId, groupSize, keys, flags, out_part_sums, out_part_flags);
+    
+    out_array[globalId] = keys[localId];
+}
+
+__kernel void segmented_distribute_part_sum_int(
+                                       __global int* inout_array,
+                                       __global int* in_flags,
+                                       __global int* in_sums
+                                       )
+{
+    int globalId  = get_global_id(0);
+    int localId   = get_local_id(0);
+    int groupSize = get_local_size(0);
+    int groupId   = get_group_id(0);
+    
+    int sum = in_sums[groupId];
+    //inout_array[globalId] += sum;
+    
+    if (localId == 0)
+    {
+        for (int i = 0; in_flags[globalId + i] == 0 && i < groupSize; ++i)
+        {
+            inout_array[globalId + i] += sum;
+        }
+    }
+}
+                                       
 
 
 

@@ -1,205 +1,96 @@
-/////////////////////////////////////////////////////
-/// @file quaternion.h
-///	 Quaternion operations
-///
-/// @author Dmitry Kolzov
-///
-#ifndef quaternion_H
-#define quaternion_H
-#include <cmath>
-#include "vector.h"
-#include "matrix.h"
+#ifndef QUATERNION_H
+#define QUATERNION_H
 
-////////////////////////////////////
-///
-/// quaternion CLASS: INTERFACE
-///
-template <typename T> class quaternion
+#include <cmath>
+
+class quaternion
 {
 public:
-	////////////////////////////////////
-	/// constructors and factory methods
-	quaternion (const T& qx = T(), const T& qy = T(), const T& qz = T(), const T& qw = T());
-	/// create quaternion from a vector
-	explicit			   quaternion( const vector<T,4>& v );
-	/// create quaternion from a orthogonal(!) matrix
-	/// make sure the matrix is ORTHOGONAL
-	explicit			   quaternion( const matrix<T,4,4>& m );
+    quaternion (float xx = 0.f, float yy = 0.f, float zz = 0.f, float ww = 0.f) : x(xx), y(yy), z(zz), w(ww) {}
 
-	/// convert quaternion to matrix
-	void				   to_matrix( matrix<T,4,4>& pM ) const;
-	matrix<T,4,4>	 to_matrix() const;
+    //explicit			   quaternion( const vector<T,4>& v );
+    /// create quaternion from a orthogonal(!) matrix
+    /// make sure the matrix is ORTHOGONAL
+    //explicit			   quaternion( const matrix<T,4,4>& m );
 
-	///////////////////
-	/// unary operators
-	quaternion<T>		  operator -() const;
-	quaternion<T>&		 operator +=( const quaternion<T>& other );
-	quaternion<T>&		 operator -=( const quaternion<T>& other );
-	quaternion<T>&		 operator *=( const quaternion<T>& other );
-	quaternion<T>&		 operator *=( const T& a );
-	quaternion<T>&		 operator /=( const T& a );
+    /// convert quaternion to matrix
+    //void				   to_matrix( matrix<T,4,4>& pM ) const;
+    //matrix<T,4,4>	 to_matrix() const;
 
-	////////////////////////
-	/// conjugate quaternion
-	quaternion<T>		  conjugate() const { return quaternion<T>(-qx(),-qy(),-qz(),qw()); }
-	//////////////////////
-	/// inverse quaternion
-	quaternion<T>		  inverse() const { return (sq_norm() == 0)?(quaternion<T>()):((1/sq_norm())*conjugate()); }
-	///////////////////
-	/// quaternion norm
-	T			  sq_norm() const { return qx() * qx() + qy() * qy() + qz() * qz() + qw() * qw(); }
-	T			  norm() const { return sqrt(sq_norm()); }
+    quaternion      operator -() const { return quaternion(-x, -y, -z, -w); }
+    quaternion&     operator +=( quaternion const& o ) { x+=o.x; y+=o.y; z+=o.z; w+=o.w; return *this; }
+    quaternion&     operator -=( quaternion const& o ) { x-=o.x; y-=o.y; z-=o.z; w-=o.w; return *this; }
+    quaternion&     operator *=( quaternion const& o ) { x*=o.x; y*=o.y; z*=o.z; w*=o.w; return *this; }
+    quaternion&     operator *=( float a ) { x*=a; y*=a; z*=a; w*=a; return *this; }
+    quaternion&     operator /=( float a ) { float inva = 1.f/a; x*=inva; y*=inva; z*=inva; w*=inva; return *this; }
 
-	/////////////
-	/// accessors
-	T  qx() const { return _qx; }
-	T  qy() const { return _qy; }
-	T  qz() const { return _qz; }
-	T  qw() const { return _qw; }
-	T& qx()	   { return _qx; }
-	T& qy()	   { return _qy; }
-	T& qz()	   { return _qz; }
-	T& qw()	   { return _qw; }
+    quaternion      conjugate() const { return quaternion(-x, -y, -z, w); }
+    quaternion      inverse()   const; 
 
-private:
-	T _qx;
-	T _qy;
-	T _qz;
-	T _qw;
+    float  sqnorm() const { return x * x + y * y + z * z + w * w; }
+    float  norm()   const { return std::sqrt(sqnorm()); }
+
+    float x, y, z, w;
 };
 
-////////////////////////////////////
-///
-/// quatrnion CLASS: IMPLEMENTATION
-///
-template <typename T> quaternion<T>::quaternion (const T& qx, const T& qy, const T& qz, const T& qw)
-	: _qx(qx), _qy(qy),_qz(qz),_qw(qw)
-{}
-
-template <typename T> quaternion<T>::quaternion (const vector<T,4>& v)
-	: _qx(v.x()), _qy(v.y()),_qz(v.z()),_qw(v.w())
-{}
-
-template <typename T> quaternion<T>::quaternion (const matrix<T,4,4>& m)
+inline quaternion      quaternion::inverse()   const
 {
-	_qw = 0.5f*sqrt(m.trace());
-	_qx = (m(2,1) - m(1,2))/(4*_qw);
-	_qy = (m(0,2) - m(2,0))/(4*_qw);
-	_qz = (m(1,0) - m(0,1))/(4*_qw);
+    if (sqnorm() == 0)
+    {
+        return quaternion();
+    }
+    else
+    {
+        quaternion q = conjugate();
+        q /= sqnorm();
+        return q;
+    }
 }
 
-template <typename T> quaternion<T> quaternion<T>::operator -() const
+inline quaternion operator * (quaternion const& q1,  quaternion const& q2)
 {
-	return quaternion<T>(-qx(),-qy(),-qz(),-qw());
+    quaternion res;
+    res.x = q1.y*q2.z - q1.z*q2.y + q2.w*q1.x + q1.w*q2.x;
+    res.y = q1.z*q2.x - q1.x*q2.z + q2.w*q1.y + q1.w*q2.y;
+    res.z = q1.x*q2.y - q2.x*q1.y + q2.w*q1.z + q1.w*q2.z;
+    res.w = q1.w*q2.w - q1.x*q2.x - q1.y*q2.y - q1.z*q2.z;
+    return res;
 }
 
-template <typename T> quaternion<T>& quaternion<T>::operator +=( const quaternion<T>& other )
+inline quaternion operator / ( const quaternion& q,  float a )
 {
-	_qx += other._qx;
-	_qy += other._qy;
-	_qz += other._qz;
-	_qw += other._qw;
-	return *this;
+    quaternion res = q;
+    return res /= a;
 }
 
-template <typename T> quaternion<T>& quaternion<T>::operator -=( const quaternion<T>& other )
+inline quaternion operator + ( const quaternion& q1,  const quaternion& q2 )
 {
-	return operator += (-other);
+    quaternion res = q1;
+    return res += q2;
 }
 
-template <typename T> quaternion<T>& quaternion<T>::operator *=( const quaternion<T>& q2 )
+inline quaternion operator - ( const quaternion& q1,  const quaternion& q2 )
 {
-	quaternion<T> temp;
-	temp.qx() = qy()*q2.qz() - qz()*q2.qy() + q2.qw()*qx() + qw()*q2.qx();
-	temp.qy() = qz()*q2.qx() - qx()*q2.qz() + q2.qw()*qy() + qw()*q2.qy();
-	temp.qz() = qx()*q2.qy() - q2.qx()*qy() + q2.qw()*qz() + qw()*q2.qz();
-	temp.qw() = qw()*q2.qw() - qx()*q2.qx() - qy()*q2.qy() - qz()*q2.qz();
-
-	*this = temp;
-	return *this;
+    quaternion res = q1;
+    return res -= q2;
 }
 
-template <typename T> quaternion<T>& quaternion<T>::operator *=( const T& a )
+inline quaternion operator * ( const quaternion& q,  float a )
 {
-	_qx *= a;
-	_qy *= a;
-	_qz *= a;
-	_qw *= a;
-	return *this;
+    quaternion res = q;
+    return res *= a;
 }
 
-template <typename T> quaternion<T>& quaternion<T>::operator /=( const T& a )
+inline quaternion operator * ( float a, quaternion const& q )
 {
-	return operator*=(1.f/a);
+    quaternion res = q;
+    return res *= a;
 }
 
-template <typename T> void quaternion<T>::to_matrix( matrix<T,4,4>& pM ) const
+inline quaternion normalize( quaternion const& q )
 {
-	T s = 2/norm();
-	(pM)(0,0) = 1 - s*(qy()*qy() + qz()*qz()); (pM)(0,1) = s * (qx()*qy() - qw()*qz());	  (pM)(0,2) = s * (qx()*qz() + qw()*qy());	 (pM)(0,3) = 0;
-	(pM)(1,0) = s * (qx()*qy() + qw()*qz());   (pM)(1,1) = 1 - s * (qx()*qx() + qz()*qz());  (pM)(1,2) = s * (qy()*qz() - qw()*qx());	 (pM)(1,3) = 0;
-	(pM)(2,0) = s * (qx()*qz() - qw()*qy());   (pM)(2,1) = s * (qy()*qz() + qw()*qx());	  (pM)(2,2) = 1 - s * (qx()*qx() + qy()*qy()); (pM)(2,3) = 0;
-	(pM)(3,0) = 0;							 (pM)(3,1) = 0;								(pM)(3,2) = 0;							   (pM)(3,3) = 1;
+    float norm = q.norm();
+    return q / norm;
 }
 
-template <typename T> matrix<T,4,4> quaternion<T>::to_matrix() const
-{
-	matrix<T,4,4> pM;
-	T s = 2/norm();
-	(pM)(0,0) = 1 - s*(qy()*qy() + qz()*qz()); (pM)(0,1) = s * (qx()*qy() - qw()*qz());	  (pM)(0,2) = s * (qx()*qz() + qw()*qy());	 (pM)(0,3) = 0;
-	(pM)(1,0) = s * (qx()*qy() + qw()*qz());   (pM)(1,1) = 1 - s * (qx()*qx() + qz()*qz());  (pM)(1,2) = s * (qy()*qz() - qw()*qx());	 (pM)(1,3) = 0;
-	(pM)(2,0) = s * (qx()*qz() - qw()*qy());   (pM)(2,1) = s * (qy()*qz() + qw()*qx());	  (pM)(2,2) = 1 - s * (qx()*qx() + qy()*qy()); (pM)(2,3) = 0;
-	(pM)(3,0) = 0;							 (pM)(3,1) = 0;								(pM)(3,2) = 0;							   (pM)(3,3) = 1;
-	return pM;
-}
-
-///////////////////////////////////////
-///
-/// quatrnion CLASS: NON-MEMBER METHODS
-template <typename T> quaternion<T> operator * ( const quaternion<T>& q1,  const quaternion<T>& q2 )
-{
-	quaternion<T> res;
-	res.qx() = q1.qy()*q2.qz() - q1.qz()*q2.qy() + q2.qw()*q1.qx() + q1.qw()*q2.qx();
-	res.qy() = q1.qz()*q2.qx() - q1.qx()*q2.qz() + q2.qw()*q1.qy() + q1.qw()*q2.qy();
-	res.qz() = q1.qx()*q2.qy() - q2.qx()*q1.qy() + q2.qw()*q1.qz() + q1.qw()*q2.qz();
-	res.qw() = q1.qw()*q2.qw() - q1.qx()*q2.qx() - q1.qy()*q2.qy() - q1.qz()*q2.qz();
-	return res;
-}
-
-template <typename T> quaternion<T> operator / ( const quaternion<T>& q,  T a )
-{
-	quaternion<T> res = q;
-	return res /= a;
-}
-
-template <typename T> quaternion<T> operator + ( const quaternion<T>& q1,  const quaternion<T>& q2 )
-{
-	quaternion<T> res = q1;
-	return res += q2;
-}
-
-template <typename T> quaternion<T> operator - ( const quaternion<T>& q1,  const quaternion<T>& q2 )
-{
-	quaternion<T> res = q1;
-	return res -= q2;
-}
-
-template <typename T> quaternion<T> operator * ( const quaternion<T>& q,  const T& a )
-{
-	quaternion<T> res = q;
-	return res *= a;
-}
-
-template <typename T> quaternion<T> operator * ( const T& a,  const quaternion<T>& q )
-{
-	quaternion<T> res = q;
-	return res *= a;
-}
-
-template <typename T> quaternion<T> normalize( const quaternion<T>& q )
-{
-	T norm = q.norm();
-	return q/norm;
-}
-
-#endif
+#endif // QUATERNION_H

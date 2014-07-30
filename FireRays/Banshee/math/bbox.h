@@ -1,118 +1,112 @@
 #ifndef BBOX_H
 #define BBOX_H
 
+#include <cmath>
 #include <algorithm>
 #include <limits>
 
-#include "common_types.h"
+#include "float3.h"
+#include "ray.h"
 
-class BBox
+class bbox
 {
 public:
-    BBox();
-	BBox(vector3 const& p);
-	BBox(vector3 const& mn, vector3 const& mx);
-	
-	vector3 GetCenter() const;
-	vector3 GetExtents() const;
-	
-	bool  Contains(vector3 const& p) const;
-    
-	int   GetMaxDim() const;
-	float GetSurfaceArea() const;
+    bbox()
+        : pmin(float3(std::numeric_limits<float>::max(),
+                      std::numeric_limits<float>::max(),
+                      std::numeric_limits<float>::max()))
+        , pmax(float3(-std::numeric_limits<float>::max(),
+                      -std::numeric_limits<float>::max(),
+                      -std::numeric_limits<float>::max()))
+    {
+    }
 
-	vector3 pmin;
-	vector3 pmax;
+    bbox(float3 const& p)
+        : pmin(p)
+        , pmax(p)
+    {
+    }
+
+    bbox(float3 const& p1, float3 const& p2)
+        : pmin(vmin(p1, p2))
+        , pmax(vmax(p1, p2))
+    {
+    }
+
+    float3 center()  const { return 0.5f * (pmax + pmin); }
+    float3 extents() const { return pmax - pmin; }
+
+    bool   contains(float3 const& p) const;
+
+    int   maxdim() const;
+    float surface_area() const;
+
+    float3 pmin;
+    float3 pmax;
 };
 
-inline BBox BBoxUnion(BBox const& box1, BBox const& box2)
+inline bool   bbox::contains(float3 const& p) const
+{
+    float3 radius = 0.5f * extents();
+    return std::abs(center().x - p.x) <= radius.x &&
+        abs(center().y - p.y) <= radius.y &&
+        abs(center().z - p.z) <= radius.z;
+}
+
+inline bbox bboxunion(bbox const& box1, bbox const& box2)
+{
+    return bbox(vmin(box1.pmin, box2.pmin), vmax(box1.pmax, box2.pmax));
+}
+
+inline bbox intersection(bbox const& box1, bbox const& box2)
 {	
-	return BBox(vmin(box1.pmin, box2.pmin), vmax(box1.pmax, box2.pmax));
+    return bbox(vmax(box1.pmin, box2.pmin), vmin(box1.pmax, box2.pmax));
 }
 
-inline BBox BBoxIntersection(BBox const& box1, BBox const& box2)
-{	
-	return BBox(vmax(box1.pmin, box2.pmin), vmin(box1.pmax, box2.pmax));
-}
-
-inline bool Intersects(BBox const& box1, BBox const& box2)
+inline bool intersects(bbox const& box1, bbox const& box2)
 {
-	vector3 b1Center = box1.GetCenter();
-	vector3 b1Radius = 0.5f * box1.GetExtents();
-	vector3 b2Center = box2.GetCenter();
-	vector3 b2Radius = 0.5f * box2.GetExtents();
-	
-	return abs(b2Center.x() - b1Center.x()) < b1Radius.x() + b2Radius.x() &&
-		   abs(b2Center.y() - b1Center.y()) < b1Radius.y() + b2Radius.y() &&
-		   abs(b2Center.x() - b1Center.z()) < b1Radius.z() + b2Radius.z();
+    float3 b1c = box1.center();
+    float3 b1r = 0.5f * box1.extents();
+    float3 b2c = box2.center();
+    float3 b2r = 0.5f * box2.extents();
+
+    return abs(b2c.x - b1c.x) < b1r.x + b2r.x &&
+        abs(b2c.y - b1c.y) < b1r.y + b2r.y &&
+        abs(b2c.x - b1c.z) < b1r.z + b2r.z;
 }
 
-inline bool Contains(BBox const& box1, BBox const& box2)
+inline bool contains(bbox const& box1, bbox const& box2)
 {
-	return box1.Contains(box2.pmin) && box1.Contains(box2.pmax);
+    return box1.contains(box2.pmin) && box1.contains(box2.pmax);
 }
 
-
-inline vector3 BBox::GetExtents() const
+inline bool intersects(ray& r, bbox const& box)
 {
-    return pmax - pmin;
-}
+    float3 rd = float3(1.f / r.d.x, 1.f / r.d.y, 1.f / r.d.z);
+    float lo = rd.x * (box.pmin.x - r.o.x);
+    float hi = rd.x * (box.pmax.x - r.o.x);
 
-inline vector3 BBox::GetCenter() const
-{
-    return 0.5f * (pmax + pmin);
-}
+    float tmin = std::min(lo, hi);
+    float tmax = std::max(lo, hi);
 
-inline bool BBox::Contains(vector3 const& p) const
-{
-    vector3 radius = 0.5f * GetExtents();
-    return abs(GetCenter().x() - p.x()) <= radius.x() &&
-        abs(GetCenter().y() - p.y()) <= radius.y() &&
-        abs(GetCenter().z() - p.z()) <= radius.z();
-}
+    float lo1 = rd.y*(box.pmin.y - r.o.y);
+    float hi1 = rd.y*(box.pmax.y - r.o.y);
 
-inline int BBox::GetMaxDim() const
-{
-    vector3 ext = GetExtents();
+    tmin = std::max(tmin, std::min(lo1, hi1));
+    tmax = std::min(tmax, std::max(lo1, hi1));
 
-    if (ext.x() >= ext.y() && ext.x() >= ext.z())
-        return 0;
-    if (ext.y() >= ext.x() && ext.y() >= ext.z())
-        return 1;
-    if (ext.z() >= ext.x() && ext.z() >= ext.y())
-        return 2;
+    float lo2 = rd.z*(box.pmin.z - r.o.z);
+    float hi2 = rd.z*(box.pmax.z - r.o.z);
 
-    return 0;
-}
+    tmin = std::max(tmin, std::min(lo2, hi2));
+    tmax = std::min(tmax, std::max(lo2, hi2));
 
-inline float BBox::GetSurfaceArea() const
-{
-    vector3 extents = GetExtents();
-    return 2 * (extents.x() * extents.y() + extents.x() * extents.z() + extents.y() * extents.z());
-}
-
-inline BBox::BBox()
-: pmin(vector3(std::numeric_limits<float>::max(),
-std::numeric_limits<float>::max(),
-std::numeric_limits<float>::max()))
-, pmax(vector3(-std::numeric_limits<float>::max(),
--std::numeric_limits<float>::max(),
--std::numeric_limits<float>::max()))
-{
-
-}
-
-inline BBox::BBox(vector3 const& p)
-: pmin(p)
-, pmax(p)
-{
-
-}
-
-inline BBox::BBox(vector3 const& p1, vector3 const& p2)
-: pmin(vmin(p1, p2))
-, pmax(vmax(p1, p2))
-{
+    if ((tmin <= tmax) && (tmax > r.t.x))
+    {
+        return (tmin >= r.t.x) ? (tmin < r.t.y) : (tmax < r.t.y);
+    }
+    else
+        return false;
 }
 
 #endif // BBOX_H

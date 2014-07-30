@@ -1,6 +1,12 @@
 #ifndef INTERSECTIONAPI_H
 #define INTERSECTIONAPI_H
 
+#include <memory>
+
+#include "../math/float3.h"
+#include "../math/float2.h"
+#include "../math/ray.h"
+
 /// MemoryArea is the main external data exchange class
 /// All APIs receive data chunks in the form of memory areas
 template <typename T> class MemoryArea;
@@ -13,7 +19,7 @@ template <typename T> class MemoryArea;
 class IntersectionApi
 {
 public:
-    
+
     ///< CompletionEvent is supposed to provide the means for asynchronous
     ///< execution for IntersectionApi operations
     ///<
@@ -27,26 +33,25 @@ public:
         /// Completeness check
         virtual bool Complete() = 0;
     };
-    
+
     // Default constructor
     IntersectionApi(){}
-    
+
     // Destructor
     virtual ~IntersectionApi() = 0;
-    
+
     // Upload mesh into the API and prepare for intersection tasks
     // The caller must ensure the previous call to UploadMesh has finished
     // prior to calling the function again. Otherwise the behavior is undefined.
-    std::unique_ptr<CompletionEvent> UploadMesh(MemoryArea<float>& vertices, unsigned num_vertices, unsigned vstride,
-                                                MemoryArea<float>& normals,  unsigned num_normals,  unsigned nstride,
-                                                MemoryArea<float>& uv,       unsigned num_uvs,      unsigned uvstride,
-                                                MemoryArea<int>& vertex_indices, unsigned vidx_stride,
-                                                MemoryArea<int>& normal_indices, unsigned nidx_stride,
-                                                MemoryArea<int>& uv_indices,     unsigned uidx_stride,
-                                                MemoryArea<int>& materials,
-                                                unsigned num_faces) = 0;
-    
-    
+    virtual std::unique_ptr<CompletionEvent> UploadMesh(MemoryArea<float>& vertices, unsigned num_vertices, unsigned vstride,
+                                                        MemoryArea<float>& normals, unsigned num_normals,  unsigned nstride,
+                                                        MemoryArea<float>& uv, unsigned num_uvs, unsigned uvstride,
+                                                        MemoryArea<int>& vertex_indices, unsigned vidx_stride,
+                                                        MemoryArea<int>& normal_indices, unsigned nidx_stride,
+                                                        MemoryArea<int>& uv_indices, unsigned uidx_stride,
+                                                        MemoryArea<int>& materials,
+                                                        unsigned num_faces) = 0;
+
     ///< Intersection description
     ///<
     struct Intersection
@@ -60,24 +65,11 @@ public:
         // Material index
         int    m;
     };
-    
-    ///< Ray description
-    ///<
-    struct Ray
-    {
-        // Origin
-        float3 o;
-        // Normalized direction
-        float3 d;
-        // Start and end parametric values;
-        float2 t;
-    };
-    
-    std::unique_ptr<CompletionEvent> CastIndividual(MemoryArea<Ray>& ray, MemoryArea<Intersection>& isect) = 0;
-    std::unique_ptr<CompletionEvent> CastBatch(MemoryArea<Ray>& rays, int batch_size, MemoryArea<Intersection>& isect) = 0;
-    std::unique_ptr<CompletionEvent> CastBatch(MemoryArea<Ray>& rays, MemoryArea<int> batch_size, MemoryArea<Intersection>& isect) = 0;
-    
-    
+
+    virtual std::unique_ptr<CompletionEvent> CastIndividual(MemoryArea<ray>& ray, MemoryArea<Intersection>& isect) = 0;
+    virtual std::unique_ptr<CompletionEvent> CastBatch(MemoryArea<ray>& rays, int batch_size, MemoryArea<Intersection>& isect) = 0;
+    virtual std::unique_ptr<CompletionEvent> CastBatch(MemoryArea<ray>& rays, MemoryArea<int> batch_size, MemoryArea<Intersection>& isect) = 0;
+
 protected:
     IntersectionApi(IntersectionApi const&);
     IntersectionApi& operator = (IntersectionApi const&);

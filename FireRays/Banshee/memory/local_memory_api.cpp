@@ -25,10 +25,19 @@ void LocalMemoryApi::CopyRaw(void* dst, RawMemoryArea const& src, size_t offset,
     memcpy(dst, (char const*)src.raw_ptr() + offset, size);
 }
 
-//void LocalMemoryApi::Set(RawMemoryArea& dst, unsigned char val, size_t offset, size_t size)
-//{
-//    memset((char*)dst.ptr() + offset, val, size);
-//}
+void LocalMemoryApi::SetRaw(RawMemoryArea& dst, void const* pattern, size_t pattern_size, size_t offset, size_t repeat_count)
+{
+    char* ptr = (char*)dst.raw_ptr();
+    char const* patt = (char const*)pattern;
+
+    for (int i = 0; i < repeat_count; ++i)
+    {
+        for (int j = 0; j < pattern_size; ++j)
+        {
+            *(ptr + offset + i * pattern_size + j) = *(patt + j);
+        }
+    }
+}
 
 LocationId LocalMemoryApi::GetLocationId() const
 {

@@ -24,7 +24,7 @@ protected:
     // Copy data from memory area to local buffer
     void CopyRaw(void* dst, RawMemoryArea const& src, size_t offset, size_t size);
     // Set memory area data to local value
-    // void Set(RawMemoryArea& dst, unsigned char val, size_t offset, size_t size);
+    void SetRaw(RawMemoryArea& dst, void const* pattern, size_t pattern_size, size_t offset, size_t repeat_count) ;
 };
 
 #endif // LOCALMEMORYAPI_H

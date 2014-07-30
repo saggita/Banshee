@@ -8,6 +8,12 @@ template <typename T> class MemoryArea;
 
 typedef int LocationId;
 
+///< MemoryApi is a key abstraction for intra-module memory allocator.
+///< It supports allocating remote memory (network, GPU, etc) and
+///< provides the means to copy remote memory to local. In order to
+///< implement custom memory API the one needs to inherit from MemoryApi
+///< and override basic XxxRaw methods.
+///<
 class MemoryApi
 {
 public:
@@ -33,7 +39,7 @@ public:
     template <typename T> std::unique_ptr<MemoryArea<T> > Allocate(size_t size, T const* init_data = nullptr);
     template <typename T> void Copy(MemoryArea<T>& dst, T const* src, size_t offset, size_t size);
     template <typename T> void Copy(T* dst, MemoryArea<T> const& src, size_t offset, size_t size);
-    //template <typename T> void Set(MemoryArea<T>& dst, T const& val, size_t offset, size_t size);
+    template <typename T> void Set(MemoryArea<T>& dst, T const& val,  size_t offset, size_t size);
     
 protected:
     // Allocate memory area of a specified size
@@ -43,14 +49,16 @@ protected:
     // Copy data from memory area to local buffer
     virtual void CopyRaw(void* dst, RawMemoryArea const& src, size_t offset, size_t size) = 0;
     // Set memory area data to local value
-    //virtual void Set(RawMemoryArea& dst, void const* pattern, size_t pattern_size, size_t offset, size_t repeat_count) = 0;
-    
+    virtual void SetRaw(RawMemoryArea& dst, void const* pattern, size_t pattern_size, size_t offset, size_t repeat_count) = 0;
+
     // Forbidden stuff
     MemoryApi(MemoryApi const&);
     MemoryApi& operator = (MemoryApi const&);
 };
 
-inline MemoryApi::~MemoryApi(){}
+inline MemoryApi::~MemoryApi()
+{
+}
 
 template <typename T> std::unique_ptr<MemoryArea<T> > MemoryApi::Allocate(size_t size, T const* init_data)
 {
@@ -67,10 +75,10 @@ template <typename T> void MemoryApi::Copy(T* dst, MemoryArea<T> const& src, siz
     CopyRaw(dst, src, offset * sizeof(T), size * sizeof(T));
 }
 
-//template <typename T> void Set(MemoryArea<T>& dst, T const& val, size_t offset, size_t size)
-//{
-    
-//}
+template <typename T> void MemoryApi::Set(MemoryArea<T>& dst, T const& val, size_t offset, size_t size)
+{
+    SetRaw(dst, &val, sizeof(T), offset * sizeof(T), size);
+}
 
 
 #endif // MEMORYAPI_H

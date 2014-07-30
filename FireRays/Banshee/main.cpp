@@ -5,10 +5,11 @@
 #include <sstream>
 #include <iostream>
 
-#include "common_types.h"
-#include "local_memory_api.h"
-#include "local_memory_area.h"
+#include "memory/local_memory_api.h"
+#include "memory/local_memory_area.h"
+#include "intersection/intersection_api.h"
 
+#include "math/matrix.h"
 
 int main()
 {
@@ -34,6 +35,11 @@ int main()
     for (int i = 0; i < 10; ++i)
         std::cout << mem_area1->ptr()[i].b << " ";
 
-    
+    fff f;
+    api.Set(*mem_area1, f, 0, 1034);
+
+    for (int i = 0; i < 10; ++i)
+        std::cout << mem_area1->ptr()[i].b << " ";
+
     return 0;
 }

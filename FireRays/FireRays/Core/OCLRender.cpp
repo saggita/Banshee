@@ -54,7 +54,7 @@ void OCLRender::Init(unsigned width, unsigned height)
     std::vector<CLWPlatform> platforms;
     CLWPlatform::CreateAllPlatforms(platforms);
     
-    cl_platform_id platformId = platforms[1];
+    cl_platform_id platformId = platforms[0];
     
 #ifdef __APPLE__
     CGLContextObj kCGLContext = CGLGetCurrentContext(); // GL Context
@@ -74,7 +74,7 @@ void OCLRender::Init(unsigned width, unsigned height)
     };
 #endif
     
-    device_ = platforms[1].GetDevice(0);
+    device_ = platforms[0].GetDevice(1);
     context_ = CLWContext::Create(device_, props);
     prims_ = CLWParallelPrimitives(context_);
     
@@ -400,7 +400,7 @@ void OCLRender::Render(float timeDeltaDesc)
 
         globalWorkSize1 = localWorkSize1 * ((numActiveRays + localWorkSize1 - 1) / localWorkSize1);
 
-        context_.FillBuffer(0, samplePredicateBuffer_, 0, samplePredicateBuffer_.GetElementCount());
+        context_.FillBuffer(0, samplePredicateBuffer_, 0, samplePredicateBuffer_.GetElementCount()).Wait();
         context_.Launch1D(0, globalWorkSize1, localWorkSize1, sampleMaterialKernel);
     }
 
@@ -429,7 +429,7 @@ void OCLRender::Render(float timeDeltaDesc)
         extensionKernel.SetArg(7, (cl_uint)(numActiveSecondaryRays));
 
         globalWorkSize1 = localWorkSize1 * ((numActiveSecondaryRays + localWorkSize1 - 1) / localWorkSize1);
-        context_.FillBuffer(0, hitPredicateBuffer_, 0, hitPredicateBuffer_.GetElementCount());
+        context_.FillBuffer(0, hitPredicateBuffer_, 0, hitPredicateBuffer_.GetElementCount()).Wait();
         secondayRaysEvent = context_.Launch1D(0, globalWorkSize1, localWorkSize1, extensionKernel);
     }
 

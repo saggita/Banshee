@@ -330,7 +330,7 @@ void LinearBVHBuilder::InitOpenCL()
     // Create platform
     std::vector<CLWPlatform> platforms;
     CLWPlatform::CreateAllPlatforms(platforms);
-    auto platform = platforms[1];
+    auto platform = platforms[0];
     platforms.clear();
     
     // Create OpenCL context

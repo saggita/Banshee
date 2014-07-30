@@ -85,3 +85,8 @@ solution "FireRays"
 	if fileExists("./CLW/CLW.lua") then
 		dofile("./CLW/CLW.lua")
 	end
+	
+	if fileExists("./Banshee/Banshee.lua") then
+		dofile("./Banshee/Banshee.lua")
+	end
+	

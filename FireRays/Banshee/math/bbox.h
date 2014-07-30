@@ -49,8 +49,8 @@ inline bool   bbox::contains(float3 const& p) const
 {
     float3 radius = 0.5f * extents();
     return std::abs(center().x - p.x) <= radius.x &&
-        abs(center().y - p.y) <= radius.y &&
-        abs(center().z - p.z) <= radius.z;
+        fabs(center().y - p.y) <= radius.y &&
+        fabs(center().z - p.z) <= radius.z;
 }
 
 inline bbox bboxunion(bbox const& box1, bbox const& box2)
@@ -70,9 +70,9 @@ inline bool intersects(bbox const& box1, bbox const& box2)
     float3 b2c = box2.center();
     float3 b2r = 0.5f * box2.extents();
 
-    return abs(b2c.x - b1c.x) < b1r.x + b2r.x &&
-        abs(b2c.y - b1c.y) < b1r.y + b2r.y &&
-        abs(b2c.x - b1c.z) < b1r.z + b2r.z;
+    return fabs(b2c.x - b1c.x) < b1r.x + b2r.x &&
+        fabs(b2c.y - b1c.y) < b1r.y + b2r.y &&
+        fabs(b2c.x - b1c.z) < b1r.z + b2r.z;
 }
 
 inline bool contains(bbox const& box1, bbox const& box2)

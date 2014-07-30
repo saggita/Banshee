@@ -6,9 +6,13 @@
 #include "../math/float2.h"
 #include "../math/bbox.h"
 
+///< IndexedTriangle stores indices of the position/normal/texcoord data
+///< along with a pointers to their storages
+///<
 class IndexedTriangle : public Primitive
 {
 public:
+    // Constructor
     IndexedTriangle(unsigned pidx1, unsigned pidx2, unsigned pidx3,
                     unsigned nidx1, unsigned nidx2, unsigned nidx3,
                     unsigned tidx1, unsigned tidx2, unsigned tidx3,
@@ -20,17 +24,22 @@ public:
     {
     }
 
+    // Intersection override
     bool Intersect(ray& r, Intersection& isect) const;
+    // Intersection check override
     bool Intersect(ray& r) const;
-
+    // Bounding box override
     bbox Bounds() const;
 
 private:
+    // Data indices
     unsigned pidx1_, pidx2_, pidx3_;
     unsigned nidx1_, nidx2_, nidx3_;
     unsigned tidx1_, tidx2_, tidx3_;
+    // Material index
     unsigned m_;
 
+    // Pointers to data storage
     float3* p_;
     float3* n_;
     float2* t_;

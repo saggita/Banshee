@@ -25,7 +25,7 @@ public:
     }
 
     // Intersection override
-    bool Intersect(ray& r, Intersection& isect) const;
+    bool Intersect(ray& r, float& t, Intersection& isect) const;
     // Intersection check override
     bool Intersect(ray& r) const;
     // Bounding box override

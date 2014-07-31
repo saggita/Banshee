@@ -28,7 +28,7 @@ public:
     virtual ~Primitive(){}
 
     // Intersection test
-    virtual bool Intersect(ray& r, Intersection& isect) const = 0;
+    virtual bool Intersect(ray& r, float& t, Intersection& isect) const = 0;
     // Intersection check test
     virtual bool Intersect(ray& r) const = 0;
     // World space bounding box

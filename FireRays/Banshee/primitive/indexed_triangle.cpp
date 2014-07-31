@@ -1,6 +1,6 @@
 #include "indexed_triangle.h"
 
-bool IndexedTriangle::Intersect(ray& r, Intersection& isect) const
+bool IndexedTriangle::Intersect(ray& r, float& t, Intersection& isect) const
 {
     float3 p1 = p_[pidx1_];
     float3 p2 = p_[pidx2_];
@@ -28,7 +28,7 @@ bool IndexedTriangle::Intersect(ray& r, Intersection& isect) const
 
     if (tmp > r.t.x && tmp <= r.t.y)
     {
-        r.t.y = tmp;
+        t = tmp;
 
         float3 n1 = n_[nidx1_];
         float3 n2 = n_[nidx2_];
@@ -77,7 +77,7 @@ bool IndexedTriangle::Intersect(ray& r) const
 
     if (tmp > r.t.x && tmp <= r.t.y)
     {
-        r.t.y = tmp;
+        t = tmp;
         return true;
     }
 

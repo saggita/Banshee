@@ -3,7 +3,7 @@ project "Banshee"
     location "../Banshee"
     links {"assimp"}
     files { "../Banshee/**.h", "../Banshee/**.cpp", "../Banshee/**.cl", "../Banshee/**.fsh", "../Banshee/**.vsh" } 
-    includedirs{"../3rdParty/assimp/include"} 
+    includedirs{"../3rdParty/assimp/include", "../3rdParty/oiio/include"} 
     
     buildoptions "-std=c++11 -stdlib=libc++"
 
@@ -13,11 +13,18 @@ project "Banshee"
     end
 	
 	if os.is("windows") then
-	links {"assimp"}
-		configuration {"x32"}
-			libdirs {"../3rdParty/assimp/lib/x86"}
-		configuration {"x64"}
-			libdirs {"../3rdParty/assimp/lib/x64"}
+		configuration {"x32", "Debug"}
+			links {"OpenImageIOD"}
+			libdirs {"../3rdParty/assimp/lib/x86", "../3rdParty/oiio/lib/x86" }
+		configuration {"x64", "Debug"}
+			links {"OpenImageIOD"}
+			libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64" }
+		configuration {"x32", "Release"}
+			links {"OpenImageIO"}
+			libdirs {"../3rdParty/assimp/lib/x86", "../3rdParty/oiio/lib/x86" }
+		configuration {"x64", "Release"}
+			links {"OpenImageIO"}
+			libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64" }
     end
 	
     configuration {"x32", "Debug"}

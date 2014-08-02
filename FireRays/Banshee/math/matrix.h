@@ -10,9 +10,9 @@ class matrix
 {
 public:
     matrix(float mm00 = 1.f, float mm01 = 0.f, float mm02 = 0.f, float mm03 = 0.f,
-           float mm10 = 1.f, float mm11 = 0.f, float mm12 = 0.f, float mm13 = 0.f,
-           float mm20 = 1.f, float mm21 = 0.f, float mm22 = 0.f, float mm23 = 0.f,
-           float mm30 = 1.f, float mm31 = 0.f, float mm32 = 0.f, float mm33 = 0.f)
+           float mm10 = 0.f, float mm11 = 1.f, float mm12 = 0.f, float mm13 = 0.f,
+           float mm20 = 0.f, float mm21 = 0.f, float mm22 = 1.f, float mm23 = 0.f,
+           float mm30 = 0.f, float mm31 = 0.f, float mm32 = 0.f, float mm33 = 1.f)
     : m00(mm00), m01(mm01), m02(mm02), m03(mm03)
     , m10(mm10), m11(mm11), m12(mm12), m13(mm13)
     , m20(mm20), m21(mm21), m22(mm22), m23(mm23)
@@ -37,7 +37,6 @@ public:
 
     matrix operator-() const;
     matrix transpose() const;
-    matrix inverse() const;
     float  trace() const;
 
     matrix& operator += (matrix const& o);
@@ -165,7 +164,6 @@ inline float3 operator * (matrix const& m, float3 const& v)
         res[i] = 0.f;
         for (int j=0;j<3;++j)
             res[i] += m.m[i][j] * v[j];
-        res[i] += m.m[i][4];
     }
 
     return res;

@@ -18,8 +18,8 @@ public:
         float3 p;
         // World space normal
         float3 n;
-        // Texture coordinate
-        float2 t;
+        // UV parametrization
+        float2 uv;
         // Material index
         int    m;
     };

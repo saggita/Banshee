@@ -5,6 +5,7 @@
 #include "float3.h"
 #include "quaternion.h"
 #include "matrix.h"
+#include "ray.h"
 
 #include <cmath>
 #include <ctime>
@@ -68,6 +69,40 @@ inline void	spherical_to_cartesian ( float3 const& sph, float3& cart )
 {
 	spherical_to_cartesian(sph.x, sph.y, sph.z, cart); 
 }
+
+/// Transform a point using a matrix
+inline float3 transform_point(float3 const& p, matrix const& m)
+{
+    float3 res = m * p;
+    res.x += m.m03;
+    res.y += m.m13;
+    res.z += m.m23;
+    return res;
+}
+
+/// Transform a vector using a matrix
+inline float3 transform_vector(float3 const& v, matrix const& m)
+{
+    return m * v;
+}
+
+/// Transform a normal using a matrix.
+/// Use this function carefully as the normal can be 
+/// transformed much faster using transform vector in many cases
+inline float3 transform_normal(float3 const& n, matrix const& m)
+{
+    matrix minv = inverse(m);
+    return minv.transpose() * n;
+}
+
+/// Transform a ray using a matrix
+inline ray transform_ray(ray const& r, matrix const& m)
+{
+    return ray(transform_point(r.o, m), transform_vector(r.d, m), r.t);
+}
+
+
+
 
 /// Solve quadratic equation
 /// Returns false in case of no real roots exist

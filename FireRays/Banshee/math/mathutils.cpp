@@ -55,7 +55,7 @@ matrix rotation(float3 const& axis, float ang)
     return matrix();
 }
 
-matrix scale_matrix(float3 const& v)
+matrix scale(float3 const& v)
 {
     return matrix(v.x, 0, 0, 0, 0, v.y, 0, 0, 0, 0, v.z, 0, 0, 0, 0, 1.f);
 }

@@ -11,7 +11,7 @@ class ray
 public:
     ray(float3 const& oo = float3(0,0,0), float3 const& dd = float3(0,0,0), float2 const& rng = float2(0, std::numeric_limits<float>::max()))
         : o(oo)
-        , d(normalize(dd))
+        , d(dd)
         , t(rng)
     {
     }

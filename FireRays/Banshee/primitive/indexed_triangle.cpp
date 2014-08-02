@@ -34,13 +34,13 @@ bool IndexedTriangle::Intersect(ray& r, float& t, Intersection& isect) const
         float3 n2 = n_[nidx2_];
         float3 n3 = n_[nidx3_];
 
-        float2 t1 = t_[tidx1_];
-        float2 t2 = t_[tidx2_];
-        float2 t3 = t_[tidx3_];
+        float2 t1 = uv_[tidx1_];
+        float2 t2 = uv_[tidx2_];
+        float2 t3 = uv_[tidx3_];
 
         isect.p = (1.f - b1 - b2) * p1 + b1 * p2 + b2 * p3;
         isect.n = (1.f - b1 - b2) * n1 + b1 * n2 + b2 * n3;
-        isect.t = (1.f - b1 - b2) * t1 + b1 * t2 + b2 * t3;
+        isect.uv = (1.f - b1 - b2) * t1 + b1 * t2 + b2 * t3;
         isect.m = m_;
 
         return true;
@@ -77,7 +77,6 @@ bool IndexedTriangle::Intersect(ray& r) const
 
     if (tmp > r.t.x && tmp <= r.t.y)
     {
-        t = tmp;
         return true;
     }
 

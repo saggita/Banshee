@@ -9,7 +9,8 @@ project "Banshee"
 
     
     if os.is("macosx") then
-		libdirs {"../3rdParty/assimp/lib/x64"}
+    	links {"OpenImageIO"}
+		libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64"}
     end
 	
 	if os.is("windows") then

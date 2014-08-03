@@ -143,6 +143,7 @@ inline quaternion matrix_to_quaternion(matrix const& m)
     q.x = (m.m[2][1] - m.m[1][2])/(4*q.w);
     q.y = (m.m[0][2] - m.m[2][0])/(4*q.w);
     q.z = (m.m[1][0] - m.m[0][1])/(4*q.w);
+    return q;
 }
 
 inline matrix quaternion_to_matrix(quaternion const& q)

@@ -1,39 +1,39 @@
 #include "sphere.h"
 
-#include "..\math\mathutils.h"
+#include "../math/mathutils.h"
 
 bool Sphere::Intersect(ray& r,  float& t, Intersection& isect) const
 {
     // Transform ray into object space
-    ray or = transform_ray(r, worldmatinv_);
+    ray ro = transform_ray(r, worldmatinv_);
 
     // Calc equation coefs
     // (o.x + t * d.x)^2 + (o.y + t * d.y)^2 + (o.z + t * d.z)^2 = r^2
-    float a = or.d.x * or.d.x + or.d.y * or.d.y + or.d.z * or.d.z;
-    float b = 2 * (or.o.x * or.d.x + or.o.y * or.d.y + or.o.z * or.d.z);
-    float c = or.o.x * or.o.x + or.o.y * or.o.y + or.o.z * or.o.z - radius_ * radius_;
+    float a = ro.d.x * ro.d.x + ro.d.y * ro.d.y + ro.d.z * ro.d.z;
+    float b = 2 * (ro.o.x * ro.d.x + ro.o.y * ro.d.y + ro.o.z * ro.d.z);
+    float c = ro.o.x * ro.o.x + ro.o.y * ro.o.y + ro.o.z * ro.o.z - radius_ * radius_;
 
     float t0, t1;
     if (solve_quadratic(a, b, c, t0, t1))
     {
-        if (t0 > or.t.y || t1 < or.t.x)
+        if (t0 > ro.t.y || t1 < ro.t.x)
             return false;
 
         float tt = t0;
 
-        if (tt > or.t.x)
+        if (tt > ro.t.x)
         {
             t = tt;
-            FillIntersectionInfo(or(t), isect);
+            FillIntersectionInfo(ro(t), isect);
         }
         else
         {
             tt = t1;
 
-            if (tt < or.t.y)
+            if (tt < ro.t.y)
             {
                 t = tt;
-                FillIntersectionInfo(or(t), isect);
+                FillIntersectionInfo(ro(t), isect);
             }
             else
             {
@@ -51,24 +51,24 @@ bool Sphere::Intersect(ray& r,  float& t, Intersection& isect) const
 
 bool Sphere::Intersect(ray& r) const
 {
-    // Transform ray into object space
-    ray or = transform_ray(r, worldmatinv_);
+    // Transfrom ray into object space
+    ray ro = transform_ray(r, worldmatinv_);
 
     // Calc equation coefs
     // (o.x + t * d.x)^2 + (o.y + t * d.y)^2 + (o.z + t * d.z)^2 = r^2
-    float a = or.d.x * or.d.x + or.d.y * or.d.y + or.d.z * or.d.z;
-    float b = 2 * (or.o.x * or.d.x + or.o.y * or.d.y + or.o.z * or.d.z);
-    float c = or.o.x * or.o.x + or.o.y * or.o.y + or.o.z * or.o.z - radius_ * radius_;
+    float a = ro.d.x * ro.d.x + ro.d.y * ro.d.y + ro.d.z * ro.d.z;
+    float b = 2 * (ro.o.x * ro.d.x + ro.o.y * ro.d.y + ro.o.z * ro.d.z);
+    float c = ro.o.x * ro.o.x + ro.o.y * ro.o.y + ro.o.z * ro.o.z - radius_ * radius_;
 
     float t0, t1;
     if (solve_quadratic(a, b, c, t0, t1))
     {
-        if (t0 > or.t.y || t1 < or.t.x)
+        if (t0 > ro.t.y || t1 < ro.t.x)
             return false;
 
         float tt = t0;
 
-        if (tt > or.t.x)
+        if (tt > ro.t.x)
         {
             return true;
         }
@@ -76,7 +76,7 @@ bool Sphere::Intersect(ray& r) const
         {
             tt = t1;
 
-            if (tt < or.t.y)
+            if (tt < ro.t.y)
             {
                 return true;
             }

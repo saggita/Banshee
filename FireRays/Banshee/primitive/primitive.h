@@ -18,6 +18,10 @@ public:
         float3 p;
         // World space normal
         float3 n;
+        // Tangent
+        float3 dpdu;
+        // Bitangent
+        float3 dpdv;
         // UV parametrization
         float2 uv;
         // Material index

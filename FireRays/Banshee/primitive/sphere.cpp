@@ -102,13 +102,26 @@ bbox Sphere::Bounds() const
 void Sphere::FillIntersectionInfo(float3 const& p, Intersection& isect) const
 {
     float3 n = normalize(p);
+    float r = sqrtf(p.sqnorm());
+    
+    float phi = acosf(p.z / r);
+    float psi = atan2f(p.x, p.y);
+    
+    if (psi < 0.f)
+        psi += 2*PI;
 
+    float3 dpdu = float3(-2*PI*p.y, 2*PI*p.x, 0);
+    float3 dpdv = float3(PI*p.z*cosf(phi), PI*p.z*sin(phi), -PI*r*sinf(psi));
+    
     isect.p = transform_point(p, worldmat_);
 
     // TODO: need to optimize this
     isect.n = transform_normal(n, worldmat_);
-
-    // TODO: not supported atm
-    isect.uv = float2(0,0);
+    
+    isect.uv = float2(phi/(2 * PI), psi/PI);
+    isect.dpdu = transform_vector(dpdu, worldmat_);
+    isect.dpdv = transform_vector(dpdv, worldmat_);
+    
+    
     isect.m  = 0;
 }

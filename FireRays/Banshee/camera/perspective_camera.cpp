@@ -24,10 +24,15 @@ PerscpectiveCamera::PerscpectiveCamera(float3 const& eye, float3 const& at, floa
 
 void PerscpectiveCamera::GenerateRay(float2 const& sample, ray& r) const
 {
+    // Transform into [-0.5,0.5]
     float2 hsample = sample - float2(0.5f, 0.5f);
+    // Transform into [-dim/2, dim/2]
     float2 csample = hsample * dim_;
 
+    // Origin == camera position
     r.o = p_;
+    // Direction to image plane
     r.d = normalize(zcap_.x * forward_ + csample.x * right_ + csample.y * up_);
+    // Zcap == (znear,zfar)
     r.t = float2(zcap_.x, zcap_.y);
 }

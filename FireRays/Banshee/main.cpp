@@ -13,6 +13,7 @@
 #include "imageio/oiioimageio.h"
 #include "camera/perspective_camera.h"
 #include "renderer/imagerenderer.h"
+#include "renderer/mt_imagerenderer.h"
 #include "imageplane/fileimageplane.h"
 #include "tracer/ditracer.h"
 #include "light/pointlight.h"
@@ -69,7 +70,7 @@ int main()
         // Create image plane writing to file
         FileImagePlane plane(filename, imgres, io);
         // Create renderer w/ direct illumination tracer
-        ImageRenderer renderer(plane, new DiTracer());
+        MtImageRenderer renderer(plane, new DiTracer(), int2(16,16));
 
         // Measure execution time
         auto starttime = std::chrono::high_resolution_clock::now();

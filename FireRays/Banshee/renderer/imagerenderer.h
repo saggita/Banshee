@@ -7,10 +7,12 @@ class Tracer;
 
 #include <memory>
 
+#include "renderer.h"
+
 ///< Image renderer provides the means to sample and render
 ///< into an imageplane instance.
 ///<
-class ImageRenderer
+class ImageRenderer : public Renderer
 {
 public:
     // Note that imgplane is an external entity and is not managed by
@@ -24,7 +26,7 @@ public:
 
     void Render(World const& world) const;
 
-private:
+protected:
     // Image plane for an output
     ImagePlane& imgplane_;
     // Ray tracer 

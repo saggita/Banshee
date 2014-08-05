@@ -17,7 +17,6 @@ void ImageRenderer::Render(World const& world) const
     imgplane_.Prepare();
 
     // very simple render loop)
-    float t;
     for (int y = 0; y < imgres.y; ++y)
         for(int x = 0; x < imgres.x; ++x)
         {

@@ -13,7 +13,7 @@ public:
     Renderer(){}
     virtual ~Renderer(){}
 
-    virtual void Render(World const& world) const;
+    virtual void Render(World const& world) const = 0;
 
 protected:
 

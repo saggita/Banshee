@@ -12,10 +12,11 @@ class Renderer
 public:
     Renderer(){}
     virtual ~Renderer(){}
-    
-    virtual void Render(World const& world) const = 0;
-    
+
+    virtual void Render(World const& world) const;
+
 protected:
+
     Renderer(Renderer const&);
     Renderer& operator=(Renderer const&);
 };

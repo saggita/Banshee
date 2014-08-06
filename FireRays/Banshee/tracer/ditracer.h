@@ -18,7 +18,7 @@ public:
     float3 Li(ray& r, World const& world) const;
 
 protected:
-    virtual float3 Shade(Primitive::Intersection& isect, Light const& light) const;
+    virtual float3 Shade(World const& world, Light const& light, Primitive::Intersection& isect) const;
 };
 
 #endif

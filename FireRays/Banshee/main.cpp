@@ -27,13 +27,14 @@ std::unique_ptr<World> BuildWorld()
     SimpleSet* set = new SimpleSet();
     // Create camera
     Camera* camera = new PerscpectiveCamera(float3(0,0,-10), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
-    // Create light
-    PointLight* light = new PointLight(float3(5, 15, -2), float3(0.6f, 0.7f, 0.9f));
+    // Create lights
+    PointLight* light1 = new PointLight(float3(5, 15, -2), float3(0.6f, 0.7f, 0.9f));
+    PointLight* light2 = new PointLight(float3(-5, -5, -2), float3(0.6f, 0.0f, 0.0f));
 
     rand_init();
 
-    // Generate 100 spheres in [-1.5, 1.5] cube
-    for (int i = 0; i < 100; ++i)
+    // Generate 10 spheres in [-1.5, 1.5] cube
+    for (int i = 0; i < 10; ++i)
     {
         matrix worldmat = translation(float3(rand_float() * 3.f - 1.5f, rand_float() * 3.f - 1.5f, rand_float() * 3.f - 1.5f));
 
@@ -45,8 +46,9 @@ std::unique_ptr<World> BuildWorld()
     world->accelerator_ = std::unique_ptr<Primitive>(set);
     // Attach camera
     world->camera_ = std::unique_ptr<Camera>(camera);
-    // Attach point light
-    world->lights_.push_back(std::unique_ptr<Light>(light));
+    // Attach point lights
+    world->lights_.push_back(std::unique_ptr<Light>(light1));
+    world->lights_.push_back(std::unique_ptr<Light>(light2));
     // Set background
     world->bgcolor_ = float3(0.3f, 0.4f, 0.3f);
 

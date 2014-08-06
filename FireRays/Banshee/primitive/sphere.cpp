@@ -16,23 +16,30 @@ bool Sphere::Intersect(ray& r,  float& t, Intersection& isect) const
     float t0, t1;
     if (solve_quadratic(a, b, c, t0, t1))
     {
+        // Both roots are outside of the ray parameter range
         if (t0 > ro.t.y || t1 < ro.t.x)
             return false;
 
+        // Take first candidate
         float tt = t0;
 
         if (tt > ro.t.x)
         {
+            // First one is in the range
             t = tt;
+            // Fill shading data
             FillIntersectionInfo(ro(t), isect);
         }
         else
         {
+            // First one falls outside, take second
             tt = t1;
 
             if (tt < ro.t.y)
             {
+                // Second one is in the range
                 t = tt;
+                // Fill shading data
                 FillIntersectionInfo(ro(t), isect);
             }
             else
@@ -94,6 +101,7 @@ bool Sphere::Intersect(ray& r) const
 
 bbox Sphere::Bounds() const
 {
+    // Transform object space bbox into world space
     float3 pmin(-radius_, -radius_, -radius_);
     float3 pmax( radius_,  radius_,  radius_);
     return bbox(transform_point(pmin, worldmat_), transform_point(pmax, worldmat_));
@@ -101,27 +109,37 @@ bbox Sphere::Bounds() const
 
 void Sphere::FillIntersectionInfo(float3 const& p, Intersection& isect) const
 {
+    // Don't use cross(dpdu, dpdv) due to singularity
+    // This normal is always fine
     float3 n = normalize(p);
     float r = sqrtf(p.sqnorm());
-    
+
+    // Calculate spherical coords
     float phi = acosf(p.z / r);
     float psi = atan2f(p.x, p.y);
-    
+
+    // Account for atan discontinuity
     if (psi < 0.f)
         psi += 2*PI;
 
+    // Calculate partial derivatives
     float3 dpdu = float3(-2*PI*p.y, 2*PI*p.x, 0);
     float3 dpdv = float3(PI*p.z*cosf(phi), PI*p.z*sin(phi), -PI*r*sinf(psi));
-    
+
+    // Everything should be in world space in isect structure,
+    // so transform position back into world space
     isect.p = transform_point(p, worldmat_);
 
-    // TODO: need to optimize this
+    // TODO: need to optimize this as we already have inverse of worldmat_
     isect.n = transform_normal(n, worldmat_);
-    
+
+    // Remap spehrical coords into [0,1] uv range
     isect.uv = float2(phi/(2 * PI), psi/PI);
+
+    // Transform partial derivatives into world space
     isect.dpdu = transform_vector(dpdu, worldmat_);
     isect.dpdv = transform_vector(dpdv, worldmat_);
-    
-    
+
+    // TODO: support material system
     isect.m  = 0;
 }

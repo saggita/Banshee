@@ -19,29 +19,35 @@ void MtImageRenderer::Render(World const& world) const
     // Prepare image plane
     imgplane_.Prepare();
 
-    // Calculate the number of tiles
+    // Calculate the number of tiles to handle
     int2 numtiles = int2((imgres.x + tilesize_.x - 1) / tilesize_.x, (imgres.y + tilesize_.y - 1) / tilesize_.y);
 
-    //Futures to wait
+    // Futures to wait
     std::vector<std::future<int> > futures;
 
+    // Iterate over all the tiles
     for (int xtile = 0; xtile < numtiles.x; ++xtile)
         for (int ytile = 0; ytile < numtiles.y; ++ytile)
         {
+            // Submit the task to thread pool
+            // Need to capture xtile and ytile by copying since
+            // they are changing
             futures.push_back(
                 threadpool_.submit([&, xtile, ytile, imgres]()->int
             {
                 for (int x = 0; x < tilesize_.x; ++x)
                     for (int y = 0; y < tilesize_.y;++y)
                     {
+                        // Calculate pixel coordinates
                         int xx = xtile * tilesize_.x + x;
                         int yy = ytile * tilesize_.y + y;
 
+                        // Check if we are outside of a range
                         if (xx >= imgres.x || yy >= imgres.y)
                             return 0;
 
                         ray r;
-
+                        // Calculate image plane sample
                         float2 sample((float)xx / imgres.x + 1.f / (imgres.x*2), (float)yy / imgres.y + 1.f / (imgres.y*2));
 
                         // Generate ray

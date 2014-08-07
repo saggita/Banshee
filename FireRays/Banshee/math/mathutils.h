@@ -3,6 +3,7 @@
 
 
 #include "float3.h"
+#include "float2.h"
 #include "quaternion.h"
 #include "matrix.h"
 #include "ray.h"
@@ -53,6 +54,15 @@ inline float3 clamp(float3 const& v, float3 const& v1, float3 const& v2)
     res.x = clamp(v.x, v1.x, v2.x);
     res.y = clamp(v.y, v1.y, v2.y);
     res.z = clamp(v.z, v1.z, v2.z);
+    return res;
+}
+
+/// Clamp each component of the vector to [a, b) range
+inline float2 clamp(float2 const& v, float2 const& v1, float2 const& v2)
+{
+    float2 res;
+    res.x = clamp(v.x, v1.x, v2.x);
+    res.y = clamp(v.y, v1.y, v2.y);
     return res;
 }
 

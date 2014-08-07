@@ -12,6 +12,7 @@
 ///< It hosts entities and is in charge of destroying them.
 ///< For convenience reasons it impelements Primitive interface
 ///< to be able to provide intersection capabilities
+///<
 class World : public Primitive
 {
 public:
@@ -23,7 +24,7 @@ public:
     }
 
     virtual ~World(){}
-    
+
     // Intersection test
     bool Intersect(ray& r, float& t, Intersection& isect) const;
     // Intersection check test

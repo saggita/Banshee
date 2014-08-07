@@ -1,5 +1,6 @@
 #include "fileimageplane.h"
 
+#include "../math/mathutils.h"
 #include <cmath>
 
 
@@ -23,8 +24,12 @@ void FileImagePlane::Finalize()
 
 void FileImagePlane::AddSample(float2 const& sample, float w, float3 value)
 {
-    float2 fimgpos = sample * res_ - float2(0.5f, 0.5f);
+    float2 fimgpos = sample * res_; 
     int2   imgpos  = int2((int)std::floorf(fimgpos.x), (int)std::floorf(fimgpos.y));
 
-    imgbuf_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x] = w * value;
+    // Make sure we are in the image space as (<0.5f,<0.5f) might map outside of the image
+    imgpos.x = (int)clamp(imgpos.x, 0, res_.x-1);
+    imgpos.y = (int)clamp(imgpos.y, 0, res_.y-1);
+
+    imgbuf_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x] += w * value;
 }

@@ -2,7 +2,6 @@
 
 #include "../world/world.h"
 #include "../imageplane/imageplane.h"
-#include "../tracer/tracer.h"
 
 #include <cassert>
 
@@ -22,14 +21,22 @@ void ImageRenderer::Render(World const& world) const
         {
             ray r;
 
-            // Calculate image plane sample
-            float2 sample((float)x / imgres.x + 1.f / (imgres.x*2), (float)y / imgres.y + 1.f / (imgres.y*2));
+            float sample_weight = 1.f / sampler_->num_samples();
 
-            // Generate ray
-            cam.GenerateRay(sample, r);
+            for (int s = 0; s < sampler_->num_samples(); ++s)
+            {
+                // Generate sample
+                float2 sample = sampler_->Sample2D();
 
-            // Estimate radiance and add to image plane
-            imgplane_.AddSample(sample, 1.f, tracer_->Li(r, world));
+                // Calculate image plane sample
+                float2 imgsample((float)x / imgres.x + (1.f / imgres.x) * sample.x, (float)y / imgres.y + (1.f / imgres.y) * sample.y);
+
+                // Generate ray
+                cam.GenerateRay(imgsample, r);
+
+                // Estimate radiance and add to image plane
+                imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world));
+            }
         }
 
     // Finalize image plane

@@ -19,7 +19,7 @@ PerscpectiveCamera::PerscpectiveCamera(float3 const& eye, float3 const& at, floa
     // height = 2 * tan(fovy/2) * znear
     // width = aspect * height
     dim_.x = 2 * tanf(fovy * 0.5f) * zcap_.x;
-    dim_.y = dim_.x * aspect_;
+    dim_.y = dim_.x / aspect_;
 }
 
 void PerscpectiveCamera::GenerateRay(float2 const& sample, ray& r) const

@@ -32,13 +32,13 @@ void OCLBVHBackEnd::Generate()
             case BVH::NodeType::NT_INTERNAL:
                 newNode.primCount = 0;
                 newNode.primStartIdx = (unsigned)bvh_.GetNodeSplitAxis(dfi->GetNodeId());
-                newNode.parent = 0;
+                newNode.next = 0;
                 rightChild = bvh_.GetRightChild(dfi->GetNodeId());
                 break;
                 
             case BVH::NodeType::NT_LEAF:
                 bvh_.GetLeafPrimitives(dfi->GetNodeId(), newNode.primStartIdx, newNode.primCount);
-                newNode.parent = 0;
+                newNode.next = 0xFFFFFFFF;
                 rightChild = nullptr;
                 break;
         }
@@ -51,10 +51,20 @@ void OCLBVHBackEnd::Generate()
         if (!dfi->HasNext())
             break;
     }
-    
+
+    nodes_[0].next = 0xFFFFFFFF;
     for(int i = 0; i < nodes_.size(); ++i)
     {
-        nodes_[i].right = nodes_[i].primCount == 0 ? (indices[rightChildren[i]]) : 0xFFFFFFFF;
+        if (nodes_[i].primCount == 0)
+        {
+            nodes_[i].right = indices[rightChildren[i]];
+            nodes_[i + 1].next = indices[rightChildren[i]];
+            nodes_[indices[rightChildren[i]]].next = nodes_[i].next;
+        }
+        else
+        {
+            nodes_[i].right = 0xFFFFFFFF;
+        }
     }
     
     std::cout << "\nBVH has " << nodes_.size() << " nodes\n";

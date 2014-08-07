@@ -230,8 +230,8 @@ __kernel void distribute_part_sum_##type##4( __global type* in_sums, __global ty
 }
 
 
-//DEFINE_MAKE_4(int)
-//DEFINE_MAKE_4(float)
+DEFINE_MAKE_4(int)
+DEFINE_MAKE_4(float)
 
 DEFINE_SAFE_LOAD_4(int)
 DEFINE_SAFE_LOAD_4(float)

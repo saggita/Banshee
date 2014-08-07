@@ -44,13 +44,13 @@ static bool     gIsBackPressed	= false;
 static bool     gIsMouseTracked = false;
 static vector2  gMousePosition = vector2(0,0);
 static vector2  gMouseDelta = vector2(0,0);
-static int      gWindowWidth = 400;
-static int      gWindowHeight = 400;
+static int      gWindowWidth = 640;
+static int      gWindowHeight = 480;
 
 GLuint gVertexBufferId;
 GLuint gIndexBufferId;
 
-#define CAMERA_POSITION vector3(0.1,0.75,5)
+#define CAMERA_POSITION vector3(0.1,0.75,2.5)
 #define CAMERA_AT vector3(0,0.75,0)
 #define CAMERA_UP vector3(0,1,0)
 #define CAMERA_NEAR_PLANE 0.01f
@@ -191,7 +191,7 @@ void Update()
 		gRender->FlushFrame();
 	}
 
-	const float kMovementSpeed = 0.005f;
+	const float kMovementSpeed = 0.05f;
 	if (gIsFwdPressed)
 	{
 		gCamera->MoveForward((float)deltaTime.count() * kMovementSpeed);
@@ -252,8 +252,8 @@ void InitData()
 {
     //gScene = SimpleScene::CreateFromObj("sibenik.objm");
     //gScene  = ObjScene::Create("../../../Resources/cornell-box/untitled.obj");
-    gScene  = ObjScene::Create("../../../Resources/cornell-box/CornellBox-Glossy.objm");
-    //gScene  = ObjScene::Create("../../../Resources/crytek-sponza/sponza.objm");
+    //gScene  = ObjScene::Create("../../../Resources/cornell-box/CornellBox-Glossy.objm");
+    gScene  = ObjScene::Create("../../../Resources/crytek-sponza/sponza.objm");
     gCamera = QuatCamera::LookAt(CAMERA_POSITION, CAMERA_AT, CAMERA_UP);
 
     gCamera->SetNearZ(CAMERA_NEAR_PLANE);

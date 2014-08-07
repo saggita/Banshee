@@ -77,7 +77,7 @@ private:
 
 		cl_uint uPrimStart;
 		cl_uint uRight;
-		cl_uint uParent;
+		cl_uint uNext;
 		cl_uint uPrimCount;
 	};
 

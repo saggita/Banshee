@@ -35,7 +35,7 @@ struct OCLBVHBackEnd::Node
     BBox box;
     unsigned primStartIdx;
     unsigned right;
-    unsigned parent;
+    unsigned next;
     unsigned primCount;
 };
 

@@ -21,28 +21,28 @@
 
 static void load_file_contents(std::string const& name, std::vector<char>& contents, bool binary)
 {
-	std::ifstream in(name, std::ios::in | (binary?std::ios::binary : 0));
-    
-	if (in)
-	{
-		contents.clear();
-        
-		std::streamoff beg = in.tellg();
-        
-		in.seekg(0, std::ios::end);
-        
-		std::streamoff fileSize = in.tellg() - beg;
-        
-		in.seekg(0, std::ios::beg);
-        
-		contents.resize(static_cast<unsigned>(fileSize));
-        
-		in.read(&contents[0], fileSize);
-	}
-	else
-	{
-		throw std::runtime_error("Cannot read the contents of a file");
-	}
+    std::ifstream in(name, std::ios::in | (binary?std::ios::binary : 0));
+
+    if (in)
+    {
+        contents.clear();
+
+        std::streamoff beg = in.tellg();
+
+        in.seekg(0, std::ios::end);
+
+        std::streamoff fileSize = in.tellg() - beg;
+
+        in.seekg(0, std::ios::beg);
+
+        contents.resize(static_cast<unsigned>(fileSize));
+
+        in.read(&contents[0], fileSize);
+    }
+    else
+    {
+        throw std::runtime_error("Cannot read the contents of a file");
+    }
 }
 
 
@@ -133,11 +133,11 @@ CLWEvent CLWParallelPrimitives::SegmentedScanExclusiveAddTwoLevel(unsigned int d
     auto devicePartSums = GetTempIntBuffer(NUM_GROUPS_BOTTOM_LEVEL_SCAN);
     auto devicePartFlags = GetTempIntBuffer(NUM_GROUPS_BOTTOM_LEVEL_SCAN);
     //context_.CreateBuffer<cl_int>(NUM_GROUPS_BOTTOM_LEVEL);
-    
+
     CLWKernel bottomLevelScan = program_.GetKernel("segmented_scan_exclusive_int_part");
-    CLWKernel topLevelScan = program_.GetKernel("segmented_scan_exclusive_int");
+    CLWKernel topLevelScan = program_.GetKernel("segmented_scan_exclusive_int_nocut");
     CLWKernel distributeSums = program_.GetKernel("segmented_distribute_part_sum_int");
-    
+
     bottomLevelScan.SetArg(0, input);
     bottomLevelScan.SetArg(1, inputHeads);
     bottomLevelScan.SetArg(2, output);
@@ -146,15 +146,13 @@ CLWEvent CLWParallelPrimitives::SegmentedScanExclusiveAddTwoLevel(unsigned int d
     bottomLevelScan.SetArg(4, devicePartFlags);
     bottomLevelScan.SetArg(5, SharedMemory(WG_SIZE * (sizeof(cl_int) + sizeof(cl_char))));
     context_.Launch1D(0, NUM_GROUPS_BOTTOM_LEVEL_SCAN * WG_SIZE, WG_SIZE, bottomLevelScan);
-    
-    
-    
+
     std::vector<cl_int> hostPartSums(NUM_GROUPS_BOTTOM_LEVEL_SCAN);
     std::vector<cl_int> hostPartFlags(NUM_GROUPS_BOTTOM_LEVEL_SCAN);
     std::vector<cl_int> hostResult(numElems);
-    
+
     context_.ReadBuffer(0,  output, &hostResult[0], numElems).Wait();
-    
+
     context_.ReadBuffer(0,  devicePartSums, &hostPartSums[0], NUM_GROUPS_BOTTOM_LEVEL_SCAN).Wait();
     context_.ReadBuffer(0,  devicePartFlags, &hostPartFlags[0], NUM_GROUPS_BOTTOM_LEVEL_SCAN).Wait();
     
@@ -164,7 +162,7 @@ CLWEvent CLWParallelPrimitives::SegmentedScanExclusiveAddTwoLevel(unsigned int d
     //topLevelScan.SetArg(2, (cl_uint)devicePartSums.GetElementCount());
     topLevelScan.SetArg(3, SharedMemory(WG_SIZE * (sizeof(cl_int) + sizeof(cl_char))));
     context_.Launch1D(0, NUM_GROUPS_TOP_LEVEL_SCAN * WG_SIZE, WG_SIZE, topLevelScan);
-    
+
     context_.ReadBuffer(0,  devicePartSums, &hostPartSums[0], NUM_GROUPS_BOTTOM_LEVEL_SCAN).Wait();
     
     distributeSums.SetArg(0, output);

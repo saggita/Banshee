@@ -31,7 +31,7 @@ TestScene::TestScene()
     
     // Add monkey w/ glossy material
     {
-        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/sphere.objm");
+        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/cornell-box/CornellBox-Glossy.objm");
         mesh_ptr->Rescale(2.5f);
         Mesh::Vertex const* vertexData = mesh_ptr->GetVertexArrayPtr();
         unsigned const* indexData = mesh_ptr->GetIndexArrayPtr();
@@ -56,7 +56,7 @@ TestScene::TestScene()
 
     // Add monkey w/ diffuse material
     {
-        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/sphere.objm");
+        std::shared_ptr<Mesh> mesh_ptr = Mesh::CreateFromFile("../../../Resources/cornell-box/CornellBox-Glossy.objm");
         mesh_ptr->Rescale(2.5f);
         Mesh::Vertex const* vertexData = mesh_ptr->GetVertexArrayPtr();
         unsigned const* indexData = mesh_ptr->GetIndexArrayPtr();

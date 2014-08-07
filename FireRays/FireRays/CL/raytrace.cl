@@ -69,7 +69,7 @@ typedef struct _BVHNode
     // uPrimStartIdx == 0xffffffff for internal nodes
     uint uPrimStartIdx;
     uint uRight;
-    uint uParent;
+    uint uNext;
     uint uNumPrims;
 } BVHNode;
 
@@ -269,33 +269,33 @@ float4 TransformPoint(float16 mWVP, float4 vPoint)
     return vRes;
 }
 
-//float4 make_float4(float x, float y, float z, float w)
-//{
-//    float4 res;
-//    res.x = x;
-//    res.y = y;
-//    res.z = z;
-//    res.w = w;
-//    return res;
-//}
-//
-//
-//float3 make_float3(float x, float y, float z)
-//{
-//    float3 res;
-//    res.x = x;
-//    res.y = y;
-//    res.z = z;
-//    return res;
-//}
-//
-//int2 make_int2(int x, int y)
-//{
-//    int2 res;
-//    res.x = x;
-//    res.y = y;
-//    return res;
-//}
+float4 make_float4(float x, float y, float z, float w)
+{
+    float4 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    res.w = w;
+    return res;
+}
+
+
+float3 make_float3(float x, float y, float z)
+{
+    float3 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    return res;
+}
+
+int2 make_int2(int x, int y)
+{
+    int2 res;
+    res.x = x;
+    res.y = y;
+    return res;
+}
 
 float4 tex2d(SceneData* sSceneData, uint texIdx, float2 uv)
 {
@@ -322,21 +322,18 @@ bool IntersectTriangle(Ray* sRay, float3 vP1, float3 vP2, float3 vP3, float* fA,
     float3 vE2 = sub(vP3, vP1);
 
     float3 vS1 = cross(sRay->d, vE2);
-    float  fInvDir = 1.0/dot(vS1, vE1);
-
-    //if (div == 0.f)
-    //return false;
+    float  fInvDir = 1.f/dot(vS1, vE1);
 
     float3 vD = sRay->o - vP1;
     float  fB1 = dot(vD, vS1) * fInvDir;
 
-    if (fB1 < 0.0 || fB1 > 1.0)
+    if (fB1 < 0.f || fB1 > 1.f)
         return false;
 
     float3 vS2 = cross(vD, vE1);
     float  fB2 = dot(sRay->d, vS2) * fInvDir;
 
-    if (fB2 < 0.0 || fB1 + fB2 > 1.0)
+    if (fB2 < 0.f || fB1 + fB2 > 1.f)
         return false;
 
     float fTemp = dot(vE2, vS2) * fInvDir;
@@ -353,9 +350,8 @@ bool IntersectTriangle(Ray* sRay, float3 vP1, float3 vP2, float3 vP3, float* fA,
 }
 
 // Intersect ray with the axis-aligned box
-bool IntersectBox(Ray* sRay, BBox sBox)
+bool IntersectBox(Ray* sRay, float3 vRayDir, BBox sBox)
 {
-    float3 vRayDir  = make_float3(1.0/sRay->d.x, 1.0/sRay->d.y, 1.0/sRay->d.z);
     float lo = vRayDir.x*(sBox.vMin.x - sRay->o.x);
     float hi = vRayDir.x*(sBox.vMax.x - sRay->o.x);
 
@@ -481,6 +477,8 @@ bool TraverseBVHStacked(
 
     bool hit = false;
 
+    float3 vRayDir  = make_float3(1.0/r->d.x, 1.0/r->d.y, 1.0/r->d.z);
+
     // start from the root
     uint idx = 0;
     do
@@ -505,8 +503,8 @@ bool TraverseBVHStacked(
         {
             BBox lbox = nodes[uLeft].box;
             BBox rbox = nodes[uRight].box;
-            bool radd = IntersectBox(r, rbox);
-            bool ladd = IntersectBox(r, lbox);
+            bool radd = IntersectBox(r, vRayDir, rbox);
+            bool ladd = IntersectBox(r, vRayDir, lbox);
 
             if (radd && ladd)
             {
@@ -545,6 +543,63 @@ bool TraverseBVHStacked(
 
     return hit;
 }
+
+
+
+
+
+
+
+
+// intersect Ray against the whole BVH structure
+bool TraverseBVHStackless(
+    __global BVHNode* nodes, 
+    __global Vertex* vertices,
+    __global uint4* indices, 
+    Ray* r, 
+    ShadingData* shadingData)
+{
+    bool hit = false;
+    float3 vRayDir  = make_float3(1.0/r->d.x, 1.0/r->d.y, 1.0/r->d.z);
+
+    uint idx = 0;
+    while (idx != 0xFFFFFFFF)
+    {
+        uint  uNumPrims = nodes[idx].uNumPrims;
+
+        // try intersecting against current node's bounding box
+        // if this is the leaf try to intersect against contained triangle
+        if (IntersectBox(r, vRayDir, nodes[idx].box))
+        {
+            if (uNumPrims != 0)
+            {
+                hit |= IntersectLeaf(vertices, indices, nodes[idx].uPrimStartIdx,  uNumPrims, r, shadingData);
+                idx = nodes[idx].uNext;
+                continue;
+            }
+            // traverse child nodes otherwise
+            else
+            {
+                idx = idx + 1;
+                continue;
+            }
+        }
+        else
+        {
+                idx = nodes[idx].uNext;
+        }
+    };
+
+    return hit;
+}
+
+
+
+
+
+
+
+
 
 float3 GetOrthoVector(float3 n)
 {
@@ -754,7 +809,7 @@ __kernel void process_extension_request(__global path_extension_request*      gp
         Ray r = gp_requests[gp_active_request_indices[global_id]].ray;
 
         PathVertex  path_vertex;
-        path_vertex.bHit = TraverseBVHStacked(gp_bvh, gp_vertices, gp_indices, &r, &path_vertex.sShadingData);
+        path_vertex.bHit = TraverseBVHStackless(gp_bvh, gp_vertices, gp_indices, &r, &path_vertex.sShadingData);
         gp_hit_results[gp_active_request_indices[global_id]] = (int)path_vertex.bHit;
 
         path_vertex.vIncidentDir = r.d;
@@ -824,7 +879,7 @@ __kernel void sample_direct_illumination(__global BVHNode*      gp_bvh,
         //sRay.mint = 0.f;
 
         ShadingData temp_data;
-        float shadow_factor = TraverseBVHStacked(gp_bvh, gp_vertices, gp_indices, &ray, &temp_data) ? 0.f : 1.f;
+        float shadow_factor = TraverseBVHStackless(gp_bvh, gp_vertices, gp_indices, &ray, &temp_data) ? 0.f : 1.f;
 
         MaterialRep material = gp_materials[my_vertex.sShadingData.uMaterialIdx];
 
@@ -902,11 +957,11 @@ __kernel void sample_direct_illumination_env(__global BVHNode*      gp_bvh,
         float n_dot_l = dot(my_vertex.sShadingData.vNormal, ray.d);
 
         ShadingData temp_data;
-        float shadow_factor = TraverseBVHStacked(gp_bvh, gp_vertices, gp_indices, &ray, &temp_data) ? 0.f : 1.f;
+        float shadow_factor = TraverseBVHStackless(gp_bvh, gp_vertices, gp_indices, &ray, &temp_data) ? 0.f : 1.f;
 
         MaterialRep material = gp_materials[my_vertex.sShadingData.uMaterialIdx];
 
-        res = shadow_factor * n_dot_l * EvaluateMaterialSys(&texture_system, &material, &my_vertex.sShadingData, ray.d, -my_vertex.vIncidentDir, make_float4(160,160,160,100)) / M_PI;
+        res = shadow_factor * n_dot_l * EvaluateMaterialSys(&texture_system, &material, &my_vertex.sShadingData, ray.d, -my_vertex.vIncidentDir, make_float4(1600,1400,1450,1000)) / M_PI;
 
         gp_radiance_values[ray_index] += res;
     }

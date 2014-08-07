@@ -54,7 +54,7 @@ void OCLRender::Init(unsigned width, unsigned height)
     std::vector<CLWPlatform> platforms;
     CLWPlatform::CreateAllPlatforms(platforms);
     
-    cl_platform_id platformId = platforms[0];
+    cl_platform_id platformId = platforms[1];
     
 #ifdef __APPLE__
     CGLContextObj kCGLContext = CGLGetCurrentContext(); // GL Context
@@ -74,7 +74,7 @@ void OCLRender::Init(unsigned width, unsigned height)
     };
 #endif
     
-    device_ = platforms[0].GetDevice(1);
+    device_ = platforms[1].GetDevice(0);
     context_ = CLWContext::Create(device_, props);
     prims_ = CLWParallelPrimitives(context_);
     
@@ -179,7 +179,7 @@ void OCLRender::Init(unsigned width, unsigned height)
         
         nodes[i].uRight     = accelNodes[i].right;
         nodes[i].uPrimStart = accelNodes[i].primStartIdx;
-        nodes[i].uParent    = accelNodes[i].parent;
+        nodes[i].uNext    = accelNodes[i].next;
         nodes[i].uPrimCount = accelNodes[i].primCount;
     }
     
@@ -364,7 +364,7 @@ void OCLRender::Render(float timeDeltaDesc)
     /// Calculate direct illumination using hit information along with active ray indices
     /// to fill radiance buffer
     {
-        CLWKernel directIlluminationKernel = program_.GetKernel("sample_direct_illumination");
+        CLWKernel directIlluminationKernel = program_.GetKernel("sample_direct_illumination_env");
         directIlluminationKernel.SetArg(0, bvhBuffer_);
         directIlluminationKernel.SetArg(1, vertexBuffer_);
         directIlluminationKernel.SetArg(2, indexBufferReordered_);
@@ -442,7 +442,7 @@ void OCLRender::Render(float timeDeltaDesc)
     //std::cout << "\n" << ((float)numActiveRays/(configData_.uOutputHeight * configData_.uOutputWidth)) * 100 << "% active secondary rays after tracing"; 
 
     {
-        CLWKernel directIlluminationKernel = program_.GetKernel("sample_direct_illumination");
+        CLWKernel directIlluminationKernel = program_.GetKernel("sample_direct_illumination_env");
         directIlluminationKernel.SetArg(0, bvhBuffer_);
         directIlluminationKernel.SetArg(1, vertexBuffer_);
         directIlluminationKernel.SetArg(2, indexBufferReordered_);

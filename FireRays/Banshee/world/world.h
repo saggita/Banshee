@@ -7,6 +7,7 @@
 #include "../primitive/primitive.h"
 #include "../light/light.h"
 #include "../camera/camera.h"
+#include "../material/material.h"
 
 ///< World class is a container for all entities for the scene. 
 ///< It hosts entities and is in charge of destroying them.
@@ -42,6 +43,8 @@ public:
     std::unique_ptr<Camera> camera_;
     // Background color
     float3 bgcolor_;
+    // Materials
+    std::vector<std::unique_ptr<Material> > materials_;
 };
 
 

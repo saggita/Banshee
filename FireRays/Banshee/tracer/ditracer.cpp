@@ -2,6 +2,7 @@
 
 #include "../world/world.h"
 #include "../light/light.h"
+#include "../material/material.h"
 
 #include <algorithm>
 
@@ -15,7 +16,7 @@ float3 DiTracer::Li(ray& r, World const& world) const
     {
         for (int i = 0; i < world.lights_.size(); ++i)
         {
-            radiance += Shade(world, *world.lights_[i], isect);
+            radiance += Shade(world, *world.lights_[i], -r.d, isect);
         }
     }
     else
@@ -31,7 +32,7 @@ float3 DiTracer::Li(ray& r, World const& world) const
     return radiance;
 }
 
-float3 DiTracer::Shade(World const& world, Light const& light, Primitive::Intersection& isect) const
+float3 DiTracer::Shade(World const& world, Light const& light, float3 const& wo, Primitive::Intersection& isect) const
 {
     float  pdf; 
     float3 light_sample;
@@ -52,5 +53,12 @@ float3 DiTracer::Shade(World const& world, Light const& light, Primitive::Inters
     /// Check for an occlusion
     float shadow = world.Intersect(shadowray) ? 0.f : 1.f;
 
-    return std::max(dot(wi, isect.n), 0.f) * radiance * shadow;
+    if (shadow > 0.f)
+    {
+        Material const& mat = *world.materials_[isect.m];
+
+        return std::max(dot(wi, isect.n), 0.f) * radiance * shadow * mat.Evaluate(isect, wi, wo);
+    }
+
+    return float3(0,0,0);
 }

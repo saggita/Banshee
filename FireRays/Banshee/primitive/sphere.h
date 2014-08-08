@@ -13,10 +13,11 @@
 class Sphere: public Primitive
 {
 public:
-    Sphere(float r = 1.f, matrix const& wm = matrix(), matrix const& wmi = matrix())
+    Sphere(float r = 1.f, matrix const& wm = matrix(), matrix const& wmi = matrix(), int m = 0)
     : radius_(r)
     , worldmat_(wm)
     , worldmatinv_(wmi)
+    , m_(m)
     {
     }
 
@@ -35,6 +36,7 @@ private:
     float  radius_;
     matrix worldmat_;
     matrix worldmatinv_;
+    int m_;
 };
 
 

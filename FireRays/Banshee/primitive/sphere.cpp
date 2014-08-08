@@ -115,16 +115,16 @@ void Sphere::FillIntersectionInfo(float3 const& p, Intersection& isect) const
     float r = sqrtf(p.sqnorm());
 
     // Calculate spherical coords
-    float phi = acosf(p.z / r);
-    float psi = atan2f(p.x, p.y);
+    float theta = acosf(p.z / r);
+    float phi = atan2f(p.x, p.y);
 
     // Account for atan discontinuity
-    if (psi < 0.f)
-        psi += 2*PI;
+    if (phi < 0.f)
+        phi += 2*PI;
 
     // Calculate partial derivatives
     float3 dpdu = float3(-2*PI*p.y, 2*PI*p.x, 0);
-    float3 dpdv = float3(PI*p.z*cosf(phi), PI*p.z*sin(phi), -PI*r*sinf(psi));
+    float3 dpdv = float3(PI*p.z*cosf(phi), PI*p.z*sin(phi), -PI*r*sinf(theta));
 
     // Everything should be in world space in isect structure,
     // so transform position back into world space
@@ -134,12 +134,12 @@ void Sphere::FillIntersectionInfo(float3 const& p, Intersection& isect) const
     isect.n = transform_normal(n, worldmat_);
 
     // Remap spehrical coords into [0,1] uv range
-    isect.uv = float2(phi/(2 * PI), psi/PI);
+    isect.uv = float2(phi/(2 * PI), theta/PI);
 
     // Transform partial derivatives into world space
     isect.dpdu = transform_vector(dpdu, worldmat_);
     isect.dpdv = transform_vector(dpdv, worldmat_);
 
     // TODO: support material system
-    isect.m  = 0;
+    isect.m  = m_;
 }

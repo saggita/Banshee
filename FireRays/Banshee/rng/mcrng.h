@@ -27,6 +27,11 @@ public:
         return (z_ << 16) + w_;
     }
 
+    Rng* Clone() const
+    {
+        return new McRng();
+    }
+
 private:
     mutable unsigned z_;
     mutable unsigned w_;

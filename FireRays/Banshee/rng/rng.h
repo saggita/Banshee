@@ -14,6 +14,9 @@ public:
 
     // Generate uint
     virtual unsigned NextUint() const = 0;
+
+    // Clone an instance of RNG
+    virtual Rng* Clone() const = 0;
 };
 
 

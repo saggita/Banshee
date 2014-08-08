@@ -26,17 +26,27 @@ void MtImageRenderer::Render(World const& world) const
     std::vector<std::future<int> > futures;
 
     // Iterate over all the tiles
+    // Note that Sampler objects are not thread safe
+    // and not designed for concurrent access.
+    // We are cloning the sampler for each task instead.
+    //
     for (int xtile = 0; xtile < numtiles.x; ++xtile)
         for (int ytile = 0; ytile < numtiles.y; ++ytile)
         {
+            // Clone the sampler first
+            Sampler* sampler = sampler_->Clone();
+
             // Submit the task to thread pool
             // Need to capture xtile and ytile by copying since
             // they are changing
             futures.push_back(
-                threadpool_.submit([&, xtile, ytile, imgres]()->int
+                threadpool_.submit([&, xtile, ytile, imgres, sampler]()->int
             {
+                // Wrap private sampler w/ memory managing ptr
+                std::unique_ptr<Sampler> private_sampler(sampler);
+                // Iterate through tile pixels
                 for (int x = 0; x < tilesize_.x; ++x)
-                    for (int y = 0; y < tilesize_.y;++y)
+                    for (int y = 0; y < tilesize_.y; ++y)
                     {
                         // Calculate pixel coordinates
                         int xx = xtile * tilesize_.x + x;
@@ -44,17 +54,26 @@ void MtImageRenderer::Render(World const& world) const
 
                         // Check if we are outside of a range
                         if (xx >= imgres.x || yy >= imgres.y)
-                            return 0;
+                            continue;
 
                         ray r;
-                        // Calculate image plane sample
-                        float2 sample((float)xx / imgres.x + 1.f / (imgres.x*2), (float)yy / imgres.y + 1.f / (imgres.y*2));
 
-                        // Generate ray
-                        cam.GenerateRay(sample, r);
+                        float sample_weight = 1.f / private_sampler->num_samples();
 
-                        // Estimate radiance and add to image plane
-                        imgplane_.AddSample(sample, 1.f, tracer_->Li(r, world));
+                        for (int s = 0; s < private_sampler->num_samples(); ++s)
+                        {
+                            // Generate sample
+                            float2 sample = private_sampler->Sample2D();
+
+                            // Calculate image plane sample
+                            float2 imgsample((float)xx / imgres.x + (1.f / imgres.x) * sample.x, (float)yy / imgres.y + (1.f / imgres.y) * sample.y);
+
+                            // Generate ray
+                            cam.GenerateRay(imgsample, r);
+
+                            // Estimate radiance and add to image plane
+                            imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world));
+                        }
                     }
 
                     return 0;

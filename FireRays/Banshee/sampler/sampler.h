@@ -18,6 +18,9 @@ public:
 
     // Returns the number of samples in a pattern
     virtual int num_samples() const = 0;
+
+    // Clone an instance of a sampler
+    virtual Sampler* Clone() const = 0;
 };
 
 

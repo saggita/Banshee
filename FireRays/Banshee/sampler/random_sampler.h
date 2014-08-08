@@ -33,6 +33,12 @@ public:
         return numsamples_;
     }
 
+    // Clone an instance of a sampler
+    Sampler* Clone() const
+    {
+        return new RandomSampler(numsamples_, rng_->Clone());
+    }
+
 private:
     // RNG to use
     std::unique_ptr<Rng> rng_;

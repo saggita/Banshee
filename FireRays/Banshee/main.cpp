@@ -31,7 +31,7 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     // Create accelerator
     SimpleSet* set = new SimpleSet();
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(0, 0,-10), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(4, 4,-8), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     // Create lights
     PointLight* light1 = new PointLight(float3(5, 15, -2), 0.6 * float3(3.f, 3.f, 3.f));
     PointLight* light2 = new PointLight(float3(-5, 5, -2), 0.6 * float3(3.f, 2.9f, 2.4f));
@@ -41,7 +41,7 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     // Generate 10 spheres in [-1.5, 1.5] cube
     for (int i = 0; i < 10; ++i)
     {
-        matrix worldmat = translation(float3(rand_float() * 3.f - 1.5f, rand_float() * 3.f - 1.5f, rand_float() * 3.f - 1.5f));
+        matrix worldmat = translation(float3(rand_float() * 3.f - 1.5f, rand_float() * 3.f - 1.5f, rand_float() * 3.f - 1.5f)) * rotation_x(rand_float() * PI) * rotation_y(rand_float() * PI);
 
         Sphere* sphere = new Sphere(rand_float() * 0.5f + 0.05f, worldmat, inverse(worldmat), rand_uint() % 2);
         set->Emplace(sphere);
@@ -93,7 +93,6 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     world->materials_.push_back(std::unique_ptr<Material>(matte3));
     world->materials_.push_back(std::unique_ptr<Material>(matte4));
 
-
     // Return world
     return std::unique_ptr<World>(world);
 }
@@ -107,7 +106,7 @@ int main()
         int2 imgres = int2(1024, 1024);
 
         // Create texture system
-        OiioTextureSystem texsys("L:/Dev/FireRays/FireRays/Bin/Release/x64/");
+        OiioTextureSystem texsys("../../../Resources/Textures");
 
         // Build world
         std::unique_ptr<World> world = BuildWorld(texsys);

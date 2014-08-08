@@ -42,7 +42,7 @@ public:
     void wait_and_pop(T& t)
     {
         std::unique_lock<std::mutex> lock(mutex_);
-        cv_.wait(lock, [this](){return !queue_.empty()});
+        cv_.wait(lock, [this](){return !queue_.empty();});
         t = queue_.front();
         queue_.pop();
     }

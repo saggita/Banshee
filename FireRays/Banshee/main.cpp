@@ -32,8 +32,8 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     // Create accelerator
     SimpleSet* set = new SimpleSet();
     // Create camera
-    //Camera* camera = new PerscpectiveCamera(float3(4, 4,-8), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
-    Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
+    Camera* camera = new PerscpectiveCamera(float3(4, 4,-8), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
     
     // Create lights
     PointLight* light1 = new PointLight(float3(5, 15, -2), 0.6 * float3(3.f, 3.f, 3.f));
@@ -44,9 +44,10 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     // Generate 10 spheres in [-1.5, 1.5] cube
     for (int i = 0; i < 10; ++i)
     {
-        matrix worldmat = translation(float3(rand_float() * 3.f - 1.5f, rand_float() * 3.f - 1.5f, rand_float() * 3.f - 1.5f)) * rotation_x(rand_float() * PI) * rotation_y(rand_float() * PI);
+        float r = rand_float() * 0.5f + 0.05f;
+        matrix worldmat = translation(float3(rand_float() * 3.f - 1.5f, rand_float() * 3.f - 1.5f, rand_float() * 3.f - 1.5f)) * rotation_x(rand_float() * PI) * rotation_y(rand_float() * PI) * scale(float3(r,r,r));
 
-        Sphere* sphere = new Sphere(rand_float() * 0.5f + 0.05f, worldmat, inverse(worldmat), rand_uint() % 2);
+        Sphere* sphere = new Sphere(1.f, worldmat, inverse(worldmat), rand_uint() % 2);
         set->Emplace(sphere);
     }
 
@@ -106,7 +107,7 @@ int main()
     {
         // File name to render
         std::string filename = "normals.png";
-        int2 imgres = int2(1024, 512);
+        int2 imgres = int2(512, 512);
 
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");

@@ -131,7 +131,7 @@ void Sphere::FillIntersectionInfo(float3 const& p, Intersection& isect) const
     isect.p = transform_point(p, worldmat_);
 
     // TODO: need to optimize this as we already have inverse of worldmat_
-    isect.n = transform_normal(n, worldmat_);
+    isect.n = normalize(transform_normal(n, worldmat_));
 
     // Remap spehrical coords into [0,1] uv range
     isect.uv = float2(phi/(2 * PI), theta/PI);

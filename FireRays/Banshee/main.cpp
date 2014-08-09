@@ -125,9 +125,9 @@ int main()
         auto starttime = std::chrono::high_resolution_clock::now();
         renderer.Render(*world);
         auto endtime = std::chrono::high_resolution_clock::now();
-        auto exectime = std::chrono::duration_cast<std::chrono::seconds>(endtime - starttime);
+        auto exectime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime - starttime);
 
-        std::cout << "Image " << filename << " (" << imgres.x << "x" << imgres.y << ") rendered in " << exectime.count() << " seconds\n";
+        std::cout << "Image " << filename << " (" << imgres.x << "x" << imgres.y << ") rendered in " << exectime.count() / 1000.f << " s\n";
     }
     catch(std::runtime_error& e)
     {

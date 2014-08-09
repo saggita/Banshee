@@ -7,6 +7,7 @@
 class EnvironmentCamera: public Camera
 {
 public:
+    // TODO: implement angle limits 
     EnvironmentCamera(float3 const& eye, float3 const& at, float3 const& up, float2 const& zcap);
     
     void GenerateRay(float2 const& sample, ray& r) const;

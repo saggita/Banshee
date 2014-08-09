@@ -13,6 +13,7 @@
 #include "accelerator/simpleset.h"
 #include "imageio/oiioimageio.h"
 #include "camera/perspective_camera.h"
+#include "camera/environment_camera.h"
 #include "renderer/imagerenderer.h"
 #include "renderer/mt_imagerenderer.h"
 #include "imageplane/fileimageplane.h"
@@ -31,7 +32,9 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     // Create accelerator
     SimpleSet* set = new SimpleSet();
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(4, 4,-8), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    //Camera* camera = new PerscpectiveCamera(float3(4, 4,-8), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
+    
     // Create lights
     PointLight* light1 = new PointLight(float3(5, 15, -2), 0.6 * float3(3.f, 3.f, 3.f));
     PointLight* light2 = new PointLight(float3(-5, 5, -2), 0.6 * float3(3.f, 2.9f, 2.4f));
@@ -103,7 +106,7 @@ int main()
     {
         // File name to render
         std::string filename = "normals.png";
-        int2 imgres = int2(1024, 1024);
+        int2 imgres = int2(1024, 512);
 
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");
@@ -116,7 +119,7 @@ int main()
         // Create image plane writing to file
         FileImagePlane plane(filename, imgres, io);
         // Create renderer w/ direct illumination tracer
-        MtImageRenderer renderer(plane, new DiTracer(), new RandomSampler(32, new McRng()));
+        MtImageRenderer renderer(plane, new DiTracer(), new RandomSampler(4, new McRng()));
 
         // Measure execution time
         auto starttime = std::chrono::high_resolution_clock::now();

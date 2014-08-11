@@ -3,6 +3,8 @@
 
 #include "primitive.h"
 
+#include "../math/matrix.h"
+
 ///< Partial implementation of Primitive inetrface which
 ///< allows setting local to world transform.
 ///<

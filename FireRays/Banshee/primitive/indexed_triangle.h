@@ -6,6 +6,8 @@
 #include "../math/float2.h"
 #include "../math/bbox.h"
 
+class Mesh;
+
 ///< IndexedTriangle stores indices of the position/normal/uv data
 ///< along with a pointers to their storages
 ///<
@@ -16,11 +18,11 @@ public:
     IndexedTriangle(unsigned pidx1, unsigned pidx2, unsigned pidx3,
                     unsigned nidx1, unsigned nidx2, unsigned nidx3,
                     unsigned tidx1, unsigned tidx2, unsigned tidx3,
-                    unsigned m, float3* p, float3* n, float2* uv)
+                    unsigned m, Mesh const* mesh)
                     : pidx1_(pidx1), pidx2_(pidx2), pidx3_(pidx3)
                     , nidx1_(nidx1), nidx2_(nidx2), nidx3_(nidx3)
                     , tidx1_(tidx1), tidx2_(tidx2), tidx3_(tidx3)
-                    , m_(m), p_(p), n_(n), uv_(uv)
+                    , m_(m), mesh_(mesh)
     {
     }
 
@@ -39,10 +41,8 @@ private:
     // Material index
     unsigned m_;
 
-    // Pointers to data storage
-    float3* p_;
-    float3* n_;
-    float2* uv_;
+    // Pointer to parent mesh
+    Mesh const* mesh_;
 };
 
 #endif // INDEXED_TRIANGLE_H    

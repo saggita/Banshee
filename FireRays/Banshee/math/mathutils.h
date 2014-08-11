@@ -167,4 +167,35 @@ inline matrix quaternion_to_matrix(quaternion const& q)
     return m;
 }
 
+// Calculate vector orthogonal to a given one
+inline float3 orthovector(float3 n)
+{
+    float3 p;
+    if (fabs(n.z) > 0.707106781186547524401f) {
+        float k = sqrt(n.y*n.y + n.z*n.z);
+        p.x = 0; p.y = -n.z/k; p.z = n.y/k;
+    }
+    else {
+        float k = sqrt(n.x*n.x + n.y*n.y);
+        p.x = -n.y/k; p.y = n.x/k; p.z = 0;
+    }
+    return p;
+}
+
+// Map [0..1]x[0..1] value to unit hemisphere
+inline float3 map_to_hemisphere(float3 n, float2 s, float e)
+{
+    float3 u = orthovector(n);
+
+    float3 v = cross(u, n);
+    u = cross(n, v);
+
+    float sinpsi = sinf(2*PI*s.x);
+    float cospsi = cosf(2*PI*s.x);
+    float costheta = powf(1.f - s.y, 1.f/(e + 1.f));
+    float sintheta = sqrt(1.f - costheta * costheta);
+
+    return normalize(u * sintheta * cospsi + v * sintheta * sinpsi + n * costheta);
+}
+
 #endif // MATHUTILS_H

@@ -1,6 +1,8 @@
 #ifndef PRIMITIVE_H
 #define PRIMITIVE_H
 
+#include <vector>
+
 #include "../intersection/intersection_api.h"
 #include "../math/ray.h"
 #include "../math/bbox.h"
@@ -37,6 +39,14 @@ public:
     virtual bool Intersect(ray& r) const = 0;
     // World space bounding box
     virtual bbox Bounds() const = 0;
+    // Intersectable flag: determines whether the primitive is
+    // capable of direct intersection evaluation
+    // By default it returns true
+    virtual bool intersectable() const { return true; }
+    // If the shape is not intersectable, the following method is 
+    // supposed to break it into parts (which might or might not be intersectable themselves)
+    // Note that memory of the parts is owned by the primitive 
+    virtual void Refine (std::vector<Primitive*>& prims) { }
 };
 
 #endif

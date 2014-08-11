@@ -16,7 +16,7 @@ float3 DiTracer::Li(ray& r, World const& world) const
     {
         for (int i = 0; i < world.lights_.size(); ++i)
         {
-            radiance += Shade(world, *world.lights_[i], -r.d, isect);
+            radiance += Di(world, *world.lights_[i], -r.d, isect);
         }
     }
     else
@@ -32,7 +32,7 @@ float3 DiTracer::Li(ray& r, World const& world) const
     return radiance;
 }
 
-float3 DiTracer::Shade(World const& world, Light const& light, float3 const& wo, Primitive::Intersection& isect) const
+float3 DiTracer::Di(World const& world, Light const& light, float3 const& wo, Primitive::Intersection& isect) const
 {
     float  pdf; 
     float3 light_sample;
@@ -48,7 +48,7 @@ float3 DiTracer::Shade(World const& world, Light const& light, float3 const& wo,
     shadowray.d = wi;
 
     /// TODO: move ray epsilon into some global options object
-    shadowray.t = float2(0.02f, dist);
+    shadowray.t = float2(0.0002f, dist);
 
     /// Check for an occlusion
     float shadow = world.Intersect(shadowray) ? 0.f : 1.f;
@@ -60,5 +60,5 @@ float3 DiTracer::Shade(World const& world, Light const& light, float3 const& wo,
         return std::max(dot(wi, isect.n), 0.f) * radiance * shadow * mat.Evaluate(isect, wi, wo);
     }
 
-    return float3(0,0,0);
+    return float3(0.f,0.f,0.f);
 }

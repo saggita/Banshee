@@ -41,7 +41,17 @@ bbox SimpleSet::Bounds() const
 void SimpleSet::Emplace(Primitive* primitive)
 {
     // Emplace primitive
-    primitives_.push_back(std::unique_ptr<Primitive>(primitive));
+    primitiveStorage_.push_back(std::unique_ptr<Primitive>(primitive));
     // Recalculate bounds
     bounds_ = bboxunion(bounds_, primitive->Bounds());
+
+    // TODO: need to fully refine here, now only a single layer of indirection allowed
+    if (primitive->intersectable())
+    {
+        primitives_.push_back(primitiveStorage_.back().get());
+    }
+    else
+    {
+        primitive->Refine(primitives_);
+    }
 }

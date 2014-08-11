@@ -13,6 +13,7 @@ public:
         : o(oo)
         , d(dd)
         , t(rng)
+        , id(0)
     {
     }
 
@@ -24,6 +25,7 @@ public:
     float3 o;
     float3 d;
     float2 t;
+    int   id;
 };
 
 #endif // RAY_H

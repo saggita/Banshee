@@ -24,20 +24,26 @@ public:
     bool Intersect(ray& r) const;
     // World space bounding box
     bbox Bounds() const;
-    
+
     // Add primitive into the structure.
     // Note that the method takes over the ownership
     // of the primitive and will release the memory
     // in SimpleSet destructor
     void Emplace(Primitive* primitive);
-    
+
 private:
     SimpleSet(SimpleSet const&);
     SimpleSet& operator = (SimpleSet const&);
     
-    // Vector of primitives to test
-    typedef std::vector<std::unique_ptr<Primitive> > PrimitiveArray;
+    // Vector of primitives owned by this instance
+    // Note that a separate vector is used for intersection testing
+    // since some of the primitives might not be intersectable
+    // and they need to be refined in this case
+    typedef std::vector<std::unique_ptr<Primitive> > PrimitiveStorageArray;
+    PrimitiveStorageArray primitiveStorage_;
+    typedef std::vector<Primitive*> PrimitiveArray;
     PrimitiveArray primitives_;
+
     // Bounding box of the overall structure
     bbox bounds_;
 };

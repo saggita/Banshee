@@ -18,7 +18,7 @@ public:
     float3 Li(ray& r, World const& world) const;
 
 protected:
-    virtual float3 Shade(World const& world, Light const& light, float3 const& wo, Primitive::Intersection& isect) const;
+    virtual float3 Di(World const& world, Light const& light, float3 const& wo, Primitive::Intersection& isect) const;
 };
 
-#endif
+#endif // DITRACER_H

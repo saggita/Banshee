@@ -1,7 +1,7 @@
 #ifndef SPHERE_H
 #define SPHERE_H
 
-#include "primitive.h"
+#include "transformable_primitive.h"
 #include "../math/matrix.h"
 #include "../math/float3.h"
 #include "../math/float2.h"
@@ -10,13 +10,12 @@
 
 ///< Shpere primitive implementation
 ///<
-class Sphere: public Primitive
+class Sphere: public TransformablePrimitive
 {
 public:
     Sphere(float r = 1.f, matrix const& wm = matrix(), matrix const& wmi = matrix(), int m = 0)
-    : radius_(r)
-    , worldmat_(wm)
-    , worldmatinv_(wmi)
+    : TransformablePrimitive(wm, wmi)
+    , radius_(r)
     , m_(m)
     {
     }
@@ -34,8 +33,6 @@ private:
     void FillIntersectionInfo(float3 const& p, Intersection& isect) const;
 
     float  radius_;
-    matrix worldmat_;
-    matrix worldmatinv_;
     int m_;
 };
 

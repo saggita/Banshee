@@ -15,7 +15,8 @@
 class SimpleSet: public Primitive
 {
 public:
-    SimpleSet(){}
+    SimpleSet()
+    {}
     
     // Intersection test
     bool Intersect(ray& r, float& t, Intersection& isect) const;

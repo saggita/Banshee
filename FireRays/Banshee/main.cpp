@@ -107,7 +107,7 @@ int main()
     {
         // File name to render
         std::string filename = "normals.png";
-        int2 imgres = int2(512, 512);
+        int2 imgres = int2(1024, 1024);
 
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");
@@ -120,7 +120,7 @@ int main()
         // Create image plane writing to file
         FileImagePlane plane(filename, imgres, io);
         // Create renderer w/ direct illumination tracer
-        MtImageRenderer renderer(plane, new DiTracer(), new RandomSampler(4, new McRng()));
+        MtImageRenderer renderer(plane, new DiTracer(), new RandomSampler(1, new McRng()));
 
         // Measure execution time
         auto starttime = std::chrono::high_resolution_clock::now();

@@ -35,68 +35,14 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     // Create accelerator
     SimpleSet* set = new SimpleSet();
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(0, 1, 6), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
     
     // Create lights
-    PointLight* light1 = new PointLight(float3(0, 1.5, 0), 5.f * float3(0.97f, 0.85f, 0.55f));
-    //PointLight* light2 = new PointLight(float3(0, 1, 3), 0.6f * float3(3.f, 2.9f, 2.4f));
+    PointLight* light1 = new PointLight(float3(0, 1.5, 0), 2.5f * float3(0.97f, 0.85f, 0.55f));
 
-    //rand_init();
+    rand_init();
 
-    //// Generate 10 spheres in [-1.5, 1.5] cube
-    //for (int i = 0; i < 10; ++i)
-    //{
-    //    float r = rand_float() * 0.5f + 0.05f;
-    //    matrix worldmat = translation(float3(rand_float() * 3.f - 1.5f, rand_float() * 3.f - 1.5f, rand_float() * 3.f - 1.5f)) * rotation_x(rand_float() * PI) * rotation_y(rand_float() * PI) * scale(float3(r,r,r));
-
-    //    Sphere* sphere = new Sphere(1.f, worldmat, inverse(worldmat), rand_uint() % 2);
-    //    set->Emplace(sphere);
-    //}
-
-    //// Add ground plane
-    //float3 vertices[4] = {
-    //    float3(-1, 0, -1),
-    //    float3(-1, 0, 1),
-    //    float3(1, 0, 1),
-    //    float3(1, 0, -1)
-    //};
-
-    //float3 normals[4] = {
-    //    float3(0, 1, 0),
-    //    float3(0, 1, 0),
-    //    float3(0, 1, 0),
-    //    float3(0, 1, 0)
-    //};
-
-    //float2 uvs[4] = {
-    //    float2(0, 0),
-    //    float2(0, 1),
-    //    float2(1, 1),
-    //    float2(1, 0)
-    //};
-
-    //int indices[6] = {
-    //    0, 3, 1,
-    //    3, 1, 2
-    //};
-
-    //int materials[2] = {3,3};
-
-    //matrix worldmat = translation(float3(0, -2, 0)) * scale(float3(5, 1, 5));
-
-
-    //Mesh* mesh = new Mesh(&vertices[0].x, 4, sizeof(float3),
-    //                      &normals[0].x, 4, sizeof(float3),
-    //                      &uvs[0].x, 4, sizeof(float2),
-    //                      indices, sizeof(int),
-    //                      indices, sizeof(int),
-    //                      indices, sizeof(int),
-    //                      materials, sizeof(int),
-    //                      2, worldmat, inverse(worldmat));
-
-
-    //set->Emplace(mesh);
     AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.objm");
 
     assimp.onmaterial_ = [&world](Material* mat)->int
@@ -122,16 +68,6 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     // Set background
     world->bgcolor_ = float3(0.3f, 0.4f, 0.3f);
 
-    // Build materials
-    //Matte* matte1 = new Matte(texsys, float3(0.5f, 0.2f, 0.1f));
-    //Matte* matte2 = new Matte(texsys, float3(0.1f, 0.7f, 0.1f), "test.png");
-    //Matte* matte3 = new Matte(texsys, float3(0.4f, 0.4f, 0.4f));
-    //Matte* matte4 = new Matte(texsys, float3(1.f, 1.f, 1.f), "scratched.png");
-    //world->materials_.push_back(std::unique_ptr<Material>(matte1));
-    //world->materials_.push_back(std::unique_ptr<Material>(matte2));
-    //world->materials_.push_back(std::unique_ptr<Material>(matte3));
-    //world->materials_.push_back(std::unique_ptr<Material>(matte4));
-
     // Return world
     return std::unique_ptr<World>(world);
 }
@@ -154,7 +90,7 @@ int main()
         // Create image plane writing to file
         FileImagePlane plane(filename, imgres, io);
         // Create renderer w/ direct illumination tracer
-        MtImageRenderer renderer(plane, new GiTracer(6, 1.f), new RandomSampler(32, new McRng()));
+        MtImageRenderer renderer(plane, new GiTracer(6, 3.f), new RandomSampler(64, new McRng()));
 
         // Measure execution time
         auto starttime = std::chrono::high_resolution_clock::now();

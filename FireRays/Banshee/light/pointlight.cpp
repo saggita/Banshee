@@ -6,6 +6,7 @@ float3 PointLight::Sample(Primitive::Intersection const& isect, float3& p, float
     p = p_;
     // It's probability density == 1
     pdf = 1.f;
-    // Emissive power
-    return e_;
+    // Emissive power with squared fallof
+    float d2inv = 1.f / (p_ - isect.p).sqnorm();
+    return e_ * d2inv;
 }

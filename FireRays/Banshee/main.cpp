@@ -38,15 +38,17 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     Bvh* bvh = new Bvh();
     // Create camera
     Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    //Camera* camera = new PerscpectiveCamera(float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
     //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
     
     // Create lights
-    PointLight* light1 = new PointLight(float3(0, 1.2f, 0), 2.5f * float3(0.97f, 0.85f, 0.55f));
+    PointLight* light1 = new PointLight(float3(0.f, 1.2f, 0.f), 2.5f * float3(0.97f, 0.85f, 0.55f));
 
     rand_init();
 
     //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.objm");
     AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.objm");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.objm");
     
     
     assimp.onmaterial_ = [&world](Material* mat)->int
@@ -102,7 +104,7 @@ int main()
         // Create image plane writing to file
         FileImagePlane plane(filename, imgres, io);
         // Create renderer w/ direct illumination tracer
-        MtImageRenderer renderer(plane, new GiTracer(3, 3.f), new RandomSampler(128, new McRng()), new RandomSampler(1, new McRng()));
+        MtImageRenderer renderer(plane, new GiTracer(3, 3.f), new RandomSampler(64, new McRng()), new RandomSampler(1, new McRng()));
 
         // Measure execution time
         auto starttime = std::chrono::high_resolution_clock::now();

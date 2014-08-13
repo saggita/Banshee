@@ -46,6 +46,10 @@ bool IndexedTriangle::Intersect(ray& r, float& t, Intersection& isect) const
 
         isect.p = transform_point((1.f - b1 - b2) * p1 + b1 * p2 + b2 * p3, mesh_->worldmat_);
         isect.n = normalize(transform_normal((1.f - b1 - b2) * n1 + b1 * n2 + b2 * n3, mesh_->worldmat_));
+        
+        // account for backfacing normal
+        if (dot(isect.n, -r.d) < 0.f) isect.n = -isect.n;
+        
         isect.uv = (1.f - b1 - b2) * t1 + b1 * t2 + b2 * t3;
         isect.m = m_;
 

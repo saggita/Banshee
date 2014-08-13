@@ -164,7 +164,7 @@ void Bvh::BuildImpl(std::vector<Primitive*> const& prims)
         if (req.numprims < 2)
         {
             node->type = kLeaf;
-            node->startidx = primitives_.size();
+            node->startidx = (int)primitives_.size();
             node->numprims = req.numprims;
             for (int i = req.startidx; i < req.startidx + req.numprims; ++i)
             {
@@ -177,7 +177,7 @@ void Bvh::BuildImpl(std::vector<Primitive*> const& prims)
             // Create two leafs
             // Choose the maximum extend
             int axis = node->bounds.maxdim();
-            float border = node->bounds.center()[border];
+            float border = node->bounds.center()[axis];
             auto part = std::partition(primindices.begin() + req.startidx, primindices.begin() + req.startidx + req.numprims, [&,axis,border](int i)
                            {
                                bbox b = prims[primindices[i]]->Bounds();
@@ -186,7 +186,7 @@ void Bvh::BuildImpl(std::vector<Primitive*> const& prims)
                            );
             
             // Find split index relative to req.startidx
-            int idx = part - (primindices.begin() + req.startidx);
+            int idx = (int)(part - (primindices.begin() + req.startidx));
             
             // If we have not split anything use split in halves
             if (idx == 0

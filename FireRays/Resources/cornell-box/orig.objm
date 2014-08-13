@@ -1,6 +1,6 @@
 # Blender v2.69 (sub 0) OBJ File: ''
 # www.blender.org
-mtllib untitled.mtl
+mtllib orig.mtl
 o light
 v -0.240000 1.980000 0.160000
 v -0.240000 1.980000 -0.220000

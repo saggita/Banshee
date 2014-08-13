@@ -90,7 +90,7 @@ int main()
         // Create image plane writing to file
         FileImagePlane plane(filename, imgres, io);
         // Create renderer w/ direct illumination tracer
-        MtImageRenderer renderer(plane, new GiTracer(6, 3.f), new RandomSampler(64, new McRng()));
+        MtImageRenderer renderer(plane, new GiTracer(6, 3.f), new RandomSampler(2, new McRng()));
 
         // Measure execution time
         auto starttime = std::chrono::high_resolution_clock::now();

@@ -1,256 +1,219 @@
-#include "Bvh.h"
+#include "bvh.h"
 
 #include <algorithm>
+#include <thread>
+#include <stack>
+#include <numeric>
 #include <cassert>
 
-struct Bvh::Node
+void Bvh::Build(std::vector<Primitive*> const& prims)
 {
-    bbox        box;
-    NodeType    type;
+    // Store all the primitives in storage array
+    primitive_storage_.resize(prims.size());
     
-    union
+    // Reserve
+    std::vector<Primitive*> tempprims;
+    tempprims.reserve(prims.size());
+    primitives_.reserve(prims.size());
+    for (int i=0; i<prims.size(); ++i)
     {
-        struct
+        primitive_storage_[i] = std::unique_ptr<Primitive>(prims[i]);
+        
+        // Refine the primitves
+        // TODO: only a single level of indirection for now
+        if (prims[i]->intersectable())
         {
-            SplitAxis splitaxis;
-            Node*     child[2];
-        };
-        
-        struct
+            tempprims.push_back(prims[i]);
+        }
+        else
         {
-            unsigned startidx;
-            unsigned primcount;
-        };
-    };
-    
-    Node(NodeType t, bbox const& b)
-    : box(b)
-    , type(t)
-    {
-        child[0] = nullptr;
-        child[1] = nullptr;
-    }
-    
-    ~Node()
-    {
-        delete child[0];
-        delete child[1];
-    }
-};
-
-Bvh::Bvh()
-: root_(nullptr)
-{
-}
-
-Bvh::~Bvh()
-{
-}
-
-Bvh::NodeId Bvh::CreateInternalNode(NodeId id, ChildRel rel, SplitAxis axis, bbox const& b)
-{
-    if (id == GetPreRootNode())
-    {
-        assert(!root_);
-        root_ = new Node(NodeType::NT_INTERNAL, b);
-        root_->splitaxis = axis;
-        node_cache_.emplace(root_);
-        
-        // Return node's id
-        return root_;
-    }
-    else
-    {
-    
-    // Check if this is really a node
-    if (node_cache_.find(id) != node_cache_.end())
-    {
-        Node* node = static_cast<Node*>(id);
-        
-        // We can attach internal node to internal nodes only
-        assert(node->type == NodeType::NT_INTERNAL);
-        // And if there's no other node attached on a given side
-        assert(!node->child[rel]);
-        
-        // Attach a new internal node
-        node->child[rel] = new Node(NodeType::NT_INTERNAL, b);
-        node->child[rel]->splitaxis = axis;
-        
-        // Chech invariant
-        //assert(CheckInvariant(node));
-        
-        // Cache node
-        node_cache_.emplace(node->child[rel]);
-        
-        return node->child[rel];
-    }
-    else
-        throw std::runtime_error("No such node");
-    }
-}
-
-Bvh::NodeId Bvh::CreateLeafNode(NodeId id, ChildRel rel, bbox const& b, unsigned* indices, unsigned idxcount)
-{
-    // Is the node valid ptr?
-    assert(id);
-    assert(idxcount > 0);
-    assert(indices);
-    
-    // Check if this is really a node
-    if (node_cache_.find(id) != node_cache_.end())
-    {
-        Node* node = static_cast<Node*>(id);
-        
-        // We can attach leaf to internal nodes only
-        assert(node->type == NodeType::NT_INTERNAL);
-        // And if there's no other node attached on a given side
-        assert(!node->child[rel]);
-        
-        // Attach a new internal node
-        node->child[rel] = new Node(NodeType::NT_LEAF, b);
-        
-        // Copy indices into the internal array
-        unsigned primStartIdx = static_cast<unsigned>(prim_indices_.size());
-        for (unsigned i = 0; i < idxcount; ++i)
-        {
-            prim_indices_.push_back(indices[i]);
+            prims[i]->Refine(tempprims);
         }
         
-        // Fill in primitive data
-        node->child[rel]->startidx = primStartIdx;
-        node->child[rel]->primcount = idxcount;
-        
-        // Cache node
-        node_cache_.emplace(node->child[rel]);
-        
-        return node->child[rel];
+        // Calc bbox
+        bounds_ = bboxunion(bounds_, prims[i]->Bounds());
     }
-    else
-        throw std::runtime_error("No such node");
     
+    BuildImpl(tempprims);
 }
 
-bool   Bvh::CheckInvariant(NodeId id)
+bool Bvh::Intersect(ray& r, float& t, Intersection& isect) const
 {
-    // Is the node valid ptr?
-    assert(id);
-    Node* node = static_cast<Node*>(id);
+    // Check if we have been initialized
+    assert(root_);
+    // Maintain a stack of nodes to process
+    std::stack<Node*> testnodes;
+    // Push root
+    testnodes.push(root_);
+    // Precalc inv ray dir for bbox testing
+    float3 invrd = float3(1.f / r.d.x, 1.f / r.d.y, 1.f / r.d.z);
     
-    assert(node->type == NodeType::NT_INTERNAL);
-    
-    bool li = true;
-    bool ri = true;
-    
-    if (node->child[CR_LEFT])
+    // Hit flag
+    bool hit = false;
+    // Hit parametric distance
+    float tt = r.t.y;
+    // Start processing nodes
+    while (!testnodes.empty())
     {
-        li = li && contains(node->box, node->child[CR_LEFT]->box);
+        Node* node = testnodes.top();
+        testnodes.pop();
+        
+        if (node->type == kLeaf)
+        {
+            for (int i = node->startidx; i < node->startidx + node->numprims; ++i)
+            {
+                if (primitives_[i]->Intersect(r, tt, isect))
+                {
+                    hit = true;
+                    r.t.y = tt;
+                }
+            }
+        }
+        else
+        {
+            if (intersects(r, invrd, node->lc->bounds)) testnodes.push(node->lc);
+            if (intersects(r, invrd, node->rc->bounds)) testnodes.push(node->rc);
+        }
     }
     
-    if (node->child[CR_RIGHT])
-    {
-        ri = ri && contains(node->box, node->child[CR_RIGHT]->box);
-    }
-
-    return li && ri;
+    return hit;
 }
 
-
-
-
-//bool Intersects(Bvh::RayQuery& q, vector3 vPP1, vector3 vPP2, vector3 vPP3)
-//{
-//    vector3opt vP1 = vector3opt(vPP1.x(), vPP1.y(), vPP1.z());
-//    vector3opt vP2= vector3opt(vPP2.x(), vPP2.y(), vPP2.z());
-//    vector3opt vP3 = vector3opt(vPP3.x(), vPP3.y(), vPP3.z());
-//    vector3opt vE1 = vP2 - vP1;
-//    vector3opt vE2 = vP3 - vP1;
-//
-//    vector3opt vS1 = cross(q.d, vE2);
-//    float  fInvDir = 1.0/dot(vS1, vE1);
-//    
-//    vector3opt vD = q.o - vP1;
-//    float  fB1 = dot(vD, vS1) * fInvDir;
-//    
-//    if (fB1 < 0.0 || fB1 > 1.0)
-//        return false;
-//    
-//    vector3opt vS2 = cross(vD, vE1);
-//    float  fB2 = dot(q.d, vS2) * fInvDir;
-//    
-//    if (fB2 < 0.0 || fB1 + fB2 > 1.0)
-//        return false;
-//    
-//    float fTemp = dot(vE2, vS2) * fInvDir;
-//    
-//    if (fTemp > 0 && fTemp <= q.t)
-//    {
-//        q.t = fTemp;
-//        return true;
-//    }
-//    
-//    return false;
-//}
-
-//
-//void        Bvh::CastRay(RayQuery& q, RayQueryStatistics& stat, SceneBase::Vertex const* vertices, unsigned const* indices) const
-//{
-//    std::stack<Bvh::Node*> nodesToProcess_;
-//    nodesToProcess_.push(root_);
-//
-//    stat.hitBvh = false;
-//    stat.hitPrim = false;
-//    stat.maxDepthVisited = 0;
-//    stat.numNodesVisited = 0;
-//    stat.numTrianglesTested = 0;
-//
-//    while (nodesToProcess_.size() > 0)
-//    {
-//        Bvh::Node* node = nodesToProcess_.top();
-//        nodesToProcess_.pop();
-//
-//        if (Intersects(q, node->box))
-//        {
-//            stat.hitBvh = true;
-//            stat.numNodesVisited++;
-//            stat.maxDepthVisited = std::max(stat.maxDepthVisited, (unsigned)nodesToProcess_.size());
-//
-//            if (node->type == Bvh::NodeType::NT_LEAF)
-//            {
-//                stat.numTrianglesTested += node->primCount;
-//                for (int i = 0; i < node->primCount; ++i)
-//                {
-//                    vector3 v1, v2, v3;
-//                    unsigned primIdx = primIndices_[node->primStartIdx + i];
-//                    v1 = vertices[indices[primIdx * 3]].position;
-//                    v2 = vertices[indices[primIdx * 3 + 1]].position;
-//                    v3 = vertices[indices[primIdx * 3 + 2]].position;
-//                    
-//                    stat.hitPrim = stat.hitPrim || Intersects(q, v1, v2, v3);
-//                }
-//            }
-//            else
-//            {
-//                if ( q.d[(int)node->splitAxis] > 0 )
-//                {
-//                    nodesToProcess_.push(node->child[Bvh::CR_RIGHT]);
-//                    nodesToProcess_.push(node->child[Bvh::CR_LEFT]);
-//                }
-//                else
-//                {
-//                    nodesToProcess_.push(node->child[Bvh::CR_LEFT]);
-//                    nodesToProcess_.push(node->child[Bvh::CR_RIGHT]);
-//                }
-//            }
-//        }
-//    }
-//}
-
-bool Bvh::Intersect(ray& r, IntersectionApi::Intersection& isect) const
+bool Bvh::Intersect(ray& r) const
 {
+    // Check if we have been initialized
+    assert(root_);
+    // Maintain a stack of nodes to process
+    std::stack<Node*> testnodes;
+    // Push root
+    testnodes.push(root_);
+    // Precalc inv ray dir for bbox testing
+    float3 invrd = float3(1.f / r.d.x, 1.f / r.d.y, 1.f / r.d.z);
+    
+    while (!testnodes.empty())
+    {
+        Node* node = testnodes.top();
+        testnodes.pop();
+        
+        if (node->type == kLeaf)
+        {
+            for (int i = node->startidx; i < node->startidx + node->numprims; ++i)
+            {
+                if (primitives_[i]->Intersect(r))
+                {
+                    return true;
+                }
+            }
+        }
+        else
+        {
+            if (intersects(r, invrd, node->lc->bounds))
+                testnodes.push(node->lc);
+            if (intersects(r, invrd, node->rc->bounds))
+                testnodes.push(node->rc);
+        }
+    }
+    
     return false;
 }
 
-bool Bvh::Intersect(ray& ray) const
+bbox Bvh::Bounds() const
 {
-    return false;
+    return bounds_;
 }
+
+void Bvh::BuildImpl(std::vector<Primitive*> const& prims)
+{
+    // Structure describing split request
+    struct SplitRequest
+    {
+        int startidx;
+        int numprims;
+        Node** ptr;
+    };
+    
+    // We use indices as primitive references
+    std::vector<int> primindices(prims.size());
+    std::iota(primindices.begin(), primindices.end(), 0);
+    
+    SplitRequest init = {0, static_cast<int>(prims.size()), nullptr};
+    
+    std::stack<SplitRequest> stack;
+    // Put initial request into the stack
+    stack.push(init);
+    
+    while (!stack.empty())
+    {
+        // Fetch new request
+        SplitRequest req = stack.top();
+        stack.pop();
+        
+        // Prepare new node
+        nodes_.push_back(std::unique_ptr<Node>(new Node));
+        Node* node = nodes_.back().get();
+        node->bounds = bbox();
+        
+        // Calc bbox
+        // TODO: apply OpenMP reduction
+        for (int i = req.startidx; i < req.startidx + req.numprims; ++i)
+        {
+            node->bounds = bboxunion(node->bounds, prims[primindices[i]]->Bounds());
+        }
+        
+        // Create leaf node if we have enough prims
+        if (req.numprims < 2)
+        {
+            node->type = kLeaf;
+            node->startidx = primitives_.size();
+            node->numprims = req.numprims;
+            for (int i = req.startidx; i < req.startidx + req.numprims; ++i)
+            {
+                primitives_.push_back(prims[primindices[i]]);
+            }
+        }
+        else
+        {
+            node->type = kInternal;
+            // Create two leafs
+            // Choose the maximum extend
+            int axis = node->bounds.maxdim();
+            float border = node->bounds.center()[border];
+            auto part = std::partition(primindices.begin() + req.startidx, primindices.begin() + req.startidx + req.numprims, [&,axis,border](int i)
+                           {
+                               bbox b = prims[primindices[i]]->Bounds();
+                               return b.center()[axis] < border;
+                           }
+                           );
+            
+            // Find split index relative to req.startidx
+            int idx = part - (primindices.begin() + req.startidx);
+            
+            // If we have not split anything use split in halves
+            if (idx == 0
+                || idx == req.numprims)
+            {
+                idx = req.numprims >> 1;
+            }
+            
+            // Left request
+            SplitRequest leftrequest = {req.startidx, idx, &node->lc};
+            // Right request
+            SplitRequest rightrequest = {req.startidx + idx, req.numprims - idx,  &node->rc};
+            
+            // Put those to stack
+            stack.push(leftrequest);
+            stack.push(rightrequest);
+        }
+        
+        // Set parent ptr if any
+        if (req.ptr) *req.ptr = node;
+    }
+    
+    // Set root_ pointer
+    root_ = nodes_[0].get();
+}
+
+
+
+
+

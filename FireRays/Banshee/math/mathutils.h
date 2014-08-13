@@ -168,7 +168,7 @@ inline matrix quaternion_to_matrix(quaternion const& q)
 }
 
 // Calculate vector orthogonal to a given one
-inline float3 orthovector(float3 n)
+inline float3 orthovector(float3 const& n)
 {
     float3 p;
     if (fabs(n.z) > 0.707106781186547524401f) {
@@ -182,8 +182,8 @@ inline float3 orthovector(float3 n)
     return p;
 }
 
-// Map [0..1]x[0..1] value to unit hemisphere
-inline float3 map_to_hemisphere(float3 n, float2 s, float e)
+// Map [0..1]x[0..1] value to unit hemisphere with pow e cos weighted pdf
+inline float3 map_to_hemisphere(float3 const& n, float2 const& s, float e)
 {
     float3 u = orthovector(n);
 
@@ -196,6 +196,12 @@ inline float3 map_to_hemisphere(float3 n, float2 s, float e)
     float sintheta = sqrt(1.f - costheta * costheta);
 
     return normalize(u * sintheta * cospsi + v * sintheta * sinpsi + n * costheta);
+}
+
+// Map [0..1]x[0..1] value to triangle and return barycentric coords
+inline float3 map_to_triangle(float2 const& s)
+{
+    return float3(1.f - sqrtf(s.x), sqrtf(s.x) * (1.f - s.y), sqrtf(s.x) * s.y);
 }
 
 #endif // MATHUTILS_H

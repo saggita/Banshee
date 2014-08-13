@@ -21,12 +21,12 @@ void ImageRenderer::Render(World const& world) const
         {
             ray r;
 
-            float sample_weight = 1.f / sampler_->num_samples();
+            float sample_weight = 1.f / imgsampler_->num_samples();
 
-            for (int s = 0; s < sampler_->num_samples(); ++s)
+            for (int s = 0; s < imgsampler_->num_samples(); ++s)
             {
                 // Generate sample
-                float2 sample = sampler_->Sample2D();
+                float2 sample = imgsampler_->Sample2D();
 
                 // Calculate image plane sample
                 float2 imgsample((float)x / imgres.x + (1.f / imgres.x) * sample.x, (float)y / imgres.y + (1.f / imgres.y) * sample.y);
@@ -35,7 +35,7 @@ void ImageRenderer::Render(World const& world) const
                 cam.GenerateRay(imgsample, r);
 
                 // Estimate radiance and add to image plane
-                imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world));
+                imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world, *lightsampler_));
             }
         }
 

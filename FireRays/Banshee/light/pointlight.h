@@ -18,7 +18,7 @@ public:
     // Note that no shadow testing occurs here, the method knows nothing about world's geometry
     // and it is renderers responsibility to account for visibility term
     // TODO: account for different sampling modes here, need to pass sampler/sample?
-    float3 Sample(Primitive::Intersection const& isect, float3& p, float& pdf) const;
+    float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3& p, float& pdf) const;
     
     // This method is supposed to be called by the renderer when the ray misses the geometry.
     // It allows implementing IBL, etc.

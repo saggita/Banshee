@@ -19,10 +19,11 @@ public:
     // Note that imgplane is an external entity and is not managed by
     // this renderer instance. Tracer on the other hand is owned by the instance
     // and release in the destructor
-    ImageRenderer(ImagePlane& imgplane, Tracer* tracer, Sampler* sampler)
+    ImageRenderer(ImagePlane& imgplane, Tracer* tracer, Sampler* imgsampler, Sampler* lightsampler)
         : imgplane_(imgplane)
         , tracer_(tracer)
-        , sampler_(sampler)
+        , imgsampler_(imgsampler)
+        , lightsampler_(lightsampler)
     {
     }
 
@@ -34,7 +35,9 @@ protected:
     // Ray tracer 
     std::unique_ptr<Tracer> tracer_;
     // Sampler object to use for image plane sampling
-    std::unique_ptr<Sampler> sampler_;
+    std::unique_ptr<Sampler> imgsampler_;
+    // Sampler object to use for light sampling
+    std::unique_ptr<Sampler> lightsampler_;
 };
 
 #endif //IMAGERENDERER_H

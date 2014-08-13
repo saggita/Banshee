@@ -5,6 +5,7 @@
 #include "../primitive/primitive.h"
 
 class Light;
+class Sampler;
 
 ///< DiTracer is an implementation of a Tracer interface
 ///< capable of estimating direct illumination from surfaces
@@ -15,10 +16,10 @@ public:
     DiTracer(){}
 
     // Estimate a radiance coming from r
-    float3 Li(ray& r, World const& world) const;
+    float3 Li(ray& r, World const& world, Sampler const& lightsampler) const;
 
 protected:
-    virtual float3 Di(World const& world, Light const& light, float3 const& wo, Primitive::Intersection& isect) const;
+    virtual float3 Di(World const& world, Light const& light, Sampler const& sampler, float3 const& wo, Primitive::Intersection& isect) const;
 };
 
 #endif // DITRACER_H

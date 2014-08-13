@@ -2,6 +2,7 @@
 #define TRACER_H
 
 class World;
+class Sampler;
 
 #include "../math/ray.h"
 
@@ -15,7 +16,7 @@ public:
     virtual ~Tracer(){}
 
     // Estimate a radiance coming from r
-    virtual float3 Li(ray& r, World const& world) const = 0;
+    virtual float3 Li(ray& r, World const& world, Sampler const& sampler) const = 0;
 
 protected:
     Tracer(Tracer const&);

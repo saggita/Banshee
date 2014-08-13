@@ -33,17 +33,20 @@ void MtImageRenderer::Render(World const& world) const
     for (int xtile = 0; xtile < numtiles.x; ++xtile)
         for (int ytile = 0; ytile < numtiles.y; ++ytile)
         {
-            // Clone the sampler first
-            Sampler* sampler = sampler_->Clone();
+            // Clone the samplers first
+            Sampler* imgsampler = imgsampler_->Clone();
+            Sampler* lightsampler = lightsampler_->Clone();
+            
 
             // Submit the task to thread pool
             // Need to capture xtile and ytile by copying since
-            // they are changing
+            // they are changing, same for sampler objects
             futures.push_back(
-                threadpool_.submit([&, xtile, ytile, imgres, sampler]()->int
+                threadpool_.submit([&, xtile, ytile, imgres, imgsampler, lightsampler]()->int
             {
-                // Wrap private sampler w/ memory managing ptr
-                std::unique_ptr<Sampler> private_sampler(sampler);
+                // Wrap private samplers w/ memory managing ptr
+                std::unique_ptr<Sampler> private_imgsampler(imgsampler);
+                std::unique_ptr<Sampler> private_lightsampler(lightsampler);
                 // Iterate through tile pixels
                 for (int x = 0; x < tilesize_.x; ++x)
                     for (int y = 0; y < tilesize_.y; ++y)
@@ -58,12 +61,12 @@ void MtImageRenderer::Render(World const& world) const
 
                         ray r;
 
-                        float sample_weight = 1.f / private_sampler->num_samples();
+                        float sample_weight = 1.f / private_imgsampler->num_samples();
 
-                        for (int s = 0; s < private_sampler->num_samples(); ++s)
+                        for (int s = 0; s < private_imgsampler->num_samples(); ++s)
                         {
                             // Generate sample
-                            float2 sample = private_sampler->Sample2D();
+                            float2 sample = private_imgsampler->Sample2D();
 
                             // Calculate image plane sample
                             float2 imgsample((float)xx / imgres.x + (1.f / imgres.x) * sample.x, (float)yy / imgres.y + (1.f / imgres.y) * sample.y);
@@ -72,7 +75,7 @@ void MtImageRenderer::Render(World const& world) const
                             cam.GenerateRay(imgsample, r);
 
                             // Estimate radiance and add to image plane
-                            imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world));
+                            imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world, *private_lightsampler));
                         }
                     }
 

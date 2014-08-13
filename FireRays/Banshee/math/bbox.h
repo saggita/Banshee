@@ -80,33 +80,36 @@ inline bool contains(bbox const& box1, bbox const& box2)
     return box1.contains(box2.pmin) && box1.contains(box2.pmax);
 }
 
-inline bool intersects(ray& r, bbox const& box)
+inline bool intersects(ray& r, float3 const& invrd, bbox const& box)
 {
-    float3 rd = float3(1.f / r.d.x, 1.f / r.d.y, 1.f / r.d.z);
-    float lo = rd.x * (box.pmin.x - r.o.x);
-    float hi = rd.x * (box.pmax.x - r.o.x);
-
-    float tmin = std::min(lo, hi);
-    float tmax = std::max(lo, hi);
-
-    float lo1 = rd.y*(box.pmin.y - r.o.y);
-    float hi1 = rd.y*(box.pmax.y - r.o.y);
-
-    tmin = std::max(tmin, std::min(lo1, hi1));
-    tmax = std::min(tmax, std::max(lo1, hi1));
-
-    float lo2 = rd.z*(box.pmin.z - r.o.z);
-    float hi2 = rd.z*(box.pmax.z - r.o.z);
-
-    tmin = std::max(tmin, std::min(lo2, hi2));
-    tmax = std::min(tmax, std::max(lo2, hi2));
-
-    if ((tmin <= tmax) && (tmax > r.t.x))
+    float2 tt = r.t;
+    
+    for (int i = 0; i<3; ++i)
     {
-        return (tmin >= r.t.x) ? (tmin < r.t.y) : (tmax < r.t.y);
+        float tn = (box.pmin[i] - r.o[i]) * invrd[i];
+        float tf = (box.pmax[i] - r.o[i]) * invrd[i];
+        if (tn > tf) std::swap(tn, tf);
+        tt.x = tn > tt.x ? tn : tt.x;
+        tt.y = tf < tt.y ? tf : tt.y;
+        
+        if (tt.x > tt.y) return false;
     }
-    else
-        return false;
+    
+    return true;
+}
+
+inline int bbox::maxdim() const
+{
+    float3 ext = extents();
+    
+    if (ext.x >= ext.y && ext.x >= ext.z)
+        return 0;
+    if (ext.y >= ext.x && ext.y >= ext.z)
+        return 1;
+    if (ext.z >= ext.x && ext.z >= ext.y)
+        return 2;
+    
+    return 0;
 }
 
 #endif // BBOX_H

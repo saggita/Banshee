@@ -23,8 +23,12 @@ public:
     // tilesize parameter determines granularity of a tasks assigned to cores.
     // Each task is supposed to process a single tile, change this parameter to
     // find a right balance between submission overhead and benefit from parallelization
-    MtImageRenderer(ImagePlane& imgplane, Tracer* tracer, Sampler* imgsampler, Sampler* lightsampler, int2 tilesize = int2(16,16))
-        : ImageRenderer(imgplane, tracer, imgsampler, lightsampler)
+    MtImageRenderer(ImagePlane& imgplane, 
+        Tracer* tracer, Sampler* imgsampler, 
+        Sampler* lightsampler,
+        ProgressReporter* progress = nullptr,
+        int2 tilesize = int2(16,16))
+        : ImageRenderer(imgplane, tracer, imgsampler, lightsampler, progress)
         , tilesize_(tilesize)
     {
     }

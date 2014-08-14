@@ -3,11 +3,14 @@
 #include "../world/world.h"
 #include "../imageplane/imageplane.h"
 #include "../tracer/tracer.h"
+#include "../util/progressreporter.h"
 
 
 #include <cassert>
 #include <vector>
 #include <algorithm>
+#include <mutex>
+#include <atomic>
 
 void MtImageRenderer::Render(World const& world) const
 {
@@ -25,6 +28,11 @@ void MtImageRenderer::Render(World const& world) const
     // Futures to wait
     std::vector<std::future<int> > futures;
 
+    // Prepare count and mutex for progress reporting
+    std::mutex progressmutex;
+    int totalsamples = imgsampler_->num_samples() * imgres.x * imgres.y;
+    int donesamples = 0;
+
     // Iterate over all the tiles
     // Note that Sampler objects are not thread safe
     // and not designed for concurrent access.
@@ -36,7 +44,6 @@ void MtImageRenderer::Render(World const& world) const
             // Clone the samplers first
             Sampler* imgsampler = imgsampler_->Clone();
             Sampler* lightsampler = lightsampler_->Clone();
-            
 
             // Submit the task to thread pool
             // Need to capture xtile and ytile by copying since
@@ -77,6 +84,16 @@ void MtImageRenderer::Render(World const& world) const
                             // Estimate radiance and add to image plane
                             imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world, *private_lightsampler));
                         }
+                    }
+
+                    // Update and report progress
+                    if (progress_)
+                    {
+                        std::unique_lock<std::mutex> lock(progressmutex);
+
+                        donesamples += tilesize_.x * tilesize_.y * private_imgsampler->num_samples();
+
+                        progress_->Report((float)donesamples / totalsamples);
                     }
 
                     return 0;

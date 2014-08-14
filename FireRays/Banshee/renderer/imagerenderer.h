@@ -3,6 +3,7 @@
 
 class World;
 class ImagePlane;
+class ProgressReporter;
 
 #include <memory>
 
@@ -16,14 +17,21 @@ class ImagePlane;
 class ImageRenderer : public Renderer
 {
 public:
+
     // Note that imgplane is an external entity and is not managed by
     // this renderer instance. Tracer on the other hand is owned by the instance
     // and release in the destructor
-    ImageRenderer(ImagePlane& imgplane, Tracer* tracer, Sampler* imgsampler, Sampler* lightsampler)
+    ImageRenderer(ImagePlane& imgplane, 
+        Tracer* tracer, 
+        Sampler* imgsampler, 
+        Sampler* lightsampler,
+        ProgressReporter* progress = nullptr
+        )
         : imgplane_(imgplane)
         , tracer_(tracer)
         , imgsampler_(imgsampler)
         , lightsampler_(lightsampler)
+        , progress_(progress)
     {
     }
 
@@ -38,6 +46,8 @@ protected:
     std::unique_ptr<Sampler> imgsampler_;
     // Sampler object to use for light sampling
     std::unique_ptr<Sampler> lightsampler_;
+    // Progress reporter
+    std::unique_ptr<ProgressReporter> progress_;
 };
 
 #endif //IMAGERENDERER_H

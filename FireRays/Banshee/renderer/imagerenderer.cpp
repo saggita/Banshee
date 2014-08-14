@@ -2,6 +2,7 @@
 
 #include "../world/world.h"
 #include "../imageplane/imageplane.h"
+#include "../util/progressreporter.h"
 
 #include <cassert>
 
@@ -15,7 +16,11 @@ void ImageRenderer::Render(World const& world) const
     // Prepare image plane
     imgplane_.Prepare();
 
-    // very simple render loop)
+    // Calculate total number of samples for progress reporting
+    int totalsamples = imgsampler_->num_samples() * imgres.y * imgres.x;
+    int donesamples = 0;
+
+    // very simple render loop
     for (int y = 0; y < imgres.y; ++y)
         for(int x = 0; x < imgres.x; ++x)
         {
@@ -36,6 +41,14 @@ void ImageRenderer::Render(World const& world) const
 
                 // Estimate radiance and add to image plane
                 imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world, *lightsampler_));
+            }
+
+            // Update progress
+            donesamples += imgsampler_->num_samples();
+            // Report progress
+            if (progress_)
+            {
+                progress_->Report((float)donesamples/totalsamples);
             }
         }
 

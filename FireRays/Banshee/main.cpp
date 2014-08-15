@@ -188,7 +188,7 @@ int main()
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, 
             new GiTracer(3, 3.f), 
-            new RandomSampler(128, new McRng()), 
+            new RandomSampler(1, new McRng()),
             new RandomSampler(1, new McRng()), 
             new MyReporter());
 

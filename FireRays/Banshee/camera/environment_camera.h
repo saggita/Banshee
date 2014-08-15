@@ -4,12 +4,19 @@
 #include "camera.h"
 #include "../math/float3.h"
 
+
+///< EnvironmentCamera is a camera mapping an image plane
+///< to the sphere and looking into the whole sphere of directions.
+///< Expect heavy distortion caused by spherical mapping.
+///<
 class EnvironmentCamera: public Camera
 {
 public:
-    // TODO: implement angle limits 
+    // TODO: implement angle limits
+    // Pass camera position, camera aim, camera up vector, and depth limits
     EnvironmentCamera(float3 const& eye, float3 const& at, float3 const& up, float2 const& zcap);
     
+    ///< sample is a value in [0,1] square describing where to sample the image plane
     void GenerateRay(float2 const& sample, ray& r) const;
     
 private:

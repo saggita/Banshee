@@ -87,7 +87,7 @@ Mesh::Mesh(float const* vertices, int vnum, int vstride,
         }
 
         int m = *((int const*)((char*)materials + i * mstride));
-        triangles_[i].reset(new IndexedTriangle(vi0, vi1, vi2, ni0, ni1, ni2, ui0, ui1, ui2, m, this));
+        triangles_[i].reset(new IndexedTriangle(vi0, vi1, vi2, ni0, ni1, ni2, ui0, ui1, ui2, m, *this));
     }
 
     // Update mesh bounding box

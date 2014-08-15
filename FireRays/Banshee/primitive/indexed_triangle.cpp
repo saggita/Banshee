@@ -6,11 +6,11 @@
 bool IndexedTriangle::Intersect(ray& r, float& t, Intersection& isect) const
 {
     // Transform ray to local space using mesh world transform
-    ray ro = transform_ray(r, mesh_->worldmatinv_);
+    ray ro = transform_ray(r, mesh_.worldmatinv_);
 
-    float3 p1 = mesh_->vertices_[pidx1_];
-    float3 p2 = mesh_->vertices_[pidx2_];
-    float3 p3 = mesh_->vertices_[pidx3_];
+    float3 p1 = mesh_.vertices_[pidx1_];
+    float3 p2 = mesh_.vertices_[pidx2_];
+    float3 p3 = mesh_.vertices_[pidx3_];
 
     float3 e1 = p2 - p1;
     float3 e2 = p3 - p1;
@@ -36,16 +36,16 @@ bool IndexedTriangle::Intersect(ray& r, float& t, Intersection& isect) const
     {
         t = tmp;
 
-        float3 n1 = mesh_->normals_[nidx1_];
-        float3 n2 = mesh_->normals_[nidx2_];
-        float3 n3 = mesh_->normals_[nidx3_];
+        float3 n1 = mesh_.normals_[nidx1_];
+        float3 n2 = mesh_.normals_[nidx2_];
+        float3 n3 = mesh_.normals_[nidx3_];
 
-        float2 t1 = mesh_->uvs_[tidx1_];
-        float2 t2 = mesh_->uvs_[tidx2_];
-        float2 t3 = mesh_->uvs_[tidx3_];
+        float2 t1 = mesh_.uvs_[tidx1_];
+        float2 t2 = mesh_.uvs_[tidx2_];
+        float2 t3 = mesh_.uvs_[tidx3_];
 
-        isect.p = transform_point((1.f - b1 - b2) * p1 + b1 * p2 + b2 * p3, mesh_->worldmat_);
-        isect.n = normalize(transform_normal((1.f - b1 - b2) * n1 + b1 * n2 + b2 * n3, mesh_->worldmat_));
+        isect.p = transform_point((1.f - b1 - b2) * p1 + b1 * p2 + b2 * p3, mesh_.worldmat_);
+        isect.n = normalize(transform_normal((1.f - b1 - b2) * n1 + b1 * n2 + b2 * n3, mesh_.worldmat_));
         
         // account for backfacing normal
         if (dot(isect.n, -r.d) < 0.f) isect.n = -isect.n;
@@ -61,11 +61,11 @@ bool IndexedTriangle::Intersect(ray& r, float& t, Intersection& isect) const
 
 bool IndexedTriangle::Intersect(ray& r) const
 {
-    ray ro = transform_ray(r, mesh_->worldmatinv_);
+    ray ro = transform_ray(r, mesh_.worldmatinv_);
 
-    float3 p1 = mesh_->vertices_[pidx1_];
-    float3 p2 = mesh_->vertices_[pidx2_];
-    float3 p3 = mesh_->vertices_[pidx3_];
+    float3 p1 = mesh_.vertices_[pidx1_];
+    float3 p2 = mesh_.vertices_[pidx2_];
+    float3 p3 = mesh_.vertices_[pidx3_];
 
     float3 e1 = p2 - p1;
     float3 e2 = p3 - p1;
@@ -97,7 +97,7 @@ bool IndexedTriangle::Intersect(ray& r) const
 
 bbox IndexedTriangle::Bounds() const
 {
-    bbox box(mesh_->vertices_[pidx1_], mesh_->vertices_[pidx2_]);
-    box = bboxunion(box, mesh_->vertices_[pidx3_]);
-    return bbox(transform_point(box.pmin, mesh_->worldmat_), transform_point(box.pmax, mesh_->worldmat_));
+    bbox box(mesh_.vertices_[pidx1_], mesh_.vertices_[pidx2_]);
+    box = bboxunion(box, mesh_.vertices_[pidx3_]);
+    return bbox(transform_point(box.pmin, mesh_.worldmat_), transform_point(box.pmax, mesh_.worldmat_));
 }

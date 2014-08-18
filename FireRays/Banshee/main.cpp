@@ -21,6 +21,7 @@
 #include "imageplane/fileimageplane.h"
 #include "tracer/ditracer.h"
 #include "tracer/gitracer.h"
+#include "tracer/aotracer.h"
 #include "light/pointlight.h"
 #include "sampler/random_sampler.h"
 #include "rng/mcrng.h"
@@ -149,13 +150,13 @@ int main()
     {
         // File name to render
         std::string filename = "normals.png";
-        int2 imgres = int2(512, 512);
+        int2 imgres = int2(256, 256);
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorld(texsys);
+        std::unique_ptr<World> world = BuildWorldSponza(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -187,9 +188,9 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, 
-            new GiTracer(3, 3.f), 
-            new RandomSampler(1, new McRng()),
-            new RandomSampler(1, new McRng()), 
+            new AoTracer(15.f),
+            new RandomSampler(16, new McRng()),
+            new RandomSampler(16, new McRng()),
             new MyReporter());
 
         // Measure execution time

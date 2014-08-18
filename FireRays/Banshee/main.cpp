@@ -13,6 +13,7 @@
 #include "primitive/mesh.h"
 #include "accelerator/simpleset.h"
 #include "accelerator/bvh.h"
+#include "accelerator/sbvh.h"
 #include "imageio/oiioimageio.h"
 #include "camera/perspective_camera.h"
 #include "camera/environment_camera.h"
@@ -94,6 +95,7 @@ std::unique_ptr<World> BuildWorldSponza(TextureSystem const& texsys)
     World* world = new World();
     // Create accelerator
     //SimpleSet* set = new SimpleSet();
+    //Bvh* bvh = new Sbvh(10.f);
     Bvh* bvh = new Bvh();
     // Create camera
     //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
@@ -127,7 +129,74 @@ std::unique_ptr<World> BuildWorldSponza(TextureSystem const& texsys)
     assimp.Import();
 
     // Build acceleration structure
+    auto starttime = std::chrono::high_resolution_clock::now();
     bvh->Build(primitives);
+    auto endtime = std::chrono::high_resolution_clock::now();
+    auto exectime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime - starttime);
+
+    std::cout << "Acceleration structure constructed in " << exectime.count() << " ms\n";
+
+    // Attach accelerator to world
+    world->accelerator_ = std::unique_ptr<Primitive>(bvh);
+    //world->accelerator_ = std::unique_ptr<Primitive>(set);
+    // Attach camera
+    world->camera_ = std::unique_ptr<Camera>(camera);
+    // Attach point lights
+    world->lights_.push_back(std::unique_ptr<Light>(light1));
+    //world->lights_.push_back(std::unique_ptr<Light>(light2));
+    // Set background
+    world->bgcolor_ = float3(0.9f, 0.9f, 0.9f);
+    
+    // Return world
+    return std::unique_ptr<World>(world);
+}
+
+std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
+{
+    // Create world
+    World* world = new World();
+    // Create accelerator
+    //SimpleSet* set = new SimpleSet();
+    Bvh* bvh = new Sbvh(10.f);
+    //Bvh* bvh = new Bvh();
+    // Create camera
+    //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(1, 0, -1.1f), float3(0, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
+    //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(1,0,0), float3(0, 1, 0), float2(0.01f, 10000.f));
+
+    // Create lights
+    PointLight* light1 = new PointLight(float3(1.f, 1.f, -1.f), float3(0.97f, 0.85f, 0.55f));
+
+    rand_init();
+
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.objm");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.objm");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/dragon/dragon1.obj");
+
+    assimp.onmaterial_ = [&world](Material* mat)->int
+    {
+        world->materials_.push_back(std::unique_ptr<Material>(mat));
+        return (int)(world->materials_.size() - 1);
+    };
+
+    std::vector<Primitive*> primitives;
+    assimp.onprimitive_ = [&primitives](Primitive* prim)
+    //assimp.onprimitive_ = [&set](Primitive* prim)
+    {
+        //set->Emplace(prim);
+        primitives.push_back(prim);
+    };
+
+    // Start assets import
+    assimp.Import();
+
+    // Build acceleration structure
+    auto starttime = std::chrono::high_resolution_clock::now();
+    bvh->Build(primitives);
+    auto endtime = std::chrono::high_resolution_clock::now();
+    auto exectime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime - starttime);
+
+    std::cout << "Acceleration structure constructed in " << exectime.count() << " ms\n";
 
     // Attach accelerator to world
     world->accelerator_ = std::unique_ptr<Primitive>(bvh);
@@ -150,13 +219,13 @@ int main()
     {
         // File name to render
         std::string filename = "normals.png";
-        int2 imgres = int2(256, 256);
+        int2 imgres = int2(512, 512);
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldSponza(texsys);
+        std::unique_ptr<World> world = BuildWorldDragon(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -187,11 +256,12 @@ int main()
 
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
-        MtImageRenderer renderer(plane, 
-            new AoTracer(15.f),
-            new RandomSampler(16, new McRng()),
-            new RandomSampler(16, new McRng()),
-            new MyReporter());
+        MtImageRenderer renderer(plane, // Image plane 
+            new DiTracer(), // Tracer
+            new RandomSampler(8, new McRng()), // Image sampler
+            new RandomSampler(1, new McRng()), // Light sampler
+            new MyReporter() // Progress reporter
+            );
 
         // Measure execution time
         std::cout << "Starting rendering process...\n";

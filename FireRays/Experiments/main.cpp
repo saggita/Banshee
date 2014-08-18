@@ -230,55 +230,56 @@ void segmented_scan_test(CLWContext context)
     std::cout << "Done in " << deltaTime.count() / 50.f << " ms\n";
 }
 
-//void sort_test(CLWContext context)
-//{
-//    int const ARRAY_SIZE = 64 * 64;
-//    
-//    auto deviceInputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
-//    auto deviceOutputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
-//
-//    std::vector<int> hostArray(ARRAY_SIZE);
-//    std::vector<int> hostResultArray(ARRAY_SIZE);
-//    std::vector<int> hostArrayGold(ARRAY_SIZE);
-//    
-//    
-//    std::generate(hostArray.begin(), hostArray.end(), []{return rand() % 10000000;});
-//
-//    
-//    context.WriteBuffer(0, deviceInputArray, &hostArray[0], ARRAY_SIZE).Wait();
-//    
-//    CLWParallelPrimitives prims(context);
-//    
-//    prims.SortRadix(0, deviceInputArray, deviceOutputArray);
-//    context.Finish(0);
-//    
-//    auto startTime = std::chrono::high_resolution_clock::now();
-//    
-//    for (int i = 0; i < 50; ++i)
-//    {
-//        prims.SegmentedScanExclusiveAdd(0, deviceInputArray, deviceSegmentHeadsArray, deviceOutputArray);
-//    }
-//    
-//    context.Finish(0);
-//    auto endTime = std::chrono::high_resolution_clock::now();
-//    
-//    auto deltaTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
-//    
-//    context.ReadBuffer(0, deviceOutputArray, &hostResultArray[0], ARRAY_SIZE).Wait();
-//    
-//    for (int i = 0; i < ARRAY_SIZE; ++i)
-//    {
-//        if (hostResultArray[i] != hostArrayGold[i])
-//        {
-//            std::cout << "Incorrect scan result\n";
-//            std::cout << "Done in " << deltaTime.count() / 50.f << " ms\n";
-//            exit(-1);
-//        }
-//    }
-//    
-//    std::cout << "Correct scan result\n";
-//    std::cout << "Done in " << deltaTime.count() / 50.f << " ms\n";
-//}
+void sort_test(CLWContext context)
+{
+    int const ARRAY_SIZE = 1000000;
+    
+    auto deviceInputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
+    auto deviceOutputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
+
+    std::vector<int> hostArray(ARRAY_SIZE);
+    std::vector<int> hostResultArray(ARRAY_SIZE);
+    std::vector<int> hostArrayGold(ARRAY_SIZE);
+    
+    
+    std::generate(hostArray.begin(), hostArray.end(), []{return rand() % 10000000;});
+    std::copy(hostArray.begin(), hostArray.end(), hostArrayGold.begin());
+    std::sort(hostArrayGold.begin(), hostArrayGold.end());
+
+    context.WriteBuffer(0, deviceInputArray, &hostArray[0], ARRAY_SIZE).Wait();
+
+    CLWParallelPrimitives prims(context);
+
+    prims.SortRadix(0, deviceInputArray, deviceOutputArray, deviceInputArray, deviceOutputArray);
+    context.Finish(0);
+
+    auto startTime = std::chrono::high_resolution_clock::now();
+
+    for (int i = 0; i < 50; ++i)
+    {
+        prims.SortRadix(0, deviceInputArray, deviceOutputArray, deviceInputArray, deviceOutputArray);
+    }
+
+    context.Finish(0);
+    auto endTime = std::chrono::high_resolution_clock::now();
+
+    auto deltaTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+
+    context.ReadBuffer(0, deviceOutputArray, &hostResultArray[0], ARRAY_SIZE).Wait();
+
+    for (int i = 0; i < ARRAY_SIZE; ++i)
+    {
+        if (hostResultArray[i] != hostArrayGold[i])
+        {
+            std::cout << "Incorrect sort result\n";
+            std::cout << "Done in " << deltaTime.count() / 50.f << " ms\n";
+            exit(-1);
+        }
+    }
+    
+    std::cout << "Correct sort result\n";
+    std::cout << "Done in " << deltaTime.count() / 50.f << " ms\n";
+}
 
 
 void copy_test(CLWContext context)
@@ -361,9 +362,9 @@ int main(int argc, const char * argv[])
         std::cout << "Extensions: " << context.GetDevice(0).GetExtensions() << "\n";
 
         //scan_test(context);
-        segmented_scan_test(context);
+        //segmented_scan_test(context);
 
-        //sort_test(context);
+        sort_test(context);
         //test_1();
     }
     catch (std::runtime_error& e)

@@ -112,4 +112,10 @@ inline int bbox::maxdim() const
     return 0;
 }
 
+inline float bbox::surface_area() const
+{
+    float3 ext = extents();
+    return 2.f * (ext.x * ext.y + ext.x * ext.z + ext.y * ext.z);
+}
+
 #endif // BBOX_H

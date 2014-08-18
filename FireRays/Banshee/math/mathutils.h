@@ -204,4 +204,27 @@ inline float3 map_to_triangle(float2 const& s)
     return float3(1.f - sqrtf(s.x), sqrtf(s.x) * (1.f - s.y), sqrtf(s.x) * s.y);
 }
 
+// Checks if the float value is IEEE FP NaN
+inline bool is_nan(float val)
+{
+    return val != val;
+}
+
+// Checks if one of arguments components is IEEE FP NaN
+inline bool has_nans(float3 const& val)
+{
+    return is_nan(val.x) || is_nan(val.y) || is_nan(val.z); 
+}
+
+// Linearly interpolate two float3 values
+inline float3 lerp(float3 const& v1, float3 const& v2, float s)
+{
+    return (1.f - s) * v1 + s * v2;
+}
+
+// Linearly interpolate two float values
+inline float lerp(float v1, float v2, float s)
+{
+    return (1.f - s) * v1 + s * v2;
+}
 #endif // MATHUTILS_H

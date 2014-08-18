@@ -12,14 +12,15 @@ class Sampler;
 class AoTracer : public Tracer
 {
 public:
+    // Pass AO radius
     AoTracer(float radius)
     : radius_(radius)
     {
     }
-    
+
     // Estimate a radiance coming from r
     float3 Li(ray& r, World const& world, Sampler const& lightsampler) const;
-    
+
 private:
     // Occlusion radius
     float radius_;

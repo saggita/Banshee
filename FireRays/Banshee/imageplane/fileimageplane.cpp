@@ -2,6 +2,7 @@
 
 #include "../math/mathutils.h"
 #include <cmath>
+#include <cassert>
 
 
 void FileImagePlane::Prepare()
@@ -24,6 +25,8 @@ void FileImagePlane::Finalize()
 
 void FileImagePlane::AddSample(float2 const& sample, float w, float3 value)
 {
+    assert(!has_nans(value));
+
     float2 fimgpos = sample * res_; 
     int2   imgpos  = int2((int)std::floorf(fimgpos.x), (int)std::floorf(fimgpos.y));
 

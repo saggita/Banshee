@@ -131,35 +131,35 @@ void Bvh::BuildImpl(std::vector<Primitive*> const& prims)
         int numprims;
         Node** ptr;
     };
-    
+
     // We use indices as primitive references
     std::vector<int> primindices(prims.size());
     std::iota(primindices.begin(), primindices.end(), 0);
-    
+
     SplitRequest init = {0, static_cast<int>(prims.size()), nullptr};
-    
+
     std::stack<SplitRequest> stack;
     // Put initial request into the stack
     stack.push(init);
-    
+
     while (!stack.empty())
     {
         // Fetch new request
         SplitRequest req = stack.top();
         stack.pop();
-        
+
         // Prepare new node
         nodes_.push_back(std::unique_ptr<Node>(new Node));
         Node* node = nodes_.back().get();
         node->bounds = bbox();
-        
+
         // Calc bbox
         // TODO: apply OpenMP reduction
         for (int i = req.startidx; i < req.startidx + req.numprims; ++i)
         {
             node->bounds = bboxunion(node->bounds, prims[primindices[i]]->Bounds());
         }
-        
+
         // Create leaf node if we have enough prims
         if (req.numprims < 2)
         {
@@ -184,27 +184,27 @@ void Bvh::BuildImpl(std::vector<Primitive*> const& prims)
                                return b.center()[axis] < border;
                            }
                            );
-            
+
             // Find split index relative to req.startidx
             int idx = (int)(part - (primindices.begin() + req.startidx));
-            
+
             // If we have not split anything use split in halves
             if (idx == 0
                 || idx == req.numprims)
             {
                 idx = req.numprims >> 1;
             }
-            
+
             // Left request
             SplitRequest leftrequest = {req.startidx, idx, &node->lc};
             // Right request
             SplitRequest rightrequest = {req.startidx + idx, req.numprims - idx,  &node->rc};
-            
+
             // Put those to stack
             stack.push(leftrequest);
             stack.push(rightrequest);
         }
-        
+
         // Set parent ptr if any
         if (req.ptr) *req.ptr = node;
     }

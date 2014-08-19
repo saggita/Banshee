@@ -62,15 +62,12 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& sampl
             
             /// Check for an occlusion
             float shadow = world.Intersect(shadowray) ? 0.f : 1.f;
-            
-            /// Calc ndotwi factor
-            float ndotwi = dot(wi, isect.n);
-            
-            if (shadow > 0.f && ndotwi > 0.f && le.sqnorm() > 0.f)
+
+            if (shadow > 0.f && le.sqnorm() > 0.f)
             {
                 Material const& mat = *world.materials_[isect.m];
                 
-                radiance +=  ndotwi * le * shadow * mat.Evaluate(isect, wi, wo);
+                radiance +=  le * shadow * mat.Evaluate(isect, wi, wo);
             }
         }
     }

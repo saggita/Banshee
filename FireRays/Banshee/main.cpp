@@ -163,11 +163,11 @@ std::unique_ptr<World> BuildWorldSibenik(TextureSystem const& texsys)
     //Bvh* bvh = new Bvh();
     // Create camera
     //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
-    Camera* camera = new PerscpectiveCamera(float3(-16.f, -7.f, 0), float3(1, -7.3f, 0), float3(0, 1, 0), float2(0.005f, 10000.f), PI / 3, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(-16.f, -7.f, 0), float3(1, -8.f, 0), float3(0, 1, 0), float2(0.005f, 10000.f), PI / 3, 1.f);
     //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(1,0,0), float3(0, 1, 0), float2(0.01f, 10000.f));
 
     // Create lights
-    PointLight* light1 = new PointLight(float3(0.f, 1.2f, 0.f), 100.f * float3(0.97f, 0.85f, 0.55f));
+    PointLight* light1 = new PointLight(float3(-3.f, 0.f, 0.f), 100.f * float3(0.97f, 0.85f, 0.55f));
 
     rand_init();
 
@@ -277,6 +277,81 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
     return std::unique_ptr<World>(world);
 }
 
+
+std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
+{
+    // Create world 
+    World* world = new World();
+    // Create accelerator
+    SimpleSet* set = new SimpleSet();
+    // Create camera
+    Camera* camera = new PerscpectiveCamera(float3(0, 3,-3), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    // Create lights
+    PointLight* light1 = new PointLight(float3(5, 5, 5), 30.f * float3(3.f, 3.f, 3.f));
+    //PointLight* light2 = new PointLight(float3(-5, 5, -2), 0.6 * float3(3.f, 2.9f, 2.4f));
+
+    rand_init();
+
+     // Add ground plane
+    float3 vertices[4] = {
+        float3(-1, 0, -1),
+        float3(-1, 0, 1),
+        float3(1, 0, 1),
+        float3(1, 0, -1)
+    };
+
+    float3 normals[4] = {
+        float3(0, 1, 0),
+        float3(0, 1, 0),
+        float3(0, 1, 0),
+        float3(0, 1, 0)
+    };
+
+    float2 uvs[4] = {
+        float2(0, 0),
+        float2(0, 1),
+        float2(1, 1),
+        float2(1, 0)
+    };
+
+    int indices[6] = {
+        0, 3, 1,
+        3, 1, 2
+    };
+
+    int materials[2] = {0,0};
+
+    matrix worldmat = translation(float3(0, -2, 0)) * scale(float3(5, 1, 5));
+
+    Mesh* mesh = new Mesh(&vertices[0].x, 4, sizeof(float3),
+                          &normals[0].x, 4, sizeof(float3),
+                          &uvs[0].x, 4, sizeof(float2),
+                          indices, sizeof(int),
+                          indices, sizeof(int),
+                          indices, sizeof(int),
+                          materials, sizeof(int),
+                          2, worldmat, inverse(worldmat));
+
+    set->Emplace(mesh);
+
+    // Attach accelerator to world
+    world->accelerator_ = std::unique_ptr<Primitive>(set);
+    // Attach camera
+    world->camera_ = std::unique_ptr<Camera>(camera);
+    // Attach point lights
+    world->lights_.push_back(std::unique_ptr<Light>(light1));
+    // Set background
+    world->bgcolor_ = float3(0.3f, 0.4f, 0.3f);
+
+    // Build materials
+
+    Matte* matte4 = new Matte(texsys, float3(1.f, 1.f, 1.f), "", "rc.png");
+    world->materials_.push_back(std::unique_ptr<Material>(matte4));
+
+    // Return world
+    return std::unique_ptr<World>(world);
+}
+
 int main()
 {
     try
@@ -321,7 +396,7 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane 
-            new GiTracer(3, 3.f), // Tracer
+            new GiTracer(2, 3.f), // Tracer
             new RegularSampler(16), // Image sampler
             new RandomSampler(1, new McRng()), // Light sampler
             new MyReporter() // Progress reporter

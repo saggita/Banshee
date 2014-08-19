@@ -22,6 +22,7 @@ float3 OiioTextureSystem::Sample(std::string const& filename, float2 const& uv, 
     options.nchannels = 3;
     options.swrap = TextureOpt::WrapPeriodic;
     options.twrap = TextureOpt::WrapPeriodic;
+    options.interpmode = TextureOpt::InterpClosest;
 
     float3 result;
 

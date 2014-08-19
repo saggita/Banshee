@@ -33,13 +33,10 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler) con
             
             // Indirect incoming light
             float3 le = Li(newray, world, lightsampler);
-            
-            // ndotwi factor
-            float ndotwi = dot(newray.d, isect.n);
-            
-            if (ndotwi > 0.f && bsdf.sqnorm() > 0.f && le.sqnorm() > 0.f)
+
+            if (bsdf.sqnorm() > 0.f && le.sqnorm() > 0.f)
             {
-                radiance += indirect_contrib_ * bsdf * le * ndotwi;
+                radiance += indirect_contrib_ * bsdf * le;
             }
         }
     }

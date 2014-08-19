@@ -12,10 +12,14 @@ class Matte : public Material
 {
 public:
     // If diffuse map is specified it is used as a diffuse color, otherwise diffuse color is used
-    Matte (TextureSystem const& texturesys, float3 const& diffuse, std::string const& diffusemap = "")
+    Matte (TextureSystem const& texturesys, 
+        float3 const& diffuse, 
+        std::string const& diffusemap = "",
+        std::string const& normalmap = "")
         : Material(texturesys)
         , diffuse_(diffuse)
         , diffusemap_(diffusemap)
+        , normalmap_(normalmap)
         , bsdf_(new Lambert())
     {
     }
@@ -23,24 +27,47 @@ public:
     // Sample material and return outgoing ray direction along with combined BSDF value
     float3 Sample(Primitive::Intersection const& isect, float3 const& wi, float3& wo, float& pdf) const
     {
+        // Copy to be able to alter normal
+        Primitive::Intersection isectlocal = isect;
+
+        // TODO: move to material class
+        if (!normalmap_.empty())
+        {
+            float3 normal = 2.f * texturesys_.Sample(normalmap_, isect.uv, float2(0,0)) - float3(1.f, 1.f, 1.f);
+            isectlocal.n = normalize(isect.n * normal.z + isect.dpdu * normal.x - isect.dpdv * normal.y);
+        }
 
         // TODO: add support for ray differentials
+        float  ndotwi = std::max(dot(isectlocal.n, wi), 0.f);
         float3 kd = diffusemap_.empty() ? diffuse_ : texturesys_.Sample(diffusemap_, isect.uv, float2(0,0));
-        return kd * bsdf_->Sample(isect, wi, wo, pdf);
+        return kd * bsdf_->Sample(isectlocal, wi, wo, pdf) * ndotwi;
     }
 
     // Evaluate combined BSDF value
     float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
     {
+        // Copy to be able to alter normal
+        Primitive::Intersection isectlocal = isect;
+
+        // TODO: move to material class
+        if (!normalmap_.empty())
+        {
+            float3 normal = 2.f * texturesys_.Sample(normalmap_, isect.uv, float2(0,0)) - float3(1.f, 1.f, 1.f);
+            isectlocal.n = normalize(isect.n * normal.z + isect.dpdu * normal.x - isect.dpdv * normal.y);
+        }
+
         // TODO: add support for ray differentials
+        float  ndotwi = std::max(dot(isectlocal.n, wi), 0.f);
         float3 kd = diffusemap_.empty() ? diffuse_ : texturesys_.Sample(diffusemap_, isect.uv, float2(0,0));
-        return kd * bsdf_->Evaluate(isect, wi, wo);
+        return kd * bsdf_->Evaluate(isectlocal, wi, wo) * ndotwi;
     }
 
     // Diffuse color
     float3 diffuse_;
     // Diffuse map
     std::string diffusemap_;
+    // Normal map
+    std::string normalmap_;
     // BSDF
     std::unique_ptr<Bsdf> bsdf_;
 };

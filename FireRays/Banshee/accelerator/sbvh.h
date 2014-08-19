@@ -12,9 +12,11 @@ public:
     // Pass triangle intersection cost compared to unit node traversal cost
     // 0 - no cost (intersection is free)
     // FLT_MAX - maximum cost (any intersection is heavier than any traversal)
-    Sbvh(float trisah, bool usespatial = true)
+    Sbvh(float trisah, int maxleafprims = 32, bool usespatial = true, int maxspatial = 4096)
         : trisah_(trisah)
+        , maxleafprims_(maxleafprims)
         , usespatial_(usespatial)
+        , maxspatial_(maxspatial)
     {
     }
 
@@ -39,7 +41,7 @@ private:
     };
 
     // Find best object split based on SAH
-    Split FindObjectSplit(std::vector<PrimitiveRef> const& primrefs, int startidx, int numprims, bbox const& bounds) const;
+    Split FindObjectSplit(std::vector<PrimitiveRef> const& primrefs, int startidx, int numprims, bbox const& bounds, bbox const& centroid_bounds) const;
     // Find best spatial split based on SAH
     Split FindSpatialSplit(std::vector<PrimitiveRef> const& primrefs, int startidx, int numprims, bbox const& bounds) const;
     // Perform object split
@@ -53,6 +55,10 @@ private:
     float trisah_;
     // Whether use spatial splits or not
     bool usespatial_;
+    // Maximum allowed number of primitives in the leaf
+    int maxleafprims_;
+    // Maximum batch size allowed for spatial split
+    int maxspatial_;
 };
 
 #endif //SBVH_H

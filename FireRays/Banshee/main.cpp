@@ -25,6 +25,7 @@
 #include "tracer/aotracer.h"
 #include "light/pointlight.h"
 #include "sampler/random_sampler.h"
+#include "sampler/regular_sampler.h"
 #include "rng/mcrng.h"
 #include "material/matte.h"
 #include "texture/oiio_texturesystem.h"
@@ -38,7 +39,7 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     World* world = new World();
     // Create accelerator
     //SimpleSet* set = new SimpleSet();
-    Bvh* bvh = new Bvh();
+    Bvh* bvh = new Sbvh(10.f, 8);
     // Create camera
     Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
@@ -95,8 +96,8 @@ std::unique_ptr<World> BuildWorldSponza(TextureSystem const& texsys)
     World* world = new World();
     // Create accelerator
     //SimpleSet* set = new SimpleSet();
-    //Bvh* bvh = new Sbvh(10.f);
-    Bvh* bvh = new Bvh();
+    Bvh* bvh = new Sbvh(10.f, 8);
+    //Bvh* bvh = new Bvh();
     // Create camera
     //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     Camera* camera = new PerscpectiveCamera(float3(-50, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
@@ -157,7 +158,7 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
     World* world = new World();
     // Create accelerator
     //SimpleSet* set = new SimpleSet();
-    Bvh* bvh = new Sbvh(10.f);
+    Bvh* bvh = new Sbvh(10.f, false);
     //Bvh* bvh = new Bvh();
     // Create camera
     //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
@@ -225,7 +226,7 @@ int main()
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldDragon(texsys);
+        std::unique_ptr<World> world = BuildWorldSponza(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -257,8 +258,8 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane 
-            new DiTracer(), // Tracer
-            new RandomSampler(8, new McRng()), // Image sampler
+            new GiTracer(2, 3.f), // Tracer
+            new RegularSampler(4), // Image sampler
             new RandomSampler(1, new McRng()), // Light sampler
             new MyReporter() // Progress reporter
             );

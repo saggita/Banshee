@@ -5,10 +5,15 @@
 #include <cassert>
 #include <stack>
 #include <numeric>
+#include <iostream>
 
 // Build function
 void Sbvh::BuildImpl(std::vector<Primitive*> const& prims)
 {
+    // Count splits
+    int numobjsplits = 0;
+    int numspatialsplits = 0;
+
     // Structure describing split request
     struct SplitRequest
     {
@@ -42,13 +47,15 @@ void Sbvh::BuildImpl(std::vector<Primitive*> const& prims)
         Node* node = nodes_.back().get();
         node->bounds = bbox();
 
-        // Calc bbox
+        // Calc bounds for primitives and centroids
+        bbox centroid_bounds = bbox();
         for (int i = req.startidx; i < req.startidx + req.numprims; ++i)
         {
             node->bounds = bboxunion(node->bounds, primrefs[i].bounds);
+            centroid_bounds = bboxunion(centroid_bounds, primrefs[i].bounds.center());
         }
 
-        // Create leaf node if we have enough prims
+        // Create leaf node if we have only a single prim
         if (req.numprims < 2)
         {
             node->type = kLeaf;
@@ -61,15 +68,33 @@ void Sbvh::BuildImpl(std::vector<Primitive*> const& prims)
         }
         else
         {
-            node->type = kInternal;
-            // Create two leafs
             // Find best object split
-            Split objsplit = FindObjectSplit(primrefs, req.startidx, req.numprims, node->bounds);
+            Split objsplit = FindObjectSplit(primrefs, req.startidx, req.numprims, node->bounds, centroid_bounds);
             // Find best spatial split
             Split spatialsplit = FindSpatialSplit(primrefs, req.startidx, req.numprims, node->bounds);
+            // Calculate leaf creation cost: FLT_MAX if we cannot create leaf
+            float leafsah = req.numprims < maxleafprims_ ? (req.numprims * trisah_) : std::numeric_limits<float>::max(); 
+            float minsah = std::min(leafsah, std::min(spatialsplit.sah, objsplit.sah));
 
-            if (spatialsplit.sah < objsplit.sah)
+            if (minsah == objsplit.sah)
             {
+                node->type = kInternal;
+                ++numobjsplits;
+                int idx = PerformObjectSplit(objsplit, primrefs, req.startidx, req.numprims);
+
+                // Left request
+                SplitRequest leftrequest = {req.startidx, idx, &node->lc};
+                // Right request
+                SplitRequest rightrequest = {req.startidx + idx, req.numprims - idx,  &node->rc};
+
+                // Put those to stack
+                stack.push(leftrequest);
+                stack.push(rightrequest);
+            }
+            else if (minsah == spatialsplit.sah)
+            {
+                node->type = kInternal;
+                ++numspatialsplits;
                 int idx = 0;
                 int newnumprims = req.numprims;
 
@@ -88,16 +113,14 @@ void Sbvh::BuildImpl(std::vector<Primitive*> const& prims)
             }
             else
             {
-                int idx = PerformObjectSplit(objsplit, primrefs, req.startidx, req.numprims);
-
-                // Left request
-                SplitRequest leftrequest = {req.startidx, idx, &node->lc};
-                // Right request
-                SplitRequest rightrequest = {req.startidx + idx, req.numprims - idx,  &node->rc};
-
-                // Put those to stack
-                stack.push(leftrequest);
-                stack.push(rightrequest);
+                // Create leaf node
+                node->type = kLeaf;
+                node->startidx = (int)primitives_.size();
+                node->numprims = req.numprims;
+                for (int i = req.startidx; i < req.startidx + req.numprims; ++i)
+                {
+                    primitives_.push_back(prims[primrefs[i].idx]);
+                }
             }
         }
 
@@ -108,10 +131,13 @@ void Sbvh::BuildImpl(std::vector<Primitive*> const& prims)
     // Set root_ pointer
     root_ = nodes_[0].get();
 
+    // Output debug data
+    std::cout << "Sbvh: number of object splits = " << numobjsplits << "\n";
+    std::cout << "Sbvh: number of spatial splits = " << numspatialsplits << "\n";
 }
 
 
-Sbvh::Split Sbvh::FindObjectSplit(std::vector<PrimitiveRef> const& primrefs, int startidx, int numprims, bbox const& bounds) const
+Sbvh::Split Sbvh::FindObjectSplit(std::vector<PrimitiveRef> const& primrefs, int startidx, int numprims, bbox const& bounds, bbox const& centroid_bounds) const
 {
     Split split;
     // SAH implementation
@@ -129,11 +155,9 @@ Sbvh::Split Sbvh::FindObjectSplit(std::vector<PrimitiveRef> const& primrefs, int
     // PerformObjectSplit simply splits in half
     // in this case
     float3 extents = bounds.extents();
-    if (extents.x == 0.f &&
-        extents.y == 0.f &&
-        extents.z == 0.f)
+    float3 centroid_extents = centroid_bounds.extents();
+    if (centroid_extents.sqnorm() == 0.f)
     {
-        split.sah = std::numeric_limits<float>::quiet_NaN();
         return split;
     }
     
@@ -149,13 +173,13 @@ Sbvh::Split Sbvh::FindObjectSplit(std::vector<PrimitiveRef> const& primrefs, int
     // Precompute inverse parent area
     float invarea = 1.f / bounds.surface_area();
     // Precompute min point
-    float3 rootmin = bounds.pmin;
+    float3 rootmin = centroid_bounds.pmin;
 
     // Evaluate all dimensions
     for(int axis = 0; axis < 3; ++axis)
     {
         // Range for histogram
-        float centroid_rng = extents[axis];
+        float centroid_rng = centroid_extents[axis];
         float invcentroid_rng = 1.f / centroid_rng;
 
         // If the box is degenerate in that dimension skip it
@@ -182,6 +206,7 @@ Sbvh::Split Sbvh::FindObjectSplit(std::vector<PrimitiveRef> const& primrefs, int
 
         // Start best SAH search
         // i is current split candidate (split between i and i + 1) 
+        // TODO: implement O(n) search here, this one is O(n^2)
         for (int i = 0; i < kNumBins - 1; ++i)
         {
             // First part metrics
@@ -288,9 +313,8 @@ Sbvh::Split Sbvh::FindSpatialSplit(std::vector<PrimitiveRef> const& primrefs, in
     float3 extents = bounds.extents();
  
     // If there are too few primitives don't split them
-    if (numprims < kNumBins || (extents.sqnorm() == 0.f) || !usespatial_)
+    if (numprims < kNumBins || (extents.sqnorm() == 0.f) || !usespatial_ || numprims > maxspatial_)
     {
-        split.sah = std::numeric_limits<float>::quiet_NaN();
         return split;
     }
 

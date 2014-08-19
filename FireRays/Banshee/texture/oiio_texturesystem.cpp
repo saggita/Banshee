@@ -20,6 +20,8 @@ float3 OiioTextureSystem::Sample(std::string const& filename, float2 const& uv, 
     ustring name = ustring(filename.c_str());
     TextureOpt options = TextureOpt();
     options.nchannels = 3;
+    options.swrap = TextureOpt::WrapPeriodic;
+    options.twrap = TextureOpt::WrapPeriodic;
 
     float3 result;
 

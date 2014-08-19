@@ -41,11 +41,18 @@ void AssimpAssetImporter::Import()
     {
         aiMaterial* material = scene->mMaterials[i];
 
+        std::string texture ="";
+        aiString path;
+        if(material->GetTexture(aiTextureType_DIFFUSE, 0, &path) == AI_SUCCESS) 
+        {
+            texture = path.data;
+        }
+
         aiColor3D diffuse(0,0,0);
         material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse);
 
         float3 kd = float3(diffuse.r, diffuse.g, diffuse.b);
-        Material* m = new Matte(texsys_, kd);
+        Material* m = new Matte(texsys_, kd, texture);
 
         if (onmaterial_)
         {

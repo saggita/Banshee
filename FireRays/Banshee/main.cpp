@@ -152,6 +152,69 @@ std::unique_ptr<World> BuildWorldSponza(TextureSystem const& texsys)
     return std::unique_ptr<World>(world);
 }
 
+
+std::unique_ptr<World> BuildWorldSibenik(TextureSystem const& texsys)
+{
+    // Create world
+    World* world = new World();
+    // Create accelerator
+    //SimpleSet* set = new SimpleSet();
+    Bvh* bvh = new Sbvh(10.f, 8);
+    //Bvh* bvh = new Bvh();
+    // Create camera
+    //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(-16.f, -7.f, 0), float3(1, -7.3f, 0), float3(0, 1, 0), float2(0.005f, 10000.f), PI / 3, 1.f);
+    //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(1,0,0), float3(0, 1, 0), float2(0.01f, 10000.f));
+
+    // Create lights
+    PointLight* light1 = new PointLight(float3(0.f, 1.2f, 0.f), 100.f * float3(0.97f, 0.85f, 0.55f));
+
+    rand_init();
+
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.objm");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.objm");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/sibenik/sibenik.obj");
+
+    assimp.onmaterial_ = [&world](Material* mat)->int
+    {
+        world->materials_.push_back(std::unique_ptr<Material>(mat));
+        return (int)(world->materials_.size() - 1);
+    };
+
+    std::vector<Primitive*> primitives;
+    assimp.onprimitive_ = [&primitives](Primitive* prim)
+    //assimp.onprimitive_ = [&set](Primitive* prim)
+    {
+        //set->Emplace(prim);
+        primitives.push_back(prim);
+    };
+
+    // Start assets import
+    assimp.Import();
+
+    // Build acceleration structure
+    auto starttime = std::chrono::high_resolution_clock::now();
+    bvh->Build(primitives);
+    auto endtime = std::chrono::high_resolution_clock::now();
+    auto exectime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime - starttime);
+
+    std::cout << "Acceleration structure constructed in " << exectime.count() << " ms\n";
+
+    // Attach accelerator to world
+    world->accelerator_ = std::unique_ptr<Primitive>(bvh);
+    //world->accelerator_ = std::unique_ptr<Primitive>(set);
+    // Attach camera
+    world->camera_ = std::unique_ptr<Camera>(camera);
+    // Attach point lights
+    world->lights_.push_back(std::unique_ptr<Light>(light1));
+    //world->lights_.push_back(std::unique_ptr<Light>(light2));
+    // Set background
+    world->bgcolor_ = float3(0.1f, 0.1f, 0.1f);
+    
+    // Return world
+    return std::unique_ptr<World>(world);
+}
+
 std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
 {
     // Create world
@@ -226,7 +289,7 @@ int main()
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldSponza(texsys);
+        std::unique_ptr<World> world = BuildWorldSibenik(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -258,8 +321,8 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane 
-            new GiTracer(2, 3.f), // Tracer
-            new RegularSampler(4), // Image sampler
+            new GiTracer(3, 3.f), // Tracer
+            new RegularSampler(16), // Image sampler
             new RandomSampler(1, new McRng()), // Light sampler
             new MyReporter() // Progress reporter
             );

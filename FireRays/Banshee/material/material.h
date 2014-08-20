@@ -1,6 +1,8 @@
 #ifndef MATERIAL_H
 #define MATERIAL_H
 
+#include <string>
+
 #include "../texture/texturesystem.h"
 #include "../primitive/primitive.h"
 #include "../bsdf/bsdf.h"
@@ -28,7 +30,16 @@ public:
     virtual float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const = 0;
 
 protected:
+    // Function to support normal mapping
+    virtual void MapNormal(std::string const& nmap, Primitive::Intersection& isect) const;
+
     TextureSystem const& texturesys_;
 };
+
+inline void Material::MapNormal(std::string const& nmap, Primitive::Intersection& isect) const
+{
+    float3 normal = 2.f * texturesys_.Sample(nmap, isect.uv, float2(0,0)) - float3(1.f, 1.f, 1.f);
+    isect.n = normalize(isect.n * normal.z + isect.dpdu * normal.x - isect.dpdv * normal.y);
+}
 
 #endif // MATERIAL_H

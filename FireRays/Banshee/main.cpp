@@ -28,6 +28,7 @@
 #include "sampler/regular_sampler.h"
 #include "rng/mcrng.h"
 #include "material/matte.h"
+#include "material/phong.h"
 #include "texture/oiio_texturesystem.h"
 #include "import/assimp_assetimporter.h"
 #include "util/progressreporter.h"
@@ -163,7 +164,7 @@ std::unique_ptr<World> BuildWorldSibenik(TextureSystem const& texsys)
     //Bvh* bvh = new Bvh();
     // Create camera
     //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
-    Camera* camera = new PerscpectiveCamera(float3(-16.f, -7.f, 0), float3(1, -8.f, 0), float3(0, 1, 0), float2(0.005f, 10000.f), PI / 3, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(-16.f, -13.f, 0), float3(1, -15.f, 0), float3(0, 1, 0), float2(0.005f, 10000.f), PI / 3, 1.f);
     //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(1,0,0), float3(0, 1, 0), float2(0.01f, 10000.f));
 
     // Create lights
@@ -283,9 +284,9 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
     // Create world 
     World* world = new World();
     // Create accelerator
-    SimpleSet* set = new SimpleSet();
+    Bvh* bvh = new Bvh();
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(0, 3,-3), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(0, 5,-10), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     // Create lights
     PointLight* light1 = new PointLight(float3(5, 5, 5), 30.f * float3(3.f, 3.f, 3.f));
     //PointLight* light2 = new PointLight(float3(-5, 5, -2), 0.6 * float3(3.f, 2.9f, 2.4f));
@@ -332,10 +333,19 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
                           materials, sizeof(int),
                           2, worldmat, inverse(worldmat));
 
-    set->Emplace(mesh);
+    std::vector<Primitive*> prims;
+    prims.push_back(mesh);
+
+    worldmat = translation(float3(-2, 0, 0));
+    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 1));
+
+    worldmat = translation(float3(2, 0, 0));
+    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 2));
+
+    bvh->Build(prims);
 
     // Attach accelerator to world
-    world->accelerator_ = std::unique_ptr<Primitive>(set);
+    world->accelerator_ = std::unique_ptr<Primitive>(bvh);
     // Attach camera
     world->camera_ = std::unique_ptr<Camera>(camera);
     // Attach point lights
@@ -345,8 +355,12 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
 
     // Build materials
 
-    Matte* matte4 = new Matte(texsys, float3(1.f, 1.f, 1.f), "", "rc.png");
-    world->materials_.push_back(std::unique_ptr<Material>(matte4));
+    Matte* matte0 = new Matte(texsys, float3(1.f, 1.f, 1.f), "", "rc.png");
+    Matte* matte1 = new Matte(texsys, float3(1.f, 1.f, 1.f), "test.png");
+    Phong* phong = new Phong(texsys, float3(0.3f, 0.3f, 0.f), float3(0.5f, 0.5f, 0.5f));
+    world->materials_.push_back(std::unique_ptr<Material>(matte0));
+    world->materials_.push_back(std::unique_ptr<Material>(matte1));
+    world->materials_.push_back(std::unique_ptr<Material>(phong));
 
     // Return world
     return std::unique_ptr<World>(world);
@@ -396,7 +410,7 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane 
-            new GiTracer(2, 3.f), // Tracer
+            new GiTracer(3, 1.f), // Tracer
             new RegularSampler(16), // Image sampler
             new RandomSampler(1, new McRng()), // Light sampler
             new MyReporter() // Progress reporter

@@ -30,11 +30,9 @@ public:
         // Copy to be able to alter normal
         Primitive::Intersection isectlocal = isect;
 
-        // TODO: move to material class
         if (!normalmap_.empty())
         {
-            float3 normal = 2.f * texturesys_.Sample(normalmap_, isect.uv, float2(0,0)) - float3(1.f, 1.f, 1.f);
-            isectlocal.n = normalize(isect.n * normal.z + isect.dpdu * normal.x - isect.dpdv * normal.y);
+            MapNormal(normalmap_, isectlocal);
         }
 
         // TODO: add support for ray differentials
@@ -49,11 +47,9 @@ public:
         // Copy to be able to alter normal
         Primitive::Intersection isectlocal = isect;
 
-        // TODO: move to material class
         if (!normalmap_.empty())
         {
-            float3 normal = 2.f * texturesys_.Sample(normalmap_, isect.uv, float2(0,0)) - float3(1.f, 1.f, 1.f);
-            isectlocal.n = normalize(isect.n * normal.z + isect.dpdu * normal.x - isect.dpdv * normal.y);
+            MapNormal(normalmap_, isectlocal);
         }
 
         // TODO: add support for ray differentials

@@ -10,6 +10,7 @@
 #include "scene.h"
 
 #include "../material/matte.h"
+#include "../material/phong.h"
 #include "../primitive/mesh.h"
 
 using namespace Assimp;
@@ -57,8 +58,12 @@ void AssimpAssetImporter::Import()
         aiColor3D diffuse(0,0,0);
         material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse);
 
+        aiColor3D specular(0,0,0);
+        material->Get(AI_MATKEY_COLOR_SPECULAR, specular);
+
         float3 kd = float3(diffuse.r, diffuse.g, diffuse.b);
-        Material* m = new Matte(texsys_, kd, kdmap, nmap);
+        float3 ks = float3(specular.r, specular.g, specular.b);
+        Material* m = new Phong(texsys_, kd, ks, kdmap, nmap);
 
         if (onmaterial_)
         {

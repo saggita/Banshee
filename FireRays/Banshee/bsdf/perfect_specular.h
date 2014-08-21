@@ -27,7 +27,7 @@ public:
     {
         float3 reflected = normalize(2.f * dot(isect.n, wi) * isect.n - wi);
         float  delta = (reflected - wo).sqnorm(); 
-        return fabsf(delta) < 0.001f ? float3(1.f, 1.f, 1.f) : float3(0.f, 0.f, 0.f);
+        return delta == 0.f ? float3(1.f, 1.f, 1.f) : float3(0.f, 0.f, 0.f);
     }
 };
 

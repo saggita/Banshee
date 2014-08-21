@@ -24,6 +24,7 @@
 #include "tracer/gitracer.h"
 #include "tracer/aotracer.h"
 #include "light/pointlight.h"
+#include "light/directional_light.h"
 #include "sampler/random_sampler.h"
 #include "sampler/regular_sampler.h"
 #include "rng/mcrng.h"
@@ -101,17 +102,17 @@ std::unique_ptr<World> BuildWorldSponza(TextureSystem const& texsys)
     //Bvh* bvh = new Bvh();
     // Create camera
     //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
-    Camera* camera = new PerscpectiveCamera(float3(-50, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(-50, 100.f, 0), float3(1, 100.f, 0), float3(0, 1, 0), float2(0.005f, 10000.f), PI / 3, 1.f);
     //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(1,0,0), float3(0, 1, 0), float2(0.01f, 10000.f));
 
     // Create lights
-    PointLight* light1 = new PointLight(float3(30.f, 1.2f, 0.f), 10000.f * float3(0.97f, 0.85f, 0.55f));
+    DirectionalLight* light1 = new DirectionalLight(float3(-1, -1, -1), 5000.f * float3(0.97f, 0.85f, 0.55f));
 
     rand_init();
 
     //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.objm");
     //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.objm");
-    AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.objm");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.obj");
 
     assimp.onmaterial_ = [&world](Material* mat)->int
     {
@@ -147,7 +148,7 @@ std::unique_ptr<World> BuildWorldSponza(TextureSystem const& texsys)
     world->lights_.push_back(std::unique_ptr<Light>(light1));
     //world->lights_.push_back(std::unique_ptr<Light>(light2));
     // Set background
-    world->bgcolor_ = float3(0.9f, 0.9f, 0.9f);
+    world->bgcolor_ = float3(0.f, 0.f, 0.f);
     
     // Return world
     return std::unique_ptr<World>(world);
@@ -215,6 +216,71 @@ std::unique_ptr<World> BuildWorldSibenik(TextureSystem const& texsys)
     // Return world
     return std::unique_ptr<World>(world);
 }
+
+
+std::unique_ptr<World> BuildWorldMuseum(TextureSystem const& texsys)
+{
+    // Create world
+    World* world = new World();
+    // Create accelerator
+    //SimpleSet* set = new SimpleSet();
+    Bvh* bvh = new Sbvh(10.f, 8);
+    //Bvh* bvh = new Bvh();
+    // Create camera
+    //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(-2.f, -4.f, -13.f), float3(0, -4.f, -13.f), float3(0, 1, 0), float2(0.0025f, 10000.f), PI / 3, 1.f);
+    //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(1,0,0), float3(0, 1, 0), float2(0.01f, 10000.f));
+
+    // Create lights
+    DirectionalLight* light1 = new DirectionalLight(float3(0.25f, -1.f, -1.f), 200.f * float3(0.97f, 0.85f, 0.55f));
+    PointLight* light2 = new PointLight(float3(-8.f, -4.f, -9.f), 200.f * float3(0.97f, 0.85f, 0.55f));
+
+    rand_init();
+
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.objm");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.objm");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/contest/museumhallRD.obj");
+
+    assimp.onmaterial_ = [&world](Material* mat)->int
+    {
+        world->materials_.push_back(std::unique_ptr<Material>(mat));
+        return (int)(world->materials_.size() - 1);
+    };
+
+    std::vector<Primitive*> primitives;
+    assimp.onprimitive_ = [&primitives](Primitive* prim)
+    //assimp.onprimitive_ = [&set](Primitive* prim)
+    {
+        //set->Emplace(prim);
+        primitives.push_back(prim);
+    };
+
+    // Start assets import
+    assimp.Import();
+
+    // Build acceleration structure
+    auto starttime = std::chrono::high_resolution_clock::now();
+    bvh->Build(primitives);
+    auto endtime = std::chrono::high_resolution_clock::now();
+    auto exectime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime - starttime);
+
+    std::cout << "Acceleration structure constructed in " << exectime.count() << " ms\n";
+
+    // Attach accelerator to world
+    world->accelerator_ = std::unique_ptr<Primitive>(bvh);
+    //world->accelerator_ = std::unique_ptr<Primitive>(set);
+    // Attach camera
+    world->camera_ = std::unique_ptr<Camera>(camera);
+    // Attach point lights
+    world->lights_.push_back(std::unique_ptr<Light>(light1));
+    world->lights_.push_back(std::unique_ptr<Light>(light2));
+    // Set background
+    world->bgcolor_ = float3(0.1f, 0.1f, 0.1f);
+    
+    // Return world
+    return std::unique_ptr<World>(world);
+}
+
 
 std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
 {
@@ -288,7 +354,8 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
     // Create camera
     Camera* camera = new PerscpectiveCamera(float3(0, 5,-10), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     // Create lights
-    PointLight* light1 = new PointLight(float3(5, 5, 5), 30.f * float3(3.f, 3.f, 3.f));
+    //PointLight* light1 = new PointLight(float3(0, 5, 5), 30.f * float3(3.f, 3.f, 3.f));
+    DirectionalLight* light1 = new DirectionalLight(float3(0, -1, 0), float3(1.f, 1.f, 1.f));
     //PointLight* light2 = new PointLight(float3(-5, 5, -2), 0.6 * float3(3.f, 2.9f, 2.4f));
 
     rand_init();
@@ -355,9 +422,9 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
 
     // Build materials
 
-    Matte* matte0 = new Matte(texsys, float3(1.f, 1.f, 1.f), "", "rc.png");
+    Matte* matte0 = new Matte(texsys, float3(1.f, 1.f, 1.f), "", "rc.bmp");
     Matte* matte1 = new Matte(texsys, float3(1.f, 1.f, 1.f), "test.png");
-    Phong* phong = new Phong(texsys, float3(0.3f, 0.3f, 0.f), float3(0.5f, 0.5f, 0.5f));
+    Phong* phong = new Phong(texsys, float3(0.3f, 0.3f, 0.f), float3(0.5f, 0.5f, 0.5f), "mramor6x6.png");
     world->materials_.push_back(std::unique_ptr<Material>(matte0));
     world->materials_.push_back(std::unique_ptr<Material>(matte1));
     world->materials_.push_back(std::unique_ptr<Material>(phong));
@@ -378,7 +445,7 @@ int main()
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldSibenik(texsys);
+        std::unique_ptr<World> world = BuildWorldMuseum(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;

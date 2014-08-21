@@ -55,7 +55,10 @@ inline bool   bbox::contains(float3 const& p) const
 
 inline bbox bboxunion(bbox const& box1, bbox const& box2)
 {
-    return bbox(vmin(box1.pmin, box2.pmin), vmax(box1.pmax, box2.pmax));
+    bbox res;
+    res.pmin = vmin(box1.pmin, box2.pmin);
+    res.pmax = vmax(box1.pmax, box2.pmax);
+    return res;
 }
 
 inline bbox intersection(bbox const& box1, bbox const& box2)

@@ -59,6 +59,7 @@ bool IndexedTriangle::Intersect(ray& r, float& t, Intersection& isect) const
 
         float det = du1 * dv2 - dv1 * du2;
 
+        // TODO: bug here, need to transform dpdu dpdv back to world space
         if (det != 0.f)
         {
             float invdet = 1.f / det;

@@ -204,33 +204,30 @@ Sbvh::Split Sbvh::FindObjectSplit(std::vector<PrimitiveRef> const& primrefs, int
             bins[axis][binidx].bounds = bboxunion(bins[axis][binidx].bounds, primref.bounds);
         }
 
+        bbox rightbounds[kNumBins-1];
+
+        // Start with 1-bin right box
+        bbox rightbox = bbox();
+        for (int i = kNumBins - 1; i > 0; --i)
+        {
+            rightbox = bboxunion(rightbox, bins[axis][i].bounds);
+            rightbounds[i-1] = rightbox;
+        }
+
+        bbox leftbox = bbox();
+        int  leftcount = 0;
+        int  rightcount = numprims;
+
         // Start best SAH search
         // i is current split candidate (split between i and i + 1) 
-        // TODO: implement O(n) search here, this one is O(n^2)
         for (int i = 0; i < kNumBins - 1; ++i)
         {
-            // First part metrics
-            bbox h1box = bbox();
-            int  h1count = 0;
-            // Compute the first part
-            for(int j = 0; j <= i; ++j)
-            {
-                h1box = bboxunion(h1box, bins[axis][j].bounds);
-                h1count += bins[axis][j].count;
-            }
-
-            // Second part metrics
-            bbox h2box = bbox();
-            int h2count = 0;
-            // Compute second part
-            for(unsigned j = i + 1; j < kNumBins; ++j)
-            {
-                h2box = bboxunion(h2box, bins[axis][j].bounds);
-                h2count += bins[axis][j].count;
-            }
+            leftbox = bboxunion(leftbox, bins[axis][i].bounds);
+            leftcount += bins[axis][i].count;
+            rightcount -= bins[axis][i].count;
 
             // Compute SAH
-            float sah = 1.f + trisah_ * (h1count * h1box.surface_area() + h2count * h2box.surface_area()) * invarea;
+            float sah = 1.f + trisah_ * (leftcount * leftbox.surface_area() + rightcount * rightbounds[i].surface_area()) * invarea;
 
             // Check if it is better than what we found so far
             if (sah < split.sah)
@@ -245,7 +242,7 @@ Sbvh::Split Sbvh::FindObjectSplit(std::vector<PrimitiveRef> const& primrefs, int
     // Choose split plane
     if (splitidx != -1)
     {
-        split.border = bins[split.dim][splitidx + 1].bounds.center()[split.dim];
+        split.border = rootmin[split.dim] + (splitidx + 1) * (centroid_extents[split.dim] / kNumBins);  
     }
 
     return split;

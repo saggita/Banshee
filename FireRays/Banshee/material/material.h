@@ -38,7 +38,10 @@ protected:
 
 inline void Material::MapNormal(std::string const& nmap, Primitive::Intersection& isect) const
 {
-    float3 normal = 2.f * texturesys_.Sample(nmap, isect.uv, float2(0,0)) - float3(1.f, 1.f, 1.f);
+    // We dont need bilinear interpolation while fetching normals
+    // Use point instead
+    TextureSystem::Options opts(TextureSystem::Options::kPoint);
+    float3 normal = 2.f * texturesys_.Sample(nmap, isect.uv, float2(0,0), opts) - float3(1.f, 1.f, 1.f);
     isect.n = normalize(isect.n * normal.z + isect.dpdu * normal.x - isect.dpdv * normal.y);
 }
 

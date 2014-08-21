@@ -36,21 +36,21 @@ float3 DiTracer::Li(ray& r, World const& world, Sampler const& lightsampler) con
 float3 DiTracer::Di(World const& world, Light const& light, Sampler const& sampler, float3 const& wo, Primitive::Intersection& isect) const
 {
     float  pdf; 
-    float3 light_sample;
+    float3 lightdir;
     float3 radiance = float3(0,0,0);
     int numsamples = sampler.num_samples();
     
     for (int i=0; i<numsamples; ++i)
     {
         float2 sample = sampler.Sample2D();
-        float3 le = light.Sample(isect, sample, light_sample, pdf);
+        float3 le = light.Sample(isect, sample, lightdir, pdf);
         
         if (pdf > 0.f)
         {
             
             /// Simple diffuse shading for now
-            float3 wi = normalize(light_sample - isect.p);
-            float  dist = sqrtf((light_sample - isect.p).sqnorm());
+            float3 wi = normalize(lightdir);
+            float  dist = sqrtf(lightdir.sqnorm());
             
             /// Spawn shadow ray
             ray shadowray;

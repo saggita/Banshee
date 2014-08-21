@@ -18,9 +18,8 @@ public:
     ~OiioTextureSystem();
 
     // Filtered texture lookup
-    // TODO: add support for texturing options
     // TODO: add support for float4 lookups
-    float3 Sample(std::string const& filename, float2 const& uv, float2 const& duvdx) const;
+    float3 Sample(std::string const& filename, float2 const& uv, float2 const& duvdx, Options const& opts = Options()) const;
 
 private:
     OIIO_NAMESPACE::TextureSystem* texturesys_;

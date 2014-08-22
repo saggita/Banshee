@@ -489,13 +489,13 @@ int main()
 
         // File name to render
         std::string filename = "normals.png";
-        int2 imgres = int2(256, 256);
+        int2 imgres = int2(512,512);
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldMuseum(texsys);
+        std::unique_ptr<World> world = BuildWorldDragon(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -527,10 +527,10 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane 
-            new GiTracer(1, 1.f), // Tracer
-            new RegularSampler(16), // Image sampler
+            new GiTracer(3, 1.f), // Tracer
+            new RegularSampler(8), // Image sampler
             new RandomSampler(1, new McRng()), // Light sampler
-            new StratifiedSampler(4, new McRng()), // Brdf sampler
+            new StratifiedSampler(1, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter
             );
 

@@ -43,21 +43,27 @@ bool Bvh::Intersect(ray& r, float& t, Intersection& isect) const
     assert(root_);
     // Maintain a stack of nodes to process
     std::stack<Node*> testnodes;
-    // Push root
-    testnodes.push(root_);
     // Precalc inv ray dir for bbox testing
     float3 invrd = float3(1.f / r.d.x, 1.f / r.d.y, 1.f / r.d.z);
-    
+    // Precalc ray direction signs: 1 if negative, 0 otherwise
+    int dirneg[3] = 
+    {
+        r.d.x < 0.f ? 1 : 0,
+        r.d.y < 0.f ? 1 : 0,
+        r.d.z < 0.f ? 1 : 0
+    };
+    // Current node
+    Node* node = root_;
     // Hit flag
     bool hit = false;
     // Hit parametric distance
     float tt = r.t.y;
     // Start processing nodes
-    while (!testnodes.empty())
+    // Changing the code to use more flow control
+    // and skip push\pop when possible
+    // This gives some perf boost
+    for(;;)
     {
-        Node* node = testnodes.top();
-        testnodes.pop();
-        
         if (node->type == kLeaf)
         {
             for (int i = node->startidx; i < node->startidx + node->numprims; ++i)
@@ -71,11 +77,36 @@ bool Bvh::Intersect(ray& r, float& t, Intersection& isect) const
         }
         else
         {
-            if (intersects(r, invrd, node->lc->bounds)) testnodes.push(node->lc);
-            if (intersects(r, invrd, node->rc->bounds)) testnodes.push(node->rc);
+            bool addleft =  intersects(r, invrd, node->lc->bounds, dirneg);
+            bool addright = intersects(r, invrd, node->rc->bounds, dirneg);
+
+            if (addleft)
+            {
+                 if (addright)
+                 {
+                    testnodes.push(node->rc);
+                 }
+                 node = node->lc;
+                 continue;
+            }
+            else if (addright)
+            {
+                node = node->rc;
+                continue;
+            }
         }
-    }
-    
+
+        if (testnodes.empty())
+        {
+            break;
+        }
+        else
+        {
+            node = testnodes.top();
+            testnodes.pop();
+        }
+    } 
+
     return hit;
 }
 
@@ -85,16 +116,23 @@ bool Bvh::Intersect(ray& r) const
     assert(root_);
     // Maintain a stack of nodes to process
     std::stack<Node*> testnodes;
-    // Push root
-    testnodes.push(root_);
     // Precalc inv ray dir for bbox testing
     float3 invrd = float3(1.f / r.d.x, 1.f / r.d.y, 1.f / r.d.z);
-    
-    while (!testnodes.empty())
+    // Precalc ray direction signs: 1 if negative, 0 otherwise
+    int dirneg[3] = 
     {
-        Node* node = testnodes.top();
-        testnodes.pop();
-        
+        r.d.x < 0.f ? 1 : 0,
+        r.d.y < 0.f ? 1 : 0,
+        r.d.z < 0.f ? 1 : 0
+    };
+    // Current node
+    Node* node = root_;
+    // Start processing nodes
+    // Changing the code to use more flow control
+    // and skip push\pop when possible
+    // This gives some perf boost
+    for(;;)
+    {
         if (node->type == kLeaf)
         {
             for (int i = node->startidx; i < node->startidx + node->numprims; ++i)
@@ -107,13 +145,36 @@ bool Bvh::Intersect(ray& r) const
         }
         else
         {
-            if (intersects(r, invrd, node->lc->bounds))
-                testnodes.push(node->lc);
-            if (intersects(r, invrd, node->rc->bounds))
-                testnodes.push(node->rc);
+            bool addleft =  intersects(r, invrd, node->lc->bounds, dirneg);
+            bool addright = intersects(r, invrd, node->rc->bounds, dirneg);
+
+            if (addleft)
+            {
+                 if (addright)
+                 {
+                    testnodes.push(node->rc);
+                 }
+                 node = node->lc;
+                 continue;
+            }
+            else if (addright)
+            {
+                node = node->rc;
+                continue;
+            }
         }
-    }
-    
+
+        if (testnodes.empty())
+        {
+            break;
+        }
+        else
+        {
+            node = testnodes.top();
+            testnodes.pop();
+        }
+    } 
+
     return false;
 }
 
@@ -154,7 +215,6 @@ void Bvh::BuildImpl(std::vector<Primitive*> const& prims)
         node->bounds = bbox();
 
         // Calc bbox
-        // TODO: apply OpenMP reduction
         for (int i = req.startidx; i < req.startidx + req.numprims; ++i)
         {
             node->bounds = bboxunion(node->bounds, prims[primindices[i]]->Bounds());

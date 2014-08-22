@@ -1,6 +1,8 @@
 #ifndef MCRNG_H
 #define MCRNG_H
 
+#include "../math/mathutils.h"
+
 #include "rng.h"
 
 ///< Marsaglia multiply-with-carry psuedo random number generator.  It's very fast
@@ -10,9 +12,11 @@
 class McRng : public Rng
 {
 public:
-    McRng(unsigned z = 362436069, unsigned w = 521288629)
-        : z_(z), w_(w) 
-    { }
+    McRng()
+        : z_(rand_uint())
+        , w_(rand_uint()) 
+    { 
+    }
 
     float NextFloat() const
     {
@@ -31,6 +35,7 @@ public:
     {
         return new McRng();
     }
+
 
 private:
     mutable unsigned z_;

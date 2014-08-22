@@ -36,10 +36,13 @@ public:
     float3 center()  const { return 0.5f * (pmax + pmin); }
     float3 extents() const { return pmax - pmin; }
 
-    bool   contains(float3 const& p) const;
+    bool  contains(float3 const& p) const;
 
     int   maxdim() const;
     float surface_area() const;
+
+    // TODO: this is non-portable, optimization trial for fast intersection test
+    float3 const& operator [] (int i) const { return *(&pmin + i); }
 
     float3 pmin;
     float3 pmax;
@@ -99,6 +102,31 @@ inline bool intersects(ray& r, float3 const& invrd, bbox const& box)
     }
     
     return true;
+}
+
+// Fast bbox test: PBRT book
+inline bool intersects(ray& r, float3 const& invrd, bbox const& box, int dirneg[3]) 
+{
+    // Check for ray intersection against $x$ and $y$ slabs
+    float tmin =  (box[  dirneg[0]].x - r.o.x) * invrd.x;
+    float tmax =  (box[1-dirneg[0]].x - r.o.x) * invrd.x;
+    float tymin = (box[  dirneg[1]].y - r.o.y) * invrd.y;
+    float tymax = (box[1-dirneg[1]].y - r.o.y) * invrd.y;
+    if ((tmin > tymax) || (tymin > tmax))
+        return false;
+    if (tymin > tmin) tmin = tymin;
+    if (tymax < tmax) tmax = tymax;
+
+    // Check for ray intersection against $z$ slab
+    float tzmin = (box[  dirneg[2]].z - r.o.z) * invrd.z;
+    float tzmax = (box[1-dirneg[2]].z - r.o.z) * invrd.z;
+    if ((tmin > tzmax) || (tzmin > tmax))
+        return false;
+    if (tzmin > tmin)
+        tmin = tzmin;
+    if (tzmax < tmax)
+        tmax = tzmax;
+    return (tmin < r.t.y) && (tmax > r.t.x);
 }
 
 inline int bbox::maxdim() const

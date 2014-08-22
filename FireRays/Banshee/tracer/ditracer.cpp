@@ -6,8 +6,9 @@
 #include "../sampler/sampler.h"
 
 #include <algorithm>
+#include <functional>
 
-float3 DiTracer::Li(ray& r, World const& world, Sampler const& lightsampler) const
+float3 DiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
 {
     Primitive::Intersection isect;
     float t = r.t.y;
@@ -39,27 +40,30 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& sampl
     float3 lightdir;
     float3 radiance = float3(0,0,0);
     int numsamples = sampler.num_samples();
-    
+
+    std::vector<float2> samples(numsamples);
+
+    for (int i = 0; i < numsamples; ++i)
+        samples[i] = sampler.Sample2D();
+
     for (int i=0; i<numsamples; ++i)
     {
-        float2 sample = sampler.Sample2D();
-        float3 le = light.Sample(isect, sample, lightdir, pdf);
-        
+        float3 le = light.Sample(isect, samples[i], lightdir, pdf);
+
         if (pdf > 0.f)
         {
-            
             /// Simple diffuse shading for now
             float3 wi = normalize(lightdir);
             float  dist = sqrtf(lightdir.sqnorm());
-            
+
             /// Spawn shadow ray
             ray shadowray;
             shadowray.o = isect.p;
             shadowray.d = wi;
-            
+
             /// TODO: move ray epsilon into some global options object
             shadowray.t = float2(0.002f, dist);
-            
+
             /// Check for an occlusion
             float shadow = world.Intersect(shadowray) ? 0.f : 1.f;
 

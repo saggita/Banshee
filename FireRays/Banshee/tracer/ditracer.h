@@ -16,7 +16,7 @@ public:
     DiTracer(){}
 
     // Estimate a radiance coming from r
-    float3 Li(ray& r, World const& world, Sampler const& lightsampler) const;
+    float3 Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const;
 
 protected:
     virtual float3 Di(World const& world, Light const& light, Sampler const& sampler, float3 const& wo, Primitive::Intersection& isect) const;

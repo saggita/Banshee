@@ -25,12 +25,14 @@ public:
         Tracer* tracer, 
         Sampler* imgsampler, 
         Sampler* lightsampler,
+        Sampler* brdfsampler,
         ProgressReporter* progress = nullptr
         )
         : imgplane_(imgplane)
         , tracer_(tracer)
         , imgsampler_(imgsampler)
         , lightsampler_(lightsampler)
+        , brdfsampler_(brdfsampler)
         , progress_(progress)
     {
     }
@@ -46,6 +48,8 @@ protected:
     std::unique_ptr<Sampler> imgsampler_;
     // Sampler object to use for light sampling
     std::unique_ptr<Sampler> lightsampler_;
+    // Sampler object to use for brdf sampling
+    std::unique_ptr<Sampler> brdfsampler_;
     // Progress reporter
     std::unique_ptr<ProgressReporter> progress_;
 };

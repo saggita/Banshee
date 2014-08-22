@@ -40,7 +40,7 @@ void ImageRenderer::Render(World const& world) const
                 cam.GenerateRay(imgsample, r);
 
                 // Estimate radiance and add to image plane
-                imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world, *lightsampler_));
+                imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world, *lightsampler_, *brdfsampler_));
             }
 
             // Update progress

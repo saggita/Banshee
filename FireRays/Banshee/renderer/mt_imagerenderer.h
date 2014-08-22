@@ -27,9 +27,10 @@ public:
         Tracer* tracer,
         Sampler* imgsampler,
         Sampler* lightsampler,
+        Sampler* brdfsampler,
         ProgressReporter* progress = nullptr,
         int2 tilesize = int2(16,16))
-        : ImageRenderer(imgplane, tracer, imgsampler, lightsampler, progress)
+        : ImageRenderer(imgplane, tracer, imgsampler, lightsampler, brdfsampler, progress)
         , tilesize_(tilesize)
     {
     }

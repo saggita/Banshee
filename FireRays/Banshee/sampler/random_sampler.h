@@ -46,4 +46,4 @@ private:
     int numsamples_;
 };
 
-#endif
+#endif // RANDOM_SAMPLER_H

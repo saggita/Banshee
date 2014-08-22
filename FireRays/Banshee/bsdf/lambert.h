@@ -14,12 +14,10 @@ class Lambert : public Bsdf
 {
 public:
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection const& isect, float3 const& wi, float3& wo, float& pdf) const
+    float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
-        // TODO: fake for now, generate 2 numbers and choose random direction
         // will need to account for samling strategy later and provide a sampler
         float invpi = 1.f / PI;
-        float2 sample(rand_float(), rand_float());
         wo = map_to_hemisphere(isect.n, sample, 1.f);
         pdf = 1;
         return float3(invpi, invpi, invpi);

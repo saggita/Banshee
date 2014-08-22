@@ -28,7 +28,7 @@ public:
     }
 
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection const& isect, float3 const& wi, float3& wo, float& pdf) const
+    float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
         // Copy to be able to alter normal
         Primitive::Intersection isectlocal = isect;
@@ -46,7 +46,7 @@ public:
             float3 kd = diffusemap_.empty() ? diffuse_ : texturesys_.Sample(diffusemap_, isect.uv, float2(0,0));
             float3 ks = specular_;
             float3 dwo, swo;
-            float3 f = kd * diffusebsdf_->Sample(isectlocal, wi, dwo, pdf) * ndotwi + ks * specularbsdf_->Sample(isectlocal, wi, swo, pdf);
+            float3 f = kd * diffusebsdf_->Sample(isectlocal, sample, wi, dwo, pdf) * ndotwi + ks * specularbsdf_->Sample(isectlocal, sample, wi, swo, pdf);
 
             // Fake for now
             float kkt = ks.sqnorm() + kd.sqnorm();

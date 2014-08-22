@@ -44,16 +44,18 @@ void MtImageRenderer::Render(World const& world) const
             // Clone the samplers first
             Sampler* imgsampler = imgsampler_->Clone();
             Sampler* lightsampler = lightsampler_->Clone();
+            Sampler* brdfsampler = brdfsampler_->Clone();
 
             // Submit the task to thread pool
             // Need to capture xtile and ytile by copying since
             // they are changing, same for sampler objects
             futures.push_back(
-                threadpool_.submit([&, xtile, ytile, imgres, imgsampler, lightsampler]()->int
+                threadpool_.submit([&, xtile, ytile, imgres, imgsampler, lightsampler, brdfsampler]()->int
             {
                 // Wrap private samplers w/ memory managing ptr
                 std::unique_ptr<Sampler> private_imgsampler(imgsampler);
                 std::unique_ptr<Sampler> private_lightsampler(lightsampler);
+                std::unique_ptr<Sampler> private_brdfsampler(brdfsampler);
                 // Iterate through tile pixels
                 for (int x = 0; x < tilesize_.x; ++x)
                     for (int y = 0; y < tilesize_.y; ++y)
@@ -82,7 +84,7 @@ void MtImageRenderer::Render(World const& world) const
                             cam.GenerateRay(imgsample, r);
 
                             // Estimate radiance and add to image plane
-                            imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world, *private_lightsampler));
+                            imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world, *private_lightsampler, *private_brdfsampler));
                         }
                     }
 

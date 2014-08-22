@@ -57,4 +57,4 @@ private:
     mutable int sampleidx_;
 };
 
-#endif
+#endif //REGULAR_SAMPLER_H

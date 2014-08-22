@@ -27,6 +27,7 @@
 #include "light/directional_light.h"
 #include "sampler/random_sampler.h"
 #include "sampler/regular_sampler.h"
+#include "sampler/stratified_sampler.h"
 #include "rng/mcrng.h"
 #include "material/matte.h"
 #include "material/phong.h"
@@ -52,9 +53,9 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
 
     rand_init();
 
-    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.objm");
-    AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.objm");
-    //AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.objm");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.obj");
     
     
     assimp.onmaterial_ = [&world](Material* mat)->int
@@ -110,8 +111,8 @@ std::unique_ptr<World> BuildWorldSponza(TextureSystem const& texsys)
 
     rand_init();
 
-    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.objm");
-    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.objm");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
     AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.obj");
 
     assimp.onmaterial_ = [&world](Material* mat)->int
@@ -173,8 +174,8 @@ std::unique_ptr<World> BuildWorldSibenik(TextureSystem const& texsys)
 
     rand_init();
 
-    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.objm");
-    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.objm");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
     AssimpAssetImporter assimp(texsys, "../../../Resources/sibenik/sibenik.obj");
 
     assimp.onmaterial_ = [&world](Material* mat)->int
@@ -233,12 +234,12 @@ std::unique_ptr<World> BuildWorldMuseum(TextureSystem const& texsys)
 
     // Create lights
     DirectionalLight* light1 = new DirectionalLight(float3(0.25f, -1.f, -1.f), 200.f * float3(0.97f, 0.85f, 0.55f));
-    PointLight* light2 = new PointLight(float3(-8.f, -4.f, -9.f), 200.f * float3(0.97f, 0.85f, 0.55f));
+    PointLight* light2 = new PointLight(float3(6.f, -4.f, -9.f), 200.f * float3(0.97f, 0.85f, 0.55f));
 
     rand_init();
 
-    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.objm");
-    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.objm");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
     AssimpAssetImporter assimp(texsys, "../../../Resources/contest/museumhallRD.obj");
 
     assimp.onmaterial_ = [&world](Material* mat)->int
@@ -300,8 +301,8 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
 
     rand_init();
 
-    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.objm");
-    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.objm");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
     AssimpAssetImporter assimp(texsys, "../../../Resources/dragon/dragon1.obj");
 
     assimp.onmaterial_ = [&world](Material* mat)->int
@@ -321,6 +322,54 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
     // Start assets import
     assimp.Import();
 
+    // Add ground plane
+    float3 vertices[4] = {
+        float3(-1, 0, -1),
+        float3(-1, 0, 1),
+        float3(1, 0, 1),
+        float3(1, 0, -1)
+    };
+
+    float3 normals[4] = {
+        float3(0, 1, 0),
+        float3(0, 1, 0),
+        float3(0, 1, 0),
+        float3(0, 1, 0)
+    };
+
+    float2 uvs[4] = {
+        float2(0, 0),
+        float2(0, 1),
+        float2(1, 1),
+        float2(1, 0)
+    };
+
+    int indices[6] = {
+        0, 3, 1,
+        3, 1, 2
+    };
+
+    // Clear default material
+    world->materials_.clear();
+
+    world->materials_.push_back(std::unique_ptr<Material>(new Phong(texsys, float3(0.4f, 0.0f, 0.0f), float3(0.3f, 0.15f, 0.15f))));
+    world->materials_.push_back(std::unique_ptr<Material>(new Phong(texsys, float3(0.4f, 0.3f, 0.25f), float3(0.6f, 0.6f, 0.6f))));
+
+    int materials[2] = {1, 1};
+
+    matrix worldmat = translation(float3(0, -0.28f, 0)) * scale(float3(5, 1, 5));
+
+    Mesh* mesh = new Mesh(&vertices[0].x, 4, sizeof(float3),
+                          &normals[0].x, 4, sizeof(float3),
+                          &uvs[0].x, 4, sizeof(float2),
+                          indices, sizeof(int),
+                          indices, sizeof(int),
+                          indices, sizeof(int),
+                          materials, sizeof(int),
+                          2, worldmat, inverse(worldmat));
+
+    primitives.push_back(mesh);
+
     // Build acceleration structure
     auto starttime = std::chrono::high_resolution_clock::now();
     bvh->Build(primitives);
@@ -338,8 +387,8 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
     world->lights_.push_back(std::unique_ptr<Light>(light1));
     //world->lights_.push_back(std::unique_ptr<Light>(light2));
     // Set background
-    world->bgcolor_ = float3(0.9f, 0.9f, 0.9f);
-    
+    world->bgcolor_ = float3(0.4f, 0.4f, 0.4f);
+
     // Return world
     return std::unique_ptr<World>(world);
 }
@@ -357,8 +406,6 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
     //PointLight* light1 = new PointLight(float3(0, 5, 5), 30.f * float3(3.f, 3.f, 3.f));
     DirectionalLight* light1 = new DirectionalLight(float3(0, -1, 0), float3(1.f, 1.f, 1.f));
     //PointLight* light2 = new PointLight(float3(-5, 5, -2), 0.6 * float3(3.f, 2.9f, 2.4f));
-
-    rand_init();
 
      // Add ground plane
     float3 vertices[4] = {
@@ -437,9 +484,12 @@ int main()
 {
     try
     {
+        // Init RNG
+        rand_init();
+
         // File name to render
         std::string filename = "normals.png";
-        int2 imgres = int2(512, 512);
+        int2 imgres = int2(256, 256);
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");
 
@@ -477,9 +527,10 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane 
-            new GiTracer(3, 1.f), // Tracer
+            new GiTracer(1, 1.f), // Tracer
             new RegularSampler(16), // Image sampler
             new RandomSampler(1, new McRng()), // Light sampler
+            new StratifiedSampler(4, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter
             );
 

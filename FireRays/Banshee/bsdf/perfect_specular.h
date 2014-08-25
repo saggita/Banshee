@@ -19,6 +19,7 @@ public:
     float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
         wo = normalize(2.f * dot(isect.n, wi) * isect.n - wi);
+        pdf = 1.f;
         return float3(1.f, 1.f, 1.f);
     }
 

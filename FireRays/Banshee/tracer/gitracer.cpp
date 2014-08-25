@@ -37,7 +37,7 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
 
             for (int i = 0; i < numsamples; ++i)
             {
-                float pdf = 1.f;
+                float pdf;
                 newray.t = float2(0.002f, 10000.f);
                 newray.id = r.id + 1;
 

@@ -38,7 +38,7 @@
 
 std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
 {
-    // Create world 
+    // Create world
     World* world = new World();
     // Create accelerator
     //SimpleSet* set = new SimpleSet();
@@ -47,7 +47,7 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
     //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
-    
+
     // Create lights
     PointLight* light1 = new PointLight(float3(0.f, 1.2f, 0.f), 2.5f * float3(0.97f, 0.85f, 0.55f));
 
@@ -56,8 +56,7 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
     AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
     //AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.obj");
-    
-    
+
     assimp.onmaterial_ = [&world](Material* mat)->int
     {
         world->materials_.push_back(std::unique_ptr<Material>(mat));
@@ -74,7 +73,7 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
 
     // Start assets import
     assimp.Import();
-    
+
     // Build acceleration structure
     bvh->Build(primitives);
 
@@ -150,7 +149,7 @@ std::unique_ptr<World> BuildWorldSponza(TextureSystem const& texsys)
     //world->lights_.push_back(std::unique_ptr<Light>(light2));
     // Set background
     world->bgcolor_ = float3(0.f, 0.f, 0.f);
-    
+
     // Return world
     return std::unique_ptr<World>(world);
 }
@@ -213,7 +212,7 @@ std::unique_ptr<World> BuildWorldSibenik(TextureSystem const& texsys)
     //world->lights_.push_back(std::unique_ptr<Light>(light2));
     // Set background
     world->bgcolor_ = float3(0.1f, 0.1f, 0.1f);
-    
+
     // Return world
     return std::unique_ptr<World>(world);
 }
@@ -277,7 +276,7 @@ std::unique_ptr<World> BuildWorldMuseum(TextureSystem const& texsys)
     world->lights_.push_back(std::unique_ptr<Light>(light2));
     // Set background
     world->bgcolor_ = float3(0.1f, 0.1f, 0.1f);
-    
+
     // Return world
     return std::unique_ptr<World>(world);
 }
@@ -396,7 +395,7 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
 
 std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
 {
-    // Create world 
+    // Create world
     World* world = new World();
     // Create accelerator
     Bvh* bvh = new Bvh();
@@ -489,13 +488,13 @@ int main()
 
         // File name to render
         std::string filename = "normals.png";
-        int2 imgres = int2(256, 256);
+        int2 imgres = int2(512, 512);
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldMuseum(texsys);
+        std::unique_ptr<World> world = BuildWorld(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -526,11 +525,11 @@ int main()
 
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
-        MtImageRenderer renderer(plane, // Image plane 
-            new GiTracer(1, 1.f), // Tracer
+        MtImageRenderer renderer(plane, // Image plane
+            new GiTracer(3, 1.f), // Tracer
             new RegularSampler(16), // Image sampler
             new RandomSampler(1, new McRng()), // Light sampler
-            new StratifiedSampler(4, new McRng()), // Brdf sampler
+            new RandomSampler(1, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter
             );
 

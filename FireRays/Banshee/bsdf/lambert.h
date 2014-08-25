@@ -19,7 +19,7 @@ public:
         // will need to account for samling strategy later and provide a sampler
         float invpi = 1.f / PI;
         wo = map_to_hemisphere(isect.n, sample, 1.f);
-        pdf = 1;
+        pdf = dot(isect.n, wo);
         return float3(invpi, invpi, invpi);
     }
 

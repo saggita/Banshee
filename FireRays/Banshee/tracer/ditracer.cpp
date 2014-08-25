@@ -36,7 +36,7 @@ float3 DiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
 
 float3 DiTracer::Di(World const& world, Light const& light, Sampler const& sampler, float3 const& wo, Primitive::Intersection& isect) const
 {
-    float  pdf; 
+
     float3 lightdir;
     float3 radiance = float3(0,0,0);
     int numsamples = sampler.num_samples();
@@ -48,6 +48,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& sampl
 
     for (int i=0; i<numsamples; ++i)
     {
+        float  pdf; 
         float3 le = light.Sample(isect, samples[i], lightdir, pdf);
 
         if (pdf > 0.f)

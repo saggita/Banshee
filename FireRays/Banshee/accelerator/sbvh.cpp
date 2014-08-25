@@ -154,7 +154,6 @@ Sbvh::Split Sbvh::FindObjectSplit(std::vector<PrimitiveRef> const& primrefs, int
     // put NAN sentinel as split border
     // PerformObjectSplit simply splits in half
     // in this case
-    float3 extents = bounds.extents();
     float3 centroid_extents = centroid_bounds.extents();
     if (centroid_extents.sqnorm() == 0.f)
     {

@@ -51,7 +51,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& sampl
         float  pdf; 
         float3 le = light.Sample(isect, samples[i], lightdir, pdf);
 
-        if (pdf > 0.f)
+        if (pdf > 0.05f)
         {
             /// Simple diffuse shading for now
             float3 wi = normalize(lightdir);
@@ -68,11 +68,11 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& sampl
             /// Check for an occlusion
             float shadow = world.Intersect(shadowray) ? 0.f : 1.f;
 
-            if (shadow > 0.f && le.sqnorm() > 0.f && pdf > 0.f)
+            if (shadow > 0.f && le.sqnorm() > 0.f)
             {
                 Material const& mat = *world.materials_[isect.m];
                 
-                radiance +=  le * shadow * mat.Evaluate(isect, wi, wo);
+                radiance +=  le * shadow * mat.Evaluate(isect, wi, wo) * (1.f/pdf);
             }
         }
     }

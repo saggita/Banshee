@@ -25,6 +25,7 @@
 #include "tracer/aotracer.h"
 #include "light/pointlight.h"
 #include "light/directional_light.h"
+#include "light/environment_light.h"
 #include "sampler/random_sampler.h"
 #include "sampler/regular_sampler.h"
 #include "sampler/stratified_sampler.h"
@@ -398,12 +399,12 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
     // Create world
     World* world = new World();
     // Create accelerator
-    Bvh* bvh = new Bvh();
+    Bvh* bvh = new Sbvh(10.f, 8);
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(0, 5,-10), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(-3, 3, 7), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     // Create lights
     //PointLight* light1 = new PointLight(float3(0, 5, 5), 30.f * float3(3.f, 3.f, 3.f));
-    DirectionalLight* light1 = new DirectionalLight(float3(0, -1, 0), float3(1.f, 1.f, 1.f));
+    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.6f);
     //PointLight* light2 = new PointLight(float3(-5, 5, -2), 0.6 * float3(3.f, 2.9f, 2.4f));
 
      // Add ground plane
@@ -435,7 +436,7 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
 
     int materials[2] = {0,0};
 
-    matrix worldmat = translation(float3(0, -2, 0)) * scale(float3(5, 1, 5));
+    matrix worldmat = translation(float3(0, -1.f, 0)) * scale(float3(5, 1, 5));
 
     Mesh* mesh = new Mesh(&vertices[0].x, 4, sizeof(float3),
                           &normals[0].x, 4, sizeof(float3),
@@ -464,13 +465,13 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
     // Attach point lights
     world->lights_.push_back(std::unique_ptr<Light>(light1));
     // Set background
-    world->bgcolor_ = float3(0.3f, 0.4f, 0.3f);
+    world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
 
     // Build materials
 
-    Matte* matte0 = new Matte(texsys, float3(1.f, 1.f, 1.f), "", "rc.bmp");
-    Matte* matte1 = new Matte(texsys, float3(1.f, 1.f, 1.f), "test.png");
-    Phong* phong = new Phong(texsys, float3(0.3f, 0.3f, 0.f), float3(0.5f, 0.5f, 0.5f), "mramor6x6.png");
+    Matte* matte0 = new Matte(texsys, float3(0.7f, 0.6f, 0.6f));
+    Matte* matte1 = new Matte(texsys, float3(0.6f, 0.6f, 0.5f));
+    Phong* phong = new Phong(texsys, float3(0.f, 0.f, 0.f), float3(0.5f, 0.5f, 0.5f));
     world->materials_.push_back(std::unique_ptr<Material>(matte0));
     world->materials_.push_back(std::unique_ptr<Material>(matte1));
     world->materials_.push_back(std::unique_ptr<Material>(phong));
@@ -494,7 +495,7 @@ int main()
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorld(texsys);
+        std::unique_ptr<World> world = BuildWorldTest(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -526,7 +527,7 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
-            new GiTracer(3, 1.f), // Tracer
+            new GiTracer(4, 1.f), // Tracer
             new StratifiedSampler(16, new McRng()), // Image sampler
             new RandomSampler(1, new McRng()), // Light sampler
             new RandomSampler(1, new McRng()), // Brdf sampler

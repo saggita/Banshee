@@ -45,16 +45,20 @@ public:
         {
             float3 kd = diffusemap_.empty() ? diffuse_ : texturesys_.Sample(diffusemap_, isect.uv, float2(0,0));
             float3 ks = specular_;
-            float3 dwo, swo;
-            float3 f = kd * diffusebsdf_->Sample(isectlocal, sample, wi, dwo, pdf) * ndotwi + ks * specularbsdf_->Sample(isectlocal, sample, wi, swo, pdf);
 
             // Fake for now
             float kkt = ks.sqnorm() + kd.sqnorm();
             float kkd = kd.sqnorm();
             float prob = kkd / kkt;
-            wo = rand_float() < prob ? dwo : swo;
 
-            return f;
+            if (rand_float() < prob)
+            {
+                return kd * diffusebsdf_->Sample(isectlocal, sample, wi, wo, pdf) * ndotwi;
+            }
+            else
+            {
+                return ks * specularbsdf_->Sample(isectlocal, sample, wi, wo, pdf);
+            }
         }
 
         return float3(0,0,0);

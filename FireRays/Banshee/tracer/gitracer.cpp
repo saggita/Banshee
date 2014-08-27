@@ -45,9 +45,10 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
 
                 float3 le = Li(newray, world, lightsampler, brdfsampler);
 
-                if (bsdf.sqnorm() > 0.f && le.sqnorm() > 0.f)
+                // TODO: move PDF treshold to global settings
+                if (bsdf.sqnorm() > 0.f && le.sqnorm() > 0.f && pdf > 0.05f)
                 {
-                    indirect += indirect_contrib_ * bsdf * le;
+                    indirect += indirect_contrib_ * bsdf * le * (1.f / pdf);
                 }
             }
 

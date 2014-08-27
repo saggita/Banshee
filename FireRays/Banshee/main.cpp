@@ -49,7 +49,7 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
 
     // Create lights
-    PointLight* light1 = new PointLight(float3(0.f, 1.2f, 0.f), 2.5f * float3(0.97f, 0.85f, 0.55f));
+    PointLight* light1 = new PointLight(float3(0.f, 1.386f, 0.f), 3.f * float3(0.97f, 0.85f, 0.55f));
 
     rand_init();
 
@@ -86,7 +86,7 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     world->lights_.push_back(std::unique_ptr<Light>(light1));
     //world->lights_.push_back(std::unique_ptr<Light>(light2));
     // Set background
-    world->bgcolor_ = float3(0.3f, 0.4f, 0.3f);
+    world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
 
     // Return world
     return std::unique_ptr<World>(world);
@@ -527,7 +527,7 @@ int main()
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
             new GiTracer(3, 1.f), // Tracer
-            new RegularSampler(16), // Image sampler
+            new StratifiedSampler(16, new McRng()), // Image sampler
             new RandomSampler(1, new McRng()), // Light sampler
             new RandomSampler(1, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter

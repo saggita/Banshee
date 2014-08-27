@@ -68,7 +68,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& sampl
             /// Check for an occlusion
             float shadow = world.Intersect(shadowray) ? 0.f : 1.f;
 
-            if (shadow > 0.f && le.sqnorm() > 0.f)
+            if (shadow > 0.f && le.sqnorm() > 0.f && pdf > 0.f)
             {
                 Material const& mat = *world.materials_[isect.m];
                 

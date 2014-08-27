@@ -98,10 +98,10 @@ inline float3 transform_vector(float3 const& v, matrix const& m)
 
 /// Transform a normal using a matrix.
 /// Use this function carefully as the normal can be 
-/// transformed much faster using transform vector in many cases
-inline float3 transform_normal(float3 const& n, matrix const& m)
+/// transformed much faster using transform matrix in many cases
+/// NOTE: You need to pass inverted matrix for the transform
+inline float3 transform_normal(float3 const& n, matrix const& minv)
 {
-    matrix minv = inverse(m);
     return minv.transpose() * n;
 }
 

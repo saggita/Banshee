@@ -45,7 +45,7 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     //SimpleSet* set = new SimpleSet();
     Bvh* bvh = new Sbvh(10.f, 8);
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(0, 0.75f, 3.5), float3(0, 0.75f, 0), float3(0, 1.f, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
     //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
 
@@ -72,6 +72,13 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
         primitives.push_back(prim);
     };
 
+    assimp.onlight_ = [&world](Light* light)
+    //assimp.onprimitive_ = [&set](Primitive* prim)
+    {
+        //set->Emplace(prim);
+        world->lights_.push_back(std::unique_ptr<Light>(light));
+    };
+
     // Start assets import
     assimp.Import();
 
@@ -84,7 +91,7 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     // Attach camera
     world->camera_ = std::unique_ptr<Camera>(camera);
     // Attach point lights
-    world->lights_.push_back(std::unique_ptr<Light>(light1));
+    // world->lights_.push_back(std::unique_ptr<Light>(light1));
     //world->lights_.push_back(std::unique_ptr<Light>(light2));
     // Set background
     world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
@@ -401,7 +408,8 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
     // Create accelerator
     Bvh* bvh = new Sbvh(10.f, 8);
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(-3, 3, 7), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    //Camera* camera = new PerscpectiveCamera(float3(0, 3, -8.5), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     // Create lights
     //PointLight* light1 = new PointLight(float3(0, 5, 5), 30.f * float3(3.f, 3.f, 3.f));
     EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.6f);
@@ -450,7 +458,7 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
     std::vector<Primitive*> prims;
     prims.push_back(mesh);
 
-    worldmat = translation(float3(-2, 0, 0));
+    worldmat = translation(float3(-2, 0, 0)) * rotation_x(PI/2);
     prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 1));
 
     worldmat = translation(float3(2, 0, 0));
@@ -470,7 +478,7 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
     // Build materials
 
     Matte* matte0 = new Matte(texsys, float3(0.7f, 0.6f, 0.6f));
-    Matte* matte1 = new Matte(texsys, float3(0.6f, 0.6f, 0.5f));
+    Matte* matte1 = new Matte(texsys, float3(0.6f, 0.6f, 0.5f), "", "carbonfiber.png");
     Phong* phong = new Phong(texsys, float3(0.f, 0.f, 0.f), float3(0.5f, 0.5f, 0.5f));
     world->materials_.push_back(std::unique_ptr<Material>(matte0));
     world->materials_.push_back(std::unique_ptr<Material>(matte1));
@@ -488,14 +496,14 @@ int main()
         rand_init();
 
         // File name to render
-        std::string filename = "normals.png";
+        std::string filename = "result.png";
         int2 imgres = int2(512, 512);
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldTest(texsys);
+        std::unique_ptr<World> world = BuildWorld(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -528,7 +536,7 @@ int main()
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
             new GiTracer(4, 1.f), // Tracer
-            new StratifiedSampler(16, new McRng()), // Image sampler
+            new StratifiedSampler(64, new McRng()), // Image sampler
             new RandomSampler(1, new McRng()), // Light sampler
             new RandomSampler(1, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter

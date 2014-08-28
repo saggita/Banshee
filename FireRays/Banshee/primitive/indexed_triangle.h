@@ -33,6 +33,12 @@ public:
     // Bounding box override
     bbox Bounds() const;
 
+    // Calculate a sample point on the surface of a triangle
+    void Sample(float2 const& sample, SampleData& sampledata, float& pdf) const;
+
+    // Surface area of a triangle
+    float surface_area() const;
+
 private:
     // Data indices
     unsigned pidx1_, pidx2_, pidx3_;

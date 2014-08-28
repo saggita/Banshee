@@ -30,6 +30,26 @@ public:
         int    m;
     };
 
+    struct SampleData
+    {
+        // World space position
+        float3 p;
+        // World space normal
+        float3 n;
+        // UV parametrization
+        float2 uv;
+
+        SampleData()
+        {
+        }
+        SampleData(Intersection const& isect)
+            : p(isect.p)
+            , n(isect.n)
+            , uv(isect.uv)
+        {
+        }
+    };
+
     // Destructor
     virtual ~Primitive(){}
 
@@ -47,6 +67,14 @@ public:
     // supposed to break it into parts (which might or might not be intersectable themselves)
     // Note that memory of the parts is owned by the primitive 
     virtual void Refine (std::vector<Primitive*>& prims) { }
+    // Surface area of the primitive
+    // TODO: should that be pure?
+    virtual float surface_area() const { return 0.f; };
+    // Each primitive with an area > 0 is required to be able to provide sample points on its surface.
+    // This method returns a sample point for a given sample in world space.
+    // TODO: do we need intersectable but not samplable?
+    virtual void Sample(float2 const& sample, SampleData& sampledata, float& pdf) const { return; }
 };
+
 
 #endif

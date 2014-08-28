@@ -123,3 +123,42 @@ bbox IndexedTriangle::Bounds() const
     box = bboxunion(box, mesh_.vertices_[pidx3_]);
     return bbox(transform_point(box.pmin, mesh_.worldmat_), transform_point(box.pmax, mesh_.worldmat_));
 }
+
+void IndexedTriangle::Sample(float2 const& sample, SampleData& sampledata, float& pdf) const
+{
+    // Fetch geometric data from the mesh
+    float3 p1 = mesh_.vertices_[pidx1_];
+    float3 p2 = mesh_.vertices_[pidx2_];
+    float3 p3 = mesh_.vertices_[pidx3_];
+
+    float3 n1 = mesh_.normals_[nidx1_];
+    float3 n2 = mesh_.normals_[nidx2_];
+    float3 n3 = mesh_.normals_[nidx3_];
+
+    float2 t1 = mesh_.uvs_[tidx1_];
+    float2 t2 = mesh_.uvs_[tidx2_];
+    float2 t3 = mesh_.uvs_[tidx3_];
+
+    // Calculate barycentric coords
+    float c1 = 1.f - sqrtf(sample.x);
+    float c2 = sqrtf(sample.x) * (1.f - sample.y);
+    float c3 = sqrtf(sample.x) * sample.y;
+
+    // Calculate sample data and transform it to world space
+    sampledata.p = transform_point(c1 * p1 + c2 * p2 + c3 * p3, mesh_.worldmat_);
+    sampledata.n = normalize(transform_normal(c1 * n1 + c2 * n2 + n3 * p3, mesh_.worldmatinv_));
+    sampledata.uv = c1 * t1 + c2 * t2 + c3 * t3;
+
+    // PDF = surface area
+    // Not using surface_area call to avoid p1, p2 and p3 fetch
+    pdf = 1.f / sqrtf(fabs(cross(p3 - p1, p3 - p2).sqnorm())) * 0.5f;
+}
+
+float IndexedTriangle::surface_area() const
+{
+    float3 p1 = mesh_.vertices_[pidx1_];
+    float3 p2 = mesh_.vertices_[pidx2_];
+    float3 p3 = mesh_.vertices_[pidx3_];
+
+    return sqrtf(fabs(cross(p3 - p1, p3 - p2).sqnorm())) * 0.5f;
+}

@@ -139,6 +139,31 @@ void Sphere::FillIntersectionInfo(float3 const& p, Intersection& isect) const
     isect.dpdu = transform_vector(dpdu, worldmat_);
     isect.dpdv = transform_vector(dpdv, worldmat_);
 
-    // TODO: support material system
+    // Material index
     isect.m  = m_;
+}
+
+void Sphere::Sample(float2 const& sample, SampleData& sampledata, float& pdf) const
+{
+    // Calculate spherical coords
+    float phi = sample.x * 2.f * PI; // atan2f(p.x, p.y);
+    float theta = sample.y * PI - PI * 0.5f; // acosf(p.z / r);
+
+    float sinthetha = sinf(theta);
+    float costhetha = cosf(theta);
+    float sinphi= sinf(phi);
+    float cosphi = cosf(phi);
+
+    // Calculate sample data
+    sampledata.p = transform_point(radius_ * float3(sinphi * sinthetha, cosphi * sinthetha, costhetha), worldmat_);
+    sampledata.n = normalize(transform_normal(float3(sinphi * sinthetha, cosphi * sinthetha, costhetha), worldmatinv_));
+    sampledata.uv = sample;
+
+    // PDF = surface area
+    pdf = 1.f / surface_area();
+}
+
+float Sphere::surface_area() const 
+{ 
+    return 4.f * PI * radius_ * radius_; 
 }

@@ -29,6 +29,12 @@ public:
     // Evaluate combined BSDF value
     virtual float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const = 0;
 
+    // Indicate whether the materials has emission component and will be used for direct light evaluation
+    virtual bool emissive() const { return false; }
+
+    // Emission component of the material
+    virtual float3 Le(Primitive::SampleData const& sampledata, float3 const& wo) const { return float3(0,0,0); }
+
 protected:
     // Function to support normal mapping
     virtual void MapNormal(std::string const& nmap, Primitive::Intersection& isect) const;

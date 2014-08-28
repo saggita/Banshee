@@ -11,7 +11,9 @@
 
 #include "../material/matte.h"
 #include "../material/phong.h"
+#include "../material/emissive.h"
 #include "../primitive/mesh.h"
+#include "../light/arealight.h"
 
 using namespace Assimp;
 
@@ -35,6 +37,7 @@ void AssimpAssetImporter::Import()
 
     // Map to track assimp to material ID conversion
     std::map<aiMaterial*, int> ai2idx;
+    std::map<int, Material*> idx2mat;
 
     // Start with materials since we need to know
     // their indices when importing geometry
@@ -61,13 +64,35 @@ void AssimpAssetImporter::Import()
         aiColor3D specular(0,0,0);
         material->Get(AI_MATKEY_COLOR_SPECULAR, specular);
 
+        aiColor3D emission(0,0,0);
+        material->Get(AI_MATKEY_COLOR_EMISSIVE, emission);
+
+        // TODO: this is hack for Assimp not supporting Ke
+        // material property in OBJ files
+        // For now constant light power for materials called "light"
+        aiString matname;
+        material->Get(AI_MATKEY_NAME, matname);
+
         float3 kd = float3(diffuse.r, diffuse.g, diffuse.b);
         float3 ks = float3(specular.r, specular.g, specular.b);
-        Material* m = new Phong(texsys_, kd, ks, kdmap, nmap);
+        float3 ke = float3(emission.r, emission.b, emission.g);
+
+        Material* m = nullptr;
+
+        if (ke.sqnorm() > 0.f || matname == aiString("light"))
+        {
+            m = new Emissive(texsys_, 0.3f * float3(60.f,55.f,40.f));
+        }
+        else
+        {
+            m = new Phong(texsys_, kd, ks, kdmap, nmap);
+        }
 
         if (onmaterial_)
         {
-            ai2idx[material] = onmaterial_(m);
+            int idx = onmaterial_(m);
+            ai2idx[material] = idx;
+            idx2mat[idx] = m;
         }
     }
 
@@ -107,6 +132,18 @@ void AssimpAssetImporter::Import()
         if (onprimitive_)
         {
             onprimitive_(mymesh);
+        }
+
+        if (onlight_ && idx2mat[mat]->emissive())
+        {
+            std::vector<Primitive*> prims;
+            mymesh->Refine(prims);
+
+            for (int i = 0; i < (int)prims.size(); ++i)
+            {
+                AreaLight* light = new AreaLight(*prims[i], *idx2mat[mat]);
+                onlight_(light);
+            }
         }
     }
 }

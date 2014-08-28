@@ -2,6 +2,7 @@
 #define SPHERE_H
 
 #include "transformable_primitive.h"
+#include "../math/mathutils.h"
 #include "../math/matrix.h"
 #include "../math/float3.h"
 #include "../math/float2.h"
@@ -26,6 +27,12 @@ public:
     bool Intersect(ray& r) const;
     // Bounding box override
     bbox Bounds() const;
+
+    // Calculate a sample point on the surface of a sphere
+    void Sample(float2 const& sample, SampleData& sampledata, float& pdf) const;
+
+    // Surface area of a sphere;
+    float surface_area() const;
 
 private:
     // Fill Intersection structure with the data

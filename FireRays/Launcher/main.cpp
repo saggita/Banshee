@@ -252,8 +252,8 @@ void InitData()
 {
     //gScene = SimpleScene::CreateFromObj("sibenik.objm");
     //gScene  = ObjScene::Create("../../../Resources/cornell-box/untitled.obj");
-    //gScene  = ObjScene::Create("../../../Resources/cornell-box/CornellBox-Glossy.objm");
-    gScene  = ObjScene::Create("../../../Resources/crytek-sponza/sponza.objm");
+    gScene  = ObjScene::Create("../../../Resources/cornell-box/CornellBox-Glossy.obj");
+    //gScene  = ObjScene::Create("../../../Resources/crytek-sponza/sponza.objm");
     gCamera = QuatCamera::LookAt(CAMERA_POSITION, CAMERA_AT, CAMERA_UP);
 
     gCamera->SetNearZ(CAMERA_NEAR_PLANE);

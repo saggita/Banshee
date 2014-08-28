@@ -83,6 +83,24 @@ public:
     CLWOutOfHostMemory(std::string const& message) : CLWExcept(message) {}
 };
 
+class CLWInvalidBufferSize : public CLWExcept
+{
+public:
+    CLWInvalidBufferSize(std::string const& message) : CLWExcept(message) {}
+};
+
+class CLWInvalidHostPtr : public CLWExcept
+{
+public:
+    CLWInvalidHostPtr(std::string const& message) : CLWExcept(message) {}
+};
+
+class CLWMemObjectAllocationFailure : public CLWExcept
+{
+public:
+    CLWMemObjectAllocationFailure(std::string const& message) : CLWExcept(message) {}
+};
+
 template <typename Exception> inline void ThrowIf(bool condition, std::string const& message)
 {
     if (condition)

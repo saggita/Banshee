@@ -21,6 +21,7 @@ CLWDevice::CLWDevice(cl_device_id id) : ReferenceCounter<cl_device_id, clRetainD
     GetDeviceInfoParameter(*this, CL_DEVICE_GLOBAL_MEM_SIZE, globalMemSize_);
     GetDeviceInfoParameter(*this, CL_DEVICE_LOCAL_MEM_SIZE, localMemSize_);
     GetDeviceInfoParameter(*this, CL_DEVICE_LOCAL_MEM_TYPE, localMemType_);
+    GetDeviceInfoParameter(*this, CL_DEVICE_MAX_MEM_ALLOC_SIZE, maxAllocSize_);
 }
 
 CLWDevice::~CLWDevice()
@@ -89,6 +90,11 @@ size_t   CLWDevice::GetMaxWorkGroupSize() const
 cl_device_id CLWDevice::GetID() const
 {
     return *this;
+}
+
+cl_ulong CLWDevice::GetMaxAllocSize() const
+{
+    return maxAllocSize_;
 }
 
 

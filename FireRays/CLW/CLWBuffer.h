@@ -24,6 +24,7 @@
 #include "ParameterHolder.h"
 #include "CLWCommandQueue.h"
 #include "CLWEvent.h"
+#include "CLWExcept.h"
 
 
 template <typename T> class CLWBuffer : public ReferenceCounter<cl_mem, clRetainMemObject, clReleaseMemObject>
@@ -62,12 +63,18 @@ template <typename T> CLWBuffer<T> CLWBuffer<T>::Create(cl_context context, cl_m
 {
     cl_int status = CL_SUCCESS;
     cl_mem deviceBuffer = clCreateBuffer(context, flags, elementCount * sizeof(T), nullptr, &status);
-    
-    assert(status == CL_SUCCESS);
+
+    ThrowIf<CLWInvalidContext>(status == CL_INVALID_CONTEXT, "CreateBuffer: invalid context passed");
+    ThrowIf<CLWInvalidValue>(status == CL_INVALID_VALUE, "CreateBuffer: invalid combination of flags passed");
+    ThrowIf<CLWInvalidBufferSize>(status == CL_INVALID_BUFFER_SIZE, "CreateBuffer: buffer size exceeds allocation limit for the device");
+    ThrowIf<CLWInvalidHostPtr>(status == CL_INVALID_HOST_PTR, "CreateBuffer: invalid host ptr value passed");
+    ThrowIf<CLWMemObjectAllocationFailure>(status == CL_MEM_OBJECT_ALLOCATION_FAILURE, "CreateBuffer: allocation failed");
+    ThrowIf<CLWOutOfHostMemory>(status == CL_OUT_OF_HOST_MEMORY, "CreateBuffer: out of host memory");
+
     CLWBuffer<T> buffer(deviceBuffer, elementCount);
-    
+
     clReleaseMemObject(deviceBuffer);
-    
+
     return buffer;
 }
 
@@ -75,12 +82,18 @@ template <typename T> CLWBuffer<T> CLWBuffer<T>::Create(cl_context context, cl_m
 {
     cl_int status = CL_SUCCESS;
     cl_mem deviceBuffer = clCreateBuffer(context, flags, elementCount * sizeof(T), data, &status);
-    
-    assert(status == CL_SUCCESS);
+
+    ThrowIf<CLWInvalidContext>(status == CL_INVALID_CONTEXT, "CreateBuffer: invalid context passed");
+    ThrowIf<CLWInvalidValue>(status == CL_INVALID_VALUE, "CreateBuffer: invalid combination of flags passed");
+    ThrowIf<CLWInvalidBufferSize>(status == CL_INVALID_BUFFER_SIZE, "CreateBuffer: buffer size exceeds allocation limit for the device");
+    ThrowIf<CLWInvalidHostPtr>(status == CL_INVALID_HOST_PTR, "CreateBuffer: invalid host ptr value passed");
+    ThrowIf<CLWMemObjectAllocationFailure>(status == CL_MEM_OBJECT_ALLOCATION_FAILURE, "CreateBuffer: allocation failed");
+    ThrowIf<CLWOutOfHostMemory>(status == CL_OUT_OF_HOST_MEMORY, "CreateBuffer: out of host memory");
+
     CLWBuffer<T> buffer(deviceBuffer, elementCount);
-    
+
     clReleaseMemObject(deviceBuffer);
-    
+
     return buffer;
 }
 

@@ -33,6 +33,7 @@ public:
     // Device info
     cl_ulong GetLocalMemSize() const;
     cl_ulong GetGlobalMemSize() const;
+    cl_ulong GetMaxAllocSize() const;
     size_t   GetMaxWorkGroupSize() const;
     cl_device_type GetType() const;
     cl_device_id GetID() const;
@@ -64,6 +65,7 @@ private:
     
     cl_ulong                 localMemSize_;
     cl_ulong                 globalMemSize_;
+    cl_ulong                 maxAllocSize_;
     cl_device_local_mem_type localMemType_;
     size_t                   maxWorkGroupSize_;
     

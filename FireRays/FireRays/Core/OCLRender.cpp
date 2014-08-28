@@ -364,7 +364,7 @@ void OCLRender::Render(float timeDeltaDesc)
     /// Calculate direct illumination using hit information along with active ray indices
     /// to fill radiance buffer
     {
-        CLWKernel directIlluminationKernel = program_.GetKernel("sample_direct_illumination_env");
+        CLWKernel directIlluminationKernel = program_.GetKernel("sample_direct_illumination");
         directIlluminationKernel.SetArg(0, bvhBuffer_);
         directIlluminationKernel.SetArg(1, vertexBuffer_);
         directIlluminationKernel.SetArg(2, indexBufferReordered_);
@@ -442,7 +442,7 @@ void OCLRender::Render(float timeDeltaDesc)
     //std::cout << "\n" << ((float)numActiveRays/(configData_.uOutputHeight * configData_.uOutputWidth)) * 100 << "% active secondary rays after tracing"; 
 
     {
-        CLWKernel directIlluminationKernel = program_.GetKernel("sample_direct_illumination_env");
+        CLWKernel directIlluminationKernel = program_.GetKernel("sample_direct_illumination");
         directIlluminationKernel.SetArg(0, bvhBuffer_);
         directIlluminationKernel.SetArg(1, vertexBuffer_);
         directIlluminationKernel.SetArg(2, indexBufferReordered_);

@@ -364,10 +364,16 @@ int main(int argc, const char * argv[])
         //scan_test(context);
         //segmented_scan_test(context);
 
-        sort_test(context);
+        //sort_test(context);
         //test_1();
+        std::cout << "Available memory: " << context.GetDevice(0).GetGlobalMemSize() / (1024 * 1024) << "Mb\n";
+        std::cout << "Max memory allocation size: " << context.GetDevice(0).GetMaxAllocSize() / (1024 * 1024) << "Mb\n";
+
+        // Test for allocation 8Gb
+        auto buffer = context.CreateBuffer<int>(1.5 * 2147483648, CL_MEM_READ_WRITE, nullptr);
+
     }
-    catch (std::runtime_error& e)
+    catch (CLWExcept& e)
     {
         std::cout << "\n" << e.what() << "\n";
     }

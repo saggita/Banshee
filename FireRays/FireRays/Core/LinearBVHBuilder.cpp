@@ -259,7 +259,6 @@ BVH::NodeId LinearBVHBuilder::BuildNode(BVH::NodeId parentNode, BVH::ChildRel re
         bbox = BBoxUnion(bbox, cl_float3_to_vector3(positions_[prim.i1]));
         bbox = BBoxUnion(bbox, cl_float3_to_vector3(positions_[prim.i2]));
         bbox = BBoxUnion(bbox, cl_float3_to_vector3(positions_[prim.i3]));
-
     }
     
     if (first == last)
@@ -283,19 +282,19 @@ int LinearBVHBuilder::FindSplit(int first, int last)
 {
     int firstCode = codes_[first];
     int lastCode = codes_[last];
-    
+
     if (firstCode == lastCode)
         return (first + last) >> 1;
-    
+
     int commonPrefix = clz(firstCode ^ lastCode);
-    
+
     // Use binary search to find where the next bit differs.
     // Specifically, we are looking for the highest object that
     // shares more than commonPrefix bits with the first one.
-    
+
     int split = first; // initial guess
     int step = last - first;
-    
+
     do
     {
         step = (step + 1) >> 1; // exponential decrease
@@ -310,9 +309,9 @@ int LinearBVHBuilder::FindSplit(int first, int last)
         }
     }
     while (step > 1);
-    
+
     return split;
-    
+
 }
 
 unsigned         LinearBVHBuilder::GetPrimitiveCount() const

@@ -1,6 +1,8 @@
 #ifndef ENVIRONMENT_LIGHT_H
 #define ENVIRONMENT_LIGHT_H
 
+#include <string>
+
 class TextureSystem;
 
 #include "light.h"

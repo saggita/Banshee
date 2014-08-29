@@ -535,8 +535,8 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
-            new GiTracer(4, 1.f), // Tracer
-            new StratifiedSampler(64, new McRng()), // Image sampler
+            new GiTracer(2, 1.f), // Tracer
+            new StratifiedSampler(4, new McRng()), // Image sampler
             new RandomSampler(1, new McRng()), // Light sampler
             new RandomSampler(1, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter

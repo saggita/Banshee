@@ -26,12 +26,14 @@
 #include "light/pointlight.h"
 #include "light/directional_light.h"
 #include "light/environment_light.h"
+#include "light/arealight.h"
 #include "sampler/random_sampler.h"
 #include "sampler/regular_sampler.h"
 #include "sampler/stratified_sampler.h"
 #include "rng/mcrng.h"
 #include "material/matte.h"
 #include "material/phong.h"
+#include "material/emissive.h"
 #include "texture/oiio_texturesystem.h"
 #include "import/assimp_assetimporter.h"
 #include "util/progressreporter.h"
@@ -48,9 +50,6 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     Camera* camera = new PerscpectiveCamera(float3(0, 0.75f, 3.5), float3(0, 0.75f, 0), float3(0, 1.f, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
     //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
-
-    // Create lights
-    PointLight* light1 = new PointLight(float3(0.f, 1.386f, 0.f), 3.f * float3(0.97f, 0.85f, 0.55f));
 
     rand_init();
 
@@ -90,9 +89,6 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     //world->accelerator_ = std::unique_ptr<Primitive>(set);
     // Attach camera
     world->camera_ = std::unique_ptr<Camera>(camera);
-    // Attach point lights
-    // world->lights_.push_back(std::unique_ptr<Light>(light1));
-    //world->lights_.push_back(std::unique_ptr<Light>(light2));
     // Set background
     world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
 
@@ -488,6 +484,123 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
     return std::unique_ptr<World>(world);
 }
 
+
+std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
+{
+    // Create world
+    World* world = new World();
+    // Create accelerator
+    Bvh* bvh = new Sbvh(10.f, 8);
+    // Create camera
+    Camera* camera = new PerscpectiveCamera(float3(0, 3, -10.5), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    // Create lights
+    
+    // Add ground plane
+    float3 vertices[4] = {
+        float3(-1, 0, -1),
+        float3(-1, 0, 1),
+        float3(1, 0, 1),
+        float3(1, 0, -1)
+    };
+    
+    float3 normals[4] = {
+        float3(0, 1, 0),
+        float3(0, 1, 0),
+        float3(0, 1, 0),
+        float3(0, 1, 0)
+    };
+    
+    float3 negnormals[4] = {
+        float3(0, -1, 0),
+        float3(0, -1, 0),
+        float3(0, -1, 0),
+        float3(0, -1, 0)
+    };
+    
+    float2 uvs[4] = {
+        float2(0, 0),
+        float2(0, 1),
+        float2(1, 1),
+        float2(1, 0)
+    };
+    
+    int indices[6] = {
+        0, 3, 1,
+        3, 1, 2
+    };
+    
+    int materials[2] = {0,0};
+    
+    matrix worldmat = translation(float3(0, -1.f, 0)) * scale(float3(5, 1, 5));
+    
+    Mesh* mesh = new Mesh(&vertices[0].x, 4, sizeof(float3),
+                          &normals[0].x, 4, sizeof(float3),
+                          &uvs[0].x, 4, sizeof(float2),
+                          indices, sizeof(int),
+                          indices, sizeof(int),
+                          indices, sizeof(int),
+                          materials, sizeof(int),
+                          2, worldmat, inverse(worldmat));
+    
+    worldmat = translation(float3(0, 4.f, 0));
+    int ematerials[2] = {3,3};
+    Mesh* lightmesh = new Mesh(&vertices[0].x, 4, sizeof(float3),
+                          &negnormals[0].x, 4, sizeof(float3),
+                          &uvs[0].x, 4, sizeof(float2),
+                          indices, sizeof(int),
+                          indices, sizeof(int),
+                          indices, sizeof(int),
+                          ematerials, sizeof(int),
+                          2, worldmat, inverse(worldmat));
+    
+    std::vector<Primitive*> prims;
+    prims.push_back(mesh);
+    prims.push_back(lightmesh);
+    
+    worldmat = translation(float3(-2, 0, 0)) * rotation_x(PI/2);
+    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 1));
+    
+    worldmat = translation(float3(2, 0, 0));
+    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 2));
+    
+    bvh->Build(prims);
+    
+    // Attach accelerator to world
+    world->accelerator_ = std::unique_ptr<Primitive>(bvh);
+    // Attach camera
+    world->camera_ = std::unique_ptr<Camera>(camera);
+    // Set background
+    world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
+    
+    // Build materials
+    
+    Matte* matte0 = new Matte(texsys, float3(0.7f, 0.6f, 0.6f));
+    Matte* matte1 = new Matte(texsys, float3(0.6f, 0.6f, 0.5f));
+    Phong* phong = new Phong(texsys, float3(0.f, 0.f, 0.f), float3(0.5f, 0.5f, 0.5f));
+    Emissive* emissive = new Emissive(texsys, float3(20.f, 18.f, 14.f));
+    world->materials_.push_back(std::unique_ptr<Material>(matte0));
+    world->materials_.push_back(std::unique_ptr<Material>(matte1));
+    world->materials_.push_back(std::unique_ptr<Material>(phong));
+    world->materials_.push_back(std::unique_ptr<Material>(emissive));
+    
+    std::vector<Primitive*> meshprims;
+    lightmesh->Refine(meshprims);
+    
+    for (int i=0; i<meshprims.size();++i)
+    {
+        world->lights_.push_back(std::unique_ptr<AreaLight>
+                                 (
+                                  new AreaLight(*meshprims[i], *emissive)
+                                 )
+                                 );
+    }
+    
+    // Return world
+    return std::unique_ptr<World>(world);
+}
+
+
 int main()
 {
     try
@@ -503,7 +616,7 @@ int main()
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorld(texsys);
+        std::unique_ptr<World> world = BuildWorldAreaLightTest(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -535,8 +648,8 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
-            new GiTracer(2, 1.f), // Tracer
-            new StratifiedSampler(4, new McRng()), // Image sampler
+            new GiTracer(4, 1.f), // Tracer
+            new StratifiedSampler(40, new McRng()), // Image sampler
             new RandomSampler(1, new McRng()), // Light sampler
             new RandomSampler(1, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter

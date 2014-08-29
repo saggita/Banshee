@@ -151,7 +151,7 @@ void IndexedTriangle::Sample(float2 const& sample, SampleData& sampledata, float
 
     // PDF = surface area
     // Not using surface_area call to avoid p1, p2 and p3 fetch
-    pdf = 1.f / sqrtf(fabs(cross(p3 - p1, p3 - p2).sqnorm())) * 0.5f;
+    pdf = 1.f / (sqrtf(fabs(cross(p3 - p1, p3 - p2).sqnorm())) * 0.5f);
 }
 
 float IndexedTriangle::surface_area() const

@@ -96,6 +96,67 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     return std::unique_ptr<World>(world);
 }
 
+
+std::unique_ptr<World> BuildWorldHairball(TextureSystem const& texsys)
+{
+    // Create world
+    World* world = new World();
+    // Create accelerator
+    //SimpleSet* set = new SimpleSet();
+    Bvh* bvh = new Sbvh(10.f, 8);
+    // Create camera
+    Camera* camera = new PerscpectiveCamera(float3(0, 15.f, 15.f), float3(0, 0.f, 0), float3(0, 1.f, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    //Camera* camera = new PerscpectiveCamera(float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
+    //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
+
+    rand_init();
+
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/hairball/hairball.obj");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.obj");
+
+    assimp.onmaterial_ = [&world](Material* mat)->int
+    {
+        world->materials_.push_back(std::unique_ptr<Material>(mat));
+        return (int)(world->materials_.size() - 1);
+    };
+
+    std::vector<Primitive*> primitives;
+    assimp.onprimitive_ = [&primitives](Primitive* prim)
+    //assimp.onprimitive_ = [&set](Primitive* prim)
+    {
+        //set->Emplace(prim);
+        primitives.push_back(prim);
+    };
+
+    assimp.onlight_ = [&world](Light* light)
+    //assimp.onprimitive_ = [&set](Primitive* prim)
+    {
+        //set->Emplace(prim);
+        world->lights_.push_back(std::unique_ptr<Light>(light));
+    };
+
+    // Start assets import
+    assimp.Import();
+
+    // Build acceleration structure
+    bvh->Build(primitives);
+
+    // Attach accelerator to world
+    world->accelerator_ = std::unique_ptr<Primitive>(bvh);
+    //world->accelerator_ = std::unique_ptr<Primitive>(set);
+    // Attach camera
+    world->camera_ = std::unique_ptr<Camera>(camera);
+    // Set background
+    world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
+
+    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.6f);
+    world->lights_.push_back(std::unique_ptr<Light>(light1));
+
+    // Return world
+    return std::unique_ptr<World>(world);
+}
+
 std::unique_ptr<World> BuildWorldSponza(TextureSystem const& texsys)
 {
     // Create world
@@ -553,28 +614,27 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
                           indices, sizeof(int),
                           ematerials, sizeof(int),
                           2, worldmat, inverse(worldmat));
-    
+
     std::vector<Primitive*> prims;
     prims.push_back(mesh);
     prims.push_back(lightmesh);
-    
+
     worldmat = translation(float3(-2, 0, 0)) * rotation_x(PI/2);
     prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 1));
-    
+
     worldmat = translation(float3(2, 0, 0));
     prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 2));
-    
+
     bvh->Build(prims);
-    
+
     // Attach accelerator to world
     world->accelerator_ = std::unique_ptr<Primitive>(bvh);
     // Attach camera
     world->camera_ = std::unique_ptr<Camera>(camera);
     // Set background
     world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
-    
+
     // Build materials
-    
     Matte* matte0 = new Matte(texsys, float3(0.7f, 0.6f, 0.6f));
     Matte* matte1 = new Matte(texsys, float3(0.6f, 0.6f, 0.5f));
     Phong* phong = new Phong(texsys, float3(0.f, 0.f, 0.f), float3(0.5f, 0.5f, 0.5f));
@@ -583,10 +643,10 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     world->materials_.push_back(std::unique_ptr<Material>(matte1));
     world->materials_.push_back(std::unique_ptr<Material>(phong));
     world->materials_.push_back(std::unique_ptr<Material>(emissive));
-    
+
     std::vector<Primitive*> meshprims;
     lightmesh->Refine(meshprims);
-    
+
     for (int i=0; i<meshprims.size();++i)
     {
         world->lights_.push_back(std::unique_ptr<AreaLight>
@@ -595,7 +655,7 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
                                  )
                                  );
     }
-    
+
     // Return world
     return std::unique_ptr<World>(world);
 }
@@ -616,7 +676,7 @@ int main()
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldAreaLightTest(texsys);
+        std::unique_ptr<World> world = BuildWorldMitsuba(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -648,8 +708,8 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
-            new GiTracer(4, 1.f), // Tracer
-            new StratifiedSampler(40, new McRng()), // Image sampler
+            new GiTracer(2, 1.f), // Tracer
+            new StratifiedSampler(4, new McRng()), // Image sampler
             new RandomSampler(1, new McRng()), // Light sampler
             new RandomSampler(1, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter
@@ -667,7 +727,7 @@ int main()
     }
     catch(std::runtime_error& e)
     {
-        std::cout << e.what();
+        std::cout << e.what() << "\n";
     }
 
     return 0;

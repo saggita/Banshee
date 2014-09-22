@@ -26,6 +26,11 @@ public:
     // Build function
     void Build(std::vector<Primitive*> const& prims);
     
+    // Query BVH statistics
+    struct Statistics;
+    void QueryStatistics(Statistics& stat) const;
+    
+    
 protected:
     // Build function
     virtual void BuildImpl(std::vector<Primitive*> const& prims);
@@ -76,6 +81,15 @@ struct Bvh::Node
             int numprims;
         };
     };
+};
+
+struct Bvh::Statistics
+{
+    int internalcount;
+    int leafcount;
+    float minoverlaparea;
+    float maxoverlaparea;
+    float avgoverlaparea;
 };
 
 #endif // BVH_H

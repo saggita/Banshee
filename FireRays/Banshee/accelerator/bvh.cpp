@@ -273,6 +273,60 @@ void Bvh::BuildImpl(std::vector<Primitive*> const& prims)
     root_ = nodes_[0].get();
 }
 
+void Bvh::QueryStatistics(Statistics& stat) const
+{
+    // Clear stat
+    stat.internalcount = 0;
+    stat.leafcount = 0;
+    stat.minoverlaparea = 0.f;
+    stat.maxoverlaparea = 0.f;
+    stat.avgoverlaparea = 0.f;
+    
+    // Check if we have been initialized
+    assert(root_);
+    // Maintain a stack of nodes to process
+    std::stack<Node*> testnodes;
+    // Current node
+    Node* node = root_;
+    // Start processing nodes
+    // Changing the code to use more flow control
+    // and skip push\pop when possible
+    // This gives some perf boost
+    for(;;)
+    {
+        if (node->type == kLeaf)
+        {
+            ++stat.leafcount;
+        }
+        else
+        {
+            ++stat.internalcount;
+            
+            float intersect_area = intersects(node->lc->bounds, node->rc->bounds)?intersection(node->lc->bounds, node->rc->bounds).surface_area() : 0.f;
+            
+            stat.avgoverlaparea += intersect_area;
+            stat.minoverlaparea = std::min(stat.minoverlaparea, intersect_area);
+            stat.maxoverlaparea = std::max(stat.minoverlaparea, intersect_area);
+            
+            testnodes.push(node->rc);
+            testnodes.push(node->lc);
+            
+        }
+        
+        if (testnodes.empty())
+        {
+            break;
+        }
+        else
+        {
+            node = testnodes.top();
+            testnodes.pop();
+        }
+    }
+    
+    stat.avgoverlaparea /= stat.internalcount;
+}
+
 
 
 

@@ -81,7 +81,7 @@ void AssimpAssetImporter::Import()
 
         if (ke.sqnorm() > 0.f || matname == aiString("light"))
         {
-            m = new Emissive(texsys_, 0.3f * float3(60.f,55.f,40.f));
+            m = new Emissive(texsys_, 0.6f * float3(60.f,55.f,40.f));
         }
         else
         {

@@ -65,7 +65,7 @@ inline bbox bboxunion(bbox const& box1, bbox const& box2)
 }
 
 inline bbox intersection(bbox const& box1, bbox const& box2)
-{	
+{
     return bbox(vmax(box1.pmin, box2.pmin), vmin(box1.pmax, box2.pmax));
 }
 
@@ -78,7 +78,7 @@ inline bool intersects(bbox const& box1, bbox const& box2)
 
     return fabs(b2c.x - b1c.x) < b1r.x + b2r.x &&
         fabs(b2c.y - b1c.y) < b1r.y + b2r.y &&
-        fabs(b2c.x - b1c.z) < b1r.z + b2r.z;
+        fabs(b2c.z - b1c.z) < b1r.z + b2r.z;
 }
 
 inline bool contains(bbox const& box1, bbox const& box2)

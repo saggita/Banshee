@@ -20,6 +20,7 @@ void Sbvh::BuildImpl(std::vector<Primitive*> const& prims)
         int startidx;
         int numprims;
         Node** ptr;
+        int depth;
     };
 
     // We use indices as primitive references
@@ -30,11 +31,14 @@ void Sbvh::BuildImpl(std::vector<Primitive*> const& prims)
         primrefs[i].idx = i;
     }
 
-    SplitRequest init = {0, static_cast<int>(prims.size()), nullptr};
+    SplitRequest init = {0, static_cast<int>(prims.size()), nullptr, 0};
 
     std::stack<SplitRequest> stack;
     // Put initial request into the stack
     stack.push(init);
+    
+    // Keep root area
+    float rootarea = 0.f;
 
     while (!stack.empty())
     {
@@ -54,6 +58,9 @@ void Sbvh::BuildImpl(std::vector<Primitive*> const& prims)
             node->bounds = bboxunion(node->bounds, primrefs[i].bounds);
             centroid_bounds = bboxunion(centroid_bounds, primrefs[i].bounds.center());
         }
+        
+        if (!req.ptr)
+            rootarea = node->bounds.surface_area();
 
         // Create leaf node if we have only a single prim
         if (req.numprims < 2)
@@ -71,9 +78,16 @@ void Sbvh::BuildImpl(std::vector<Primitive*> const& prims)
             // Find best object split
             Split objsplit = FindObjectSplit(primrefs, req.startidx, req.numprims, node->bounds, centroid_bounds);
             // Find best spatial split
-            Split spatialsplit = FindSpatialSplit(primrefs, req.startidx, req.numprims, node->bounds);
+            Split spatialsplit = FindSpatialSplit(primrefs, req.startidx, req.numprims, node->bounds, req.depth);
             // Calculate leaf creation cost: FLT_MAX if we cannot create leaf
-            float leafsah = req.numprims < maxleafprims_ ? (req.numprims * trisah_) : std::numeric_limits<float>::max(); 
+            float leafsah = req.numprims < maxleafprims_ ? (req.numprims * trisah_) : std::numeric_limits<float>::max();
+            
+            // Do not try spatial if overlap area is too small
+            if (objsplit.overlaparea <= minoverlap_ * rootarea)
+            {
+                spatialsplit.sah = std::numeric_limits<float>::max();
+            }
+            
             float minsah = std::min(leafsah, std::min(spatialsplit.sah, objsplit.sah));
 
             if (minsah == objsplit.sah)
@@ -83,9 +97,9 @@ void Sbvh::BuildImpl(std::vector<Primitive*> const& prims)
                 int idx = PerformObjectSplit(objsplit, primrefs, req.startidx, req.numprims);
 
                 // Left request
-                SplitRequest leftrequest = {req.startidx, idx, &node->lc};
+                SplitRequest leftrequest = {req.startidx, idx, &node->lc, req.depth + 1};
                 // Right request
-                SplitRequest rightrequest = {req.startidx + idx, req.numprims - idx,  &node->rc};
+                SplitRequest rightrequest = {req.startidx + idx, req.numprims - idx,  &node->rc, req.depth + 1};
 
                 // Put those to stack
                 stack.push(leftrequest);
@@ -101,9 +115,9 @@ void Sbvh::BuildImpl(std::vector<Primitive*> const& prims)
                 // Perform spatial split
                 PerformSpatialSplit(spatialsplit, primrefs, req.startidx, req.numprims, idx, newnumprims);
                 // Left request
-                SplitRequest leftrequest = {req.startidx, idx, &node->lc};
+                SplitRequest leftrequest = {req.startidx, idx, &node->lc, req.depth + 1};
                 // Right request
-                SplitRequest rightrequest = {req.startidx + idx, newnumprims - idx,  &node->rc};
+                SplitRequest rightrequest = {req.startidx + idx, newnumprims - idx,  &node->rc, req.depth + 1};
 
                 // Put those to stack
                 // ATTENTION!!!: the order is critical here as we are overwriting values in primrefs array following
@@ -234,6 +248,7 @@ Sbvh::Split Sbvh::FindObjectSplit(std::vector<PrimitiveRef> const& primrefs, int
                 split.dim = axis;
                 splitidx = i;
                 split.sah = sah;
+                split.overlaparea = intersection(leftbox, rightbounds[i]).surface_area();
             }
         }
     }
@@ -295,12 +310,12 @@ bool  Sbvh::SplitPrimRef(PrimitiveRef const& ref, int axis, float border, Primit
     return false;
 }
 
-Sbvh::Split Sbvh::FindSpatialSplit(std::vector<PrimitiveRef> const& primrefs, int startidx, int numprims, bbox const& bounds) const
+Sbvh::Split Sbvh::FindSpatialSplit(std::vector<PrimitiveRef> const& primrefs, int startidx, int numprims, bbox const& bounds, int depth) const
 {
     // Split structure
     Split split;
     // Calculate kNumBins-histogram
-    int const kNumBins = 16;
+    int const kNumBins = 128;
     // Set SAH to maximum float value as a start
     split.dim = 0;
     split.sah = std::numeric_limits<float>::max();
@@ -309,7 +324,7 @@ Sbvh::Split Sbvh::FindSpatialSplit(std::vector<PrimitiveRef> const& primrefs, in
     float3 extents = bounds.extents();
  
     // If there are too few primitives don't split them
-    if (numprims < kNumBins || (extents.sqnorm() == 0.f) || !usespatial_ || numprims > maxspatial_)
+    if ((extents.sqnorm() == 0.f) || !usespatial_ || depth > maxspatialdepth_)
     {
         return split;
     }
@@ -347,7 +362,7 @@ Sbvh::Split Sbvh::FindSpatialSplit(std::vector<PrimitiveRef> const& primrefs, in
         // Determine starting bin for this primitive
         float3 firstbin = clamp((primref.bounds.pmin - origin) * invbinsize, float3(0,0,0), float3(kNumBins-1, kNumBins-1, kNumBins-1));
         // Determine finishing bin
-        float3 lastbin = clamp((primref.bounds.pmin - origin) * invbinsize, firstbin, float3(kNumBins-1, kNumBins-1, kNumBins-1));
+        float3 lastbin = clamp((primref.bounds.pmax - origin) * invbinsize, firstbin, float3(kNumBins-1, kNumBins-1, kNumBins-1));
         // Iterate over axis
         for (int axis = 0; axis < 3; ++axis)
         {
@@ -411,6 +426,7 @@ Sbvh::Split Sbvh::FindSpatialSplit(std::vector<PrimitiveRef> const& primrefs, in
             // Update SAH if it is needed
             if (sah < split.sah)
             {
+                split.overlaparea = intersects(leftbox, rightbounds[i-1])?intersection(leftbox, rightbounds[i-1]).surface_area() : 0.f;
                 split.sah = sah;
                 split.dim = axis;
                 split.border = origin[axis] + binsize[axis] * (float)i;
@@ -422,7 +438,7 @@ Sbvh::Split Sbvh::FindSpatialSplit(std::vector<PrimitiveRef> const& primrefs, in
 }
 
  // Perform spatial split
-void   Sbvh::PerformSpatialSplit(Split const& split, std::vector<PrimitiveRef>& primrefs, int startidx, int numprims, int& idx, int& newnumprims) const
+void Sbvh::PerformSpatialSplit(Split const& split, std::vector<PrimitiveRef>& primrefs, int startidx, int numprims, int& idx, int& newnumprims) const
 {
     // We are going to append new primitives at the end of the array
     int appendprims = numprims;
@@ -431,7 +447,7 @@ void   Sbvh::PerformSpatialSplit(Split const& split, std::vector<PrimitiveRef>& 
     if (!is_nan(split.border))
     {
         // Split refs if any of them require to be split
-        for (int i = startidx; i != startidx + numprims; ++i)
+        for (int i = startidx; i < startidx + numprims; ++i)
         {
             PrimitiveRef leftref, rightref;
             if (SplitPrimRef(primrefs[i], split.dim, split.border, leftref, rightref))

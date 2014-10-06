@@ -232,7 +232,7 @@ void segmented_scan_test(CLWContext context)
 
 void sort_test(CLWContext context)
 {
-    int const ARRAY_SIZE = 1000000;
+    int const ARRAY_SIZE = 256000000;
     
     auto deviceInputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
     auto deviceOutputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
@@ -242,7 +242,7 @@ void sort_test(CLWContext context)
     std::vector<int> hostArrayGold(ARRAY_SIZE);
     
     
-    std::generate(hostArray.begin(), hostArray.end(), []{return rand() % 10000000;});
+    std::generate(hostArray.begin(), hostArray.end(), []{return rand() % 1000000;});
     std::copy(hostArray.begin(), hostArray.end(), hostArrayGold.begin());
     std::sort(hostArrayGold.begin(), hostArrayGold.end());
 
@@ -250,14 +250,14 @@ void sort_test(CLWContext context)
 
     CLWParallelPrimitives prims(context);
 
-    prims.SortRadix(0, deviceInputArray, deviceOutputArray, deviceInputArray, deviceOutputArray);
+    prims.SortRadix(0, deviceInputArray, deviceOutputArray);
     context.Finish(0);
 
     auto startTime = std::chrono::high_resolution_clock::now();
 
-    for (int i = 0; i < 50; ++i)
+    for (int i = 0; i < 5; ++i)
     {
-        prims.SortRadix(0, deviceInputArray, deviceOutputArray, deviceInputArray, deviceOutputArray);
+        //prims.SortRadix(0, deviceInputArray, deviceOutputArray);
     }
 
     context.Finish(0);
@@ -364,13 +364,13 @@ int main(int argc, const char * argv[])
         //scan_test(context);
         //segmented_scan_test(context);
 
-        //sort_test(context);
+        sort_test(context);
         //test_1();
         std::cout << "Available memory: " << context.GetDevice(0).GetGlobalMemSize() / (1024 * 1024) << "Mb\n";
         std::cout << "Max memory allocation size: " << context.GetDevice(0).GetMaxAllocSize() / (1024 * 1024) << "Mb\n";
 
         // Test for allocation 8Gb
-        auto buffer = context.CreateBuffer<int>(1.5 * 2147483648, CL_MEM_READ_WRITE, nullptr);
+        //auto buffer = context.CreateBuffer<int>(1.5 * 2147483648, CL_MEM_READ_WRITE, nullptr);
 
     }
     catch (CLWExcept& e)

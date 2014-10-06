@@ -36,7 +36,9 @@ public:
 
     CLWEvent SortRadix(unsigned int deviceIdx, CLWBuffer<cl_int> inputKeys, CLWBuffer<cl_int> outputKeys,
                                                CLWBuffer<cl_int> inputValues, CLWBuffer<cl_int> outputValues);
-
+    
+    CLWEvent SortRadix(unsigned int deviceIdx, CLWBuffer<cl_int> inputKeys, CLWBuffer<cl_int> outputKeys);
+    
     CLWEvent Compact(unsigned int deviceIdx, CLWBuffer<cl_int> predicate, CLWBuffer<cl_int> input, CLWBuffer<cl_int> output, cl_int& newSize);
     CLWEvent Copy(unsigned int deviceIdx, CLWBuffer<cl_int> input, CLWBuffer<cl_int> output);
 

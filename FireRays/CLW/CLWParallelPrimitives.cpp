@@ -501,7 +501,8 @@ CLWEvent CLWParallelPrimitives::SortRadix(unsigned int deviceIdx, CLWBuffer<cl_i
     CLWKernel splitKernel = program_.GetKernel("split_4way");
     CLWKernel scatterKeys = program_.GetKernel("scatter_keys");
 
-    for (int offset = 0; offset < 32; offset += 2)
+    //int offset = 0;
+    for (int offset = 0; offset <= 30; offset += 2)
     {
         // Split 
         splitKernel.SetArg(0, offset);
@@ -539,6 +540,83 @@ CLWEvent CLWParallelPrimitives::SortRadix(unsigned int deviceIdx, CLWBuffer<cl_i
     // Return last copy event back to the user
     context_.CopyBuffer(0, *fromKeys, *toKeys, 0, 0, numElems);
     return context_.CopyBuffer(0, *fromVals, *toVals, 0, 0, numElems);
+}
+
+
+CLWEvent CLWParallelPrimitives::SortRadix(unsigned int deviceIdx, CLWBuffer<cl_int> inputKeys, CLWBuffer<cl_int> outputKeys)
+{
+    assert(inputKeys.GetElementCount() == outputKeys.GetElementCount());
+    
+    cl_uint numElems = (cl_uint)inputKeys.GetElementCount();
+    
+    int GROUP_BLOCK_SIZE = (WG_SIZE * 4);
+    int NUM_BLOCKS =  (numElems + GROUP_BLOCK_SIZE - 1)/ GROUP_BLOCK_SIZE;
+    
+    auto deviceHistograms = GetTempIntBuffer(NUM_BLOCKS * 4);
+    auto deviceTempKeys = GetTempIntBuffer(numElems);
+    auto deviceDebugOffsets = GetTempIntBuffer(numElems);
+    auto deviceLocalHistograms = GetTempIntBuffer(numElems);
+    
+    auto fromKeys = &inputKeys;
+    auto toKeys = &outputKeys;
+    
+    CLWKernel splitKernel = program_.GetKernel("split_4way");
+    CLWKernel scatterKeys = program_.GetKernel("scatter_keys_k");
+    
+    //int offset = 0;
+    for (int offset = 0; offset <= 30; offset += 2)
+    {
+        // Split
+        splitKernel.SetArg(0, offset);
+        splitKernel.SetArg(1, *fromKeys);
+        splitKernel.SetArg(2, (cl_uint)fromKeys->GetElementCount());
+        splitKernel.SetArg(3, deviceHistograms);
+        splitKernel.SetArg(4, deviceTempKeys);
+        splitKernel.SetArg(5, deviceLocalHistograms);
+        splitKernel.SetArg(6, deviceDebugOffsets);
+        splitKernel.SetArg(7, SharedMemory(WG_SIZE * 8 * sizeof(cl_short)));
+        context_.Launch1D(0, NUM_BLOCKS*WG_SIZE, WG_SIZE, splitKernel);
+        
+        std::vector<int> keys(64);
+        context_.ReadBuffer(0, *fromKeys, &keys[0], 64).Wait();
+        
+        std::vector<int> tkeys(64);
+        std::vector<int> toffsets(64);
+        std::vector<int> hist(4);
+        context_.ReadBuffer(0, deviceTempKeys, &tkeys[0], 64).Wait();
+        context_.ReadBuffer(0, deviceDebugOffsets, &toffsets[0], 64).Wait();
+        context_.ReadBuffer(0, deviceHistograms, &hist[0], 4).Wait();
+        
+        // Scan histograms
+        ScanExclusiveAdd(0, deviceHistograms, deviceHistograms);
+        
+        context_.ReadBuffer(0, deviceHistograms, &hist[0], 4).Wait();
+        
+        // Scatter keys
+        scatterKeys.SetArg(0, offset);
+        scatterKeys.SetArg(1, deviceTempKeys);
+        scatterKeys.SetArg(2, (cl_uint)toKeys->GetElementCount());
+        scatterKeys.SetArg(3, deviceHistograms);
+        scatterKeys.SetArg(4, deviceLocalHistograms);
+        scatterKeys.SetArg(5, *toKeys);
+        
+        
+        context_.Launch1D(0, NUM_BLOCKS*WG_SIZE, WG_SIZE, scatterKeys);
+        
+        context_.ReadBuffer(0, *toKeys, &keys[0], 64).Wait();
+        
+        
+        
+        // Swap pointers
+        std::swap(fromKeys, toKeys);
+    }
+    
+    // Return buffers to memory manager
+    ReclaimTempIntBuffer(deviceHistograms);
+    ReclaimTempIntBuffer(deviceTempKeys);
+    
+    // Return last copy event back to the user
+    return context_.CopyBuffer(0, *fromKeys, *toKeys, 0, 0, numElems);
 }
 
 void CLWParallelPrimitives::ReclaimDeviceMemory()

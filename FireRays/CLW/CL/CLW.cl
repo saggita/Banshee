@@ -230,8 +230,8 @@ __kernel void distribute_part_sum_##type##4( __global type* in_sums, __global ty
 }
 
 
-DEFINE_MAKE_4(int)
-DEFINE_MAKE_4(float)
+//DEFINE_MAKE_4(int)
+//DEFINE_MAKE_4(float)
 
 DEFINE_SAFE_LOAD_4(int)
 DEFINE_SAFE_LOAD_4(float)
@@ -374,6 +374,8 @@ void group_scan_short_4way(int localId, int groupSize,
     t = v4.x; v4.x = v4.y; v4.y += t;
     t = v4.z; v4.z = v4.w; v4.w += t;
     *offset3 = v4;
+    
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     *histogram = total;
 }
@@ -390,22 +392,24 @@ short4 radix_mask(int offset, uchar digit, int4 val)
 }
 
 // Choose offset based on radix mask value 
-short offset_4way(int val, int offset, short offset0, short offset1, short offset2, short offset3)
+short offset_4way(int val, int offset, short offset0, short offset1, short offset2, short offset3, short4 hist)
 {
     switch ((val >> offset) & 3)
     {
         case 0:
             return offset0;
         case 1:
-            return offset1;
+            return offset1 + hist.x;
         case 2:
-            return offset2;
+            return offset2 + hist.x + hist.y;
         case 3:
-            return offset3; 
+            return offset3 + hist.x + hist.y + hist.z;
     }
 
     return 0;
 }
+
+
 
 // Perform group split using 2-bits pass
 void group_split_radix_2bits(
@@ -414,7 +418,7 @@ void group_split_radix_2bits(
                             int offset, 
                             int4 val,
                             __local short* shmem, 
-                            __global int4* out_local_offsets,
+                            int4* localOffset,
                             short4* histogram)
 {
     /// Pointers to radix flag arrays
@@ -441,14 +445,10 @@ void group_split_radix_2bits(
         &offset0, &offset1, &offset2, &offset3, 
         histogram);
 
-    int4 localOffset;
-
-    localOffset.x = offset_4way(val.x, offset, offset0.x, offset1.x, offset2.x, offset3.x);
-    localOffset.y = offset_4way(val.y, offset, offset0.y, offset1.y, offset2.y, offset3.y);
-    localOffset.z = offset_4way(val.z, offset, offset0.z, offset1.z, offset2.z, offset3.z);
-    localOffset.w = offset_4way(val.w, offset, offset0.w, offset1.w, offset2.w, offset3.w);
-
-    out_local_offsets[localId] = localOffset;
+    (*localOffset).x = offset_4way(val.x, offset, offset0.x, offset1.x, offset2.x, offset3.x, *histogram);
+    (*localOffset).y = offset_4way(val.y, offset, offset0.y, offset1.y, offset2.y, offset3.y, *histogram);
+    (*localOffset).z = offset_4way(val.z, offset, offset0.z, offset1.z, offset2.z, offset3.z, *histogram);
+    (*localOffset).w = offset_4way(val.w, offset, offset0.w, offset1.w, offset2.w, offset3.w, *histogram);
 }
 
 int4 safe_load_int4_intmax(__global int4* source, uint idx, uint sizeInInts)
@@ -472,7 +472,10 @@ void safe_store_int(int val, __global int* dest, uint idx, uint sizeInInts)
 }
 
 // Split kernel launcher
-__kernel void split_4way(int bitshift, __global int4* in_array, uint numElems, __global int* out_histograms, __global int4* out_local_offsets, __local short* shmem)
+__kernel void split_4way(int bitshift, __global int4* in_array, uint numElems, __global int* out_histograms, __global int4* out_array,
+                         __global int* out_local_histograms,
+                         __global int4* out_debug_offset,
+                         __local short* shmem)
 {
     int globalId  = get_global_id(0);
     int localId   = get_local_id(0);
@@ -483,16 +486,49 @@ __kernel void split_4way(int bitshift, __global int4* in_array, uint numElems, _
     /// Load single int4 value
     int4 val = safe_load_int4_intmax(in_array, globalId, numElems);
 
+    int4 localOffset;
     short4 localHistogram;
-    group_split_radix_2bits(localId, groupSize, bitshift, val, shmem, out_local_offsets + groupId * groupSize,
+    group_split_radix_2bits(localId, groupSize, bitshift, val, shmem, &localOffset,
         &localHistogram);
+    
+    barrier(CLK_LOCAL_MEM_FENCE);
+    
+    //out_local_offsets[groupSize*groupId + localId] = localOffset;
 
+    __local int* sharedData = (__local int*)shmem;
+    __local int4* sharedData4 = (__local int4*)shmem;
+    
+    sharedData[localOffset.x] = val.x;
+    sharedData[localOffset.y] = val.y;
+    sharedData[localOffset.z] = val.z;
+    sharedData[localOffset.w] = val.w;
+    
+    barrier(CLK_LOCAL_MEM_FENCE);
+    
+    // Now store to memory
+    if (((globalId + 1) << 2) <= numElems)
+    {
+        out_array[globalId] = sharedData4[localId];
+        out_debug_offset[globalId] = localOffset;
+    }
+    else
+    {
+        if ((globalId << 2) < numElems) out_array[globalId].x = sharedData4[localId].x;
+        if ((globalId << 2) + 1 < numElems) out_array[globalId].y = sharedData4[localId].y;
+        if ((globalId << 2) + 2 < numElems) out_array[globalId].z = sharedData4[localId].z;
+    }
+    
     if (localId == 0)
     {
         out_histograms[groupId] = localHistogram.x;
-        out_histograms[groupId + numGroups] = localHistogram.y;
+        out_histograms[groupId + numGroups] =  localHistogram.y;
         out_histograms[groupId + 2 * numGroups] = localHistogram.z;
-        out_histograms[groupId + 3 * numGroups] = localHistogram.w;
+        out_histograms[groupId + 3 * numGroups] =  localHistogram.w;
+        
+        out_local_histograms[groupId] = 0;
+        out_local_histograms[groupId + numGroups] = localHistogram.x;
+        out_local_histograms[groupId + 2 * numGroups] = localHistogram.x + localHistogram.y;
+        out_local_histograms[groupId + 3 * numGroups] = localHistogram.x + localHistogram.y + localHistogram.z;
     }
 }
 
@@ -538,6 +574,47 @@ __kernel void scatter_keys(int bitshift,
         scatterAddr = in_histograms[groupId + v * numGroups] + localOffset.w;
         safe_store_int(key.w, (__global int*)out_keys, scatterAddr, numElems);
         safe_store_int(value.w, (__global int*)out_values, scatterAddr, numElems);
+    }
+}
+
+
+__kernel void scatter_keys_k(int bitshift,
+                           __global int4* in_keys,
+                           uint numElems,
+                           __global int* in_histograms,
+                           __global int* in_local_histograms,
+                           __global int4* out_keys
+                           )
+{
+    int globalId  = get_global_id(0);
+    int localId   = get_local_id(0);
+    int groupSize = get_local_size(0);
+    int groupId   = get_group_id(0);
+    int numGroups = get_global_size(0) / groupSize;
+    
+    if ((globalId << 2) < numElems)
+    {
+        int4 key         = safe_load_int4_intmax(in_keys, globalId, numElems);
+        
+        uchar v = (key.x >> bitshift) & 0x3;
+        int scatterAddr = in_histograms[groupId + v * numGroups] +
+        4 * localId - in_local_histograms[groupId + v * numGroups];
+        safe_store_int(key.x, (__global int*)out_keys, scatterAddr, numElems);
+        
+        v = (key.y >> bitshift) & 0x3;
+        scatterAddr = in_histograms[groupId + v * numGroups] +
+        4 * localId + 1 - in_local_histograms[groupId + v * numGroups];
+        safe_store_int(key.y, (__global int*)out_keys, scatterAddr, numElems);
+        
+        v = (key.z >> bitshift) & 0x3;
+        scatterAddr = in_histograms[groupId + v * numGroups] +
+        4 * localId + 2 - in_local_histograms[groupId + v * numGroups];
+        safe_store_int(key.z, (__global int*)out_keys, scatterAddr, numElems);
+        
+        v = (key.w >> bitshift) & 0x3;
+        scatterAddr = in_histograms[groupId + v * numGroups] +
+        4 * localId + 3 - in_local_histograms[groupId + v * numGroups];
+        safe_store_int(key.w, (__global int*)out_keys, scatterAddr, numElems);
     }
 }
 

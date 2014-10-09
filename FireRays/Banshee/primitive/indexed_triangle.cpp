@@ -117,13 +117,6 @@ bool IndexedTriangle::Intersect(ray& r) const
     return false;
 }
 
-bbox IndexedTriangle::Bounds() const
-{
-    bbox box(mesh_.vertices_[pidx1_], mesh_.vertices_[pidx2_]);
-    box = bboxunion(box, mesh_.vertices_[pidx3_]);
-    return bbox(transform_point(box.pmin, mesh_.worldmat_), transform_point(box.pmax, mesh_.worldmat_));
-}
-
 void IndexedTriangle::Sample(float2 const& sample, SampleData& sampledata, float& pdf) const
 {
     // Fetch geometric data from the mesh
@@ -156,9 +149,57 @@ void IndexedTriangle::Sample(float2 const& sample, SampleData& sampledata, float
 
 float IndexedTriangle::surface_area() const
 {
-    float3 p1 = mesh_.vertices_[pidx1_];
-    float3 p2 = mesh_.vertices_[pidx2_];
-    float3 p3 = mesh_.vertices_[pidx3_];
+    float3 p1 = transform_point(mesh_.vertices_[pidx1_], mesh_.worldmat_);
+    float3 p2 = transform_point(mesh_.vertices_[pidx2_], mesh_.worldmat_);
+    float3 p3 = transform_point(mesh_.vertices_[pidx3_], mesh_.worldmat_);
 
     return sqrtf(fabs(cross(p3 - p1, p3 - p2).sqnorm())) * 0.5f;
+}
+
+bool IndexedTriangle::SplitBounds(int axis, float border, bbox& leftbounds, bbox& rightbounds) const
+{
+    bbox bounds = Bounds();
+
+    if (border >= bounds.pmax[axis] || border <= bounds.pmin[axis])
+    {
+        return false;
+    }
+
+    leftbounds = bbox();
+    rightbounds = bbox();
+
+    for (int i = 0; i < 3; i++)
+    {
+        float v0p = wp[i][axis];
+        float v1p = wp[(i + 1) % 3][axis];
+
+        if (v0p <= border)
+            leftbounds.grow(wp[i]);
+        if (v0p >= border)
+            rightbounds.grow(wp[i]);
+
+        if ((v0p < border && v1p > border) || (v0p > border && v1p < border))
+        {
+            float3 t;
+            lerp(wp[i], wp[(i + 1) % 3], clamp((border - v0p) / (v1p - v0p), 0.0f, 1.0f), t);
+            leftbounds.grow(t);
+            rightbounds.grow(t);
+        }
+    }
+
+    return true;
+}
+
+bbox IndexedTriangle::CalcBounds()
+{
+    bbox box(mesh_.vertices_[pidx1_], mesh_.vertices_[pidx2_]);
+    box = bboxunion(box, mesh_.vertices_[pidx3_]);
+    return bbox(transform_point(box.pmin, mesh_.worldmat_), transform_point(box.pmax, mesh_.worldmat_));
+}
+
+void IndexedTriangle::CalcWorldSpacePositions()
+{
+    wp[0] = transform_point(mesh_.vertices_[pidx1_], mesh_.worldmat_);
+    wp[1] = transform_point(mesh_.vertices_[pidx2_], mesh_.worldmat_);
+    wp[2] = transform_point(mesh_.vertices_[pidx3_], mesh_.worldmat_);
 }

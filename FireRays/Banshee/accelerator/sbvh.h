@@ -12,10 +12,10 @@ public:
     // Pass triangle intersection cost compared to unit node traversal cost
     // 0 - no cost (intersection is free)
     // FLT_MAX - maximum cost (any intersection is heavier than any traversal)
-    Sbvh(float trisah, int maxleafprims = 32,
+    Sbvh(float trisah, int maxleafprims = 8,
          bool usespatial = true,
-         int maxsptialdepth = 20,
-         float minoverlap = 0.00001)
+         int maxsptialdepth = 48,
+         float minoverlap = 0.00001f)
         : trisah_(trisah)
         , maxleafprims_(maxleafprims)
         , usespatial_(usespatial)
@@ -32,8 +32,13 @@ private:
     // Struct to describe reference to a primitive
     struct PrimitiveRef
     {
+        // Bounding box, which might encompass only a part of a primitive (split)
         bbox bounds;
+        // Primitive index in the initial array
         int  idx;
+        // Shortcut to the primitive for convenience (previous index might be used instead)
+        // TODO: remove that later
+        Primitive const* prim;
     };
 
     // Struct to describe a split

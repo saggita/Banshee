@@ -24,11 +24,13 @@ void Sbvh::BuildImpl(std::vector<Primitive*> const& prims)
     };
 
     // We use indices as primitive references
+    // TODO: bug here, need to add more refs in perform spatial split
     std::vector<PrimitiveRef> primrefs(2*prims.size());
     for (int i = 0; i < prims.size(); ++i)
     {
         primrefs[i].bounds = prims[i]->Bounds();
         primrefs[i].idx = i;
+        primrefs[i].prim = prims[i];
     }
 
     SplitRequest init = {0, static_cast<int>(prims.size()), nullptr, 0};
@@ -55,8 +57,8 @@ void Sbvh::BuildImpl(std::vector<Primitive*> const& prims)
         bbox centroid_bounds = bbox();
         for (int i = req.startidx; i < req.startidx + req.numprims; ++i)
         {
-            node->bounds = bboxunion(node->bounds, primrefs[i].bounds);
-            centroid_bounds = bboxunion(centroid_bounds, primrefs[i].bounds.center());
+            node->bounds.grow(primrefs[i].bounds);
+            centroid_bounds.grow(primrefs[i].bounds.center());
         }
         
         if (!req.ptr)
@@ -80,14 +82,15 @@ void Sbvh::BuildImpl(std::vector<Primitive*> const& prims)
             // Find best spatial split
             Split spatialsplit = FindSpatialSplit(primrefs, req.startidx, req.numprims, node->bounds, req.depth);
             // Calculate leaf creation cost: FLT_MAX if we cannot create leaf
-            float leafsah = req.numprims < maxleafprims_ ? (req.numprims * trisah_) : std::numeric_limits<float>::max();
+            float leafsah = req.numprims <= maxleafprims_ ? (req.numprims * trisah_) : std::numeric_limits<float>::max();
             
             // Do not try spatial if overlap area is too small
-            if (objsplit.overlaparea <= minoverlap_ * rootarea)
+            if (!is_nan(objsplit.border) && objsplit.overlaparea <= minoverlap_ * rootarea)
+
             {
                 spatialsplit.sah = std::numeric_limits<float>::max();
             }
-            
+
             float minsah = std::min(leafsah, std::min(spatialsplit.sah, objsplit.sah));
 
             if (minsah == objsplit.sah)
@@ -156,7 +159,7 @@ Sbvh::Split Sbvh::FindObjectSplit(std::vector<PrimitiveRef> const& primrefs, int
     Split split;
     // SAH implementation
     // calc centroids histogram
-    int const kNumBins = 16;
+    int const kNumBins = 256;
     // moving split bin index
     int splitidx = -1;
     // Set SAH to maximum float value as a start
@@ -214,7 +217,7 @@ Sbvh::Split Sbvh::FindObjectSplit(std::vector<PrimitiveRef> const& primrefs, int
             assert(binidx >= 0);
             
             ++bins[axis][binidx].count;
-            bins[axis][binidx].bounds = bboxunion(bins[axis][binidx].bounds, primref.bounds);
+            bins[axis][binidx].bounds.grow(primref.bounds);
         }
 
         bbox rightbounds[kNumBins-1];
@@ -223,7 +226,7 @@ Sbvh::Split Sbvh::FindObjectSplit(std::vector<PrimitiveRef> const& primrefs, int
         bbox rightbox = bbox();
         for (int i = kNumBins - 1; i > 0; --i)
         {
-            rightbox = bboxunion(rightbox, bins[axis][i].bounds);
+            rightbox.grow(bins[axis][i].bounds);
             rightbounds[i-1] = rightbox;
         }
 
@@ -235,7 +238,7 @@ Sbvh::Split Sbvh::FindObjectSplit(std::vector<PrimitiveRef> const& primrefs, int
         // i is current split candidate (split between i and i + 1) 
         for (int i = 0; i < kNumBins - 1; ++i)
         {
-            leftbox = bboxunion(leftbox, bins[axis][i].bounds);
+            leftbox.grow(bins[axis][i].bounds);
             leftcount += bins[axis][i].count;
             rightcount -= bins[axis][i].count;
 
@@ -293,18 +296,21 @@ int   Sbvh::PerformObjectSplit(Split const& split, std::vector<PrimitiveRef>& pr
 
 bool  Sbvh::SplitPrimRef(PrimitiveRef const& ref, int axis, float border, PrimitiveRef& leftref, PrimitiveRef& rightref) const
 {
-    if (border < ref.bounds.pmax[axis] && border > ref.bounds.pmin[axis])
+    Primitive const* prim (ref.prim);
+
+    bbox leftbox; 
+    bbox rightbox;
+    leftref.idx = rightref.idx = ref.idx;
+    leftref.prim = rightref.prim = ref.prim;
+
+    if (prim->SplitBounds(axis, border, leftbox, rightbox))
     {
-        // Copy min and max values
-        leftref.bounds.pmin = rightref.bounds.pmin = ref.bounds.pmin;
-        leftref.bounds.pmax = rightref.bounds.pmax = ref.bounds.pmax;
-        leftref.idx = rightref.idx = ref.idx;
-
-        // Break now
-        leftref.bounds.pmax[axis] = border;
-        rightref.bounds.pmin[axis] = border;
-
-        return true;
+        //if(intersects(leftbox, ref.bounds) && intersects(rightbox, ref.bounds))
+        //{
+            leftref.bounds = intersection(leftbox, ref.bounds);
+            rightref.bounds = intersection(rightbox, ref.bounds);
+            return true;
+        //}
     }
 
     return false;
@@ -336,7 +342,7 @@ Sbvh::Split Sbvh::FindSpatialSplit(std::vector<PrimitiveRef> const& primrefs, in
         int enter;
         int exit;
     };
-    
+
     Bin bins[3][kNumBins];
 
     // Prepcompute some useful stuff
@@ -370,15 +376,19 @@ Sbvh::Split Sbvh::FindSpatialSplit(std::vector<PrimitiveRef> const& primrefs, in
             if (extents[axis] == 0.f) continue;
             // Break the prim into bins
             PrimitiveRef tempref = primref;
+
             for (int j = (int)firstbin[axis]; j < (int)lastbin[axis]; ++j)
             {
                 PrimitiveRef leftref, rightref;
                 // Split primitive ref into left and right
-                SplitPrimRef(tempref, axis, origin[axis] + binsize[axis] * (j + 1), leftref, rightref);
-                // Add left one
-                bins[axis][j].bounds = bboxunion(bins[axis][j].bounds, leftref.bounds);
-                // Save right to add part of it into the next bin
-                tempref = rightref;
+                float splitval = origin[axis] + binsize[axis] * (j + 1);
+                if (SplitPrimRef(tempref, axis, splitval, leftref, rightref))
+                {
+                    // Add left one
+                    bins[axis][j].bounds = bboxunion(bins[axis][j].bounds, leftref.bounds);
+                    // Save right to add part of it into the next bin
+                    tempref = rightref;
+                }
             }
             // Add the last piece into the last bin
             bins[axis][(int)lastbin[axis]].bounds = bboxunion(bins[axis][(int)lastbin[axis]].bounds, tempref.bounds);

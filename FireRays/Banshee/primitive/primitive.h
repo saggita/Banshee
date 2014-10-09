@@ -72,9 +72,32 @@ public:
     virtual float surface_area() const { return 0.f; };
     // Each primitive with an area > 0 is required to be able to provide sample points on its surface.
     // This method returns a sample point for a given sample in world space.
-    // TODO: do we need intersectable but not samplable?
     virtual void Sample(float2 const& sample, SampleData& sampledata, float& pdf) const { return; }
+    // The method is in charge of splitting primitive bounding box with axis-aligned plane.
+    // Default implementation simply linearly interpolates between min and max points.
+    // Overrides are expected to provide more preciese bounds.
+    // true indicates that the bounds was split, otherwise the plane misses it
+    virtual bool SplitBounds(int axis, float border, bbox& leftbounds, bbox& rightbounds) const;
 };
+
+inline bool Primitive::SplitBounds(int axis, float border, bbox& leftbounds, bbox& rightbounds) const
+{
+    bbox bounds = Bounds();
+    if (border <= bounds.pmax[axis] && border >= bounds.pmin[axis])
+    {
+        // Copy min and max values
+        leftbounds.pmin = rightbounds.pmin = bounds.pmin;
+        leftbounds.pmax = rightbounds.pmax = bounds.pmax;
+
+        // Break now
+        leftbounds.pmax[axis] = border;
+        rightbounds.pmin[axis] = border;
+
+        return true;
+    }
+
+    return false;
+}
 
 
 #endif

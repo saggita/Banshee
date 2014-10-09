@@ -103,7 +103,7 @@ std::unique_ptr<World> BuildWorldHairball(TextureSystem const& texsys)
     World* world = new World();
     // Create accelerator
     //SimpleSet* set = new SimpleSet();
-    Bvh* bvh = new Sbvh(10.f, 8);
+    Bvh* bvh = new Sbvh(10.f, 8, true, 20, 0.001f);
     // Create camera
     Camera* camera = new PerscpectiveCamera(float3(0, 15.f, 15.f), float3(0, 0.f, 0), float3(0, 1.f, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
@@ -163,7 +163,7 @@ std::unique_ptr<World> BuildWorldSponza(TextureSystem const& texsys)
     World* world = new World();
     // Create accelerator
     //SimpleSet* set = new SimpleSet();
-    Bvh* bvh = new Sbvh(10.f, 8);
+    Bvh* bvh = new Sbvh(1.f, 8, true, 48, 0.00001f);
     //Bvh* bvh = new Bvh();
     // Create camera
     //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
@@ -226,7 +226,7 @@ std::unique_ptr<World> BuildWorldSibenik(TextureSystem const& texsys)
     World* world = new World();
     // Create accelerator
     //SimpleSet* set = new SimpleSet();
-    Bvh* bvh = new Sbvh(10.f, 8);
+    Bvh* bvh = new Sbvh(10.f, 4, true, 10, 0.00001f);
     //Bvh* bvh = new Bvh();
     // Create camera
     //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
@@ -289,7 +289,7 @@ std::unique_ptr<World> BuildWorldMuseum(TextureSystem const& texsys)
     World* world = new World();
     // Create accelerator
     //SimpleSet* set = new SimpleSet();
-    Bvh* bvh = new Sbvh(10.f, 8);
+    Bvh* bvh = new Sbvh(1.f, 8, false, 48, 0.00001);
     //Bvh* bvh = new Bvh();
     // Create camera
     //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
@@ -353,7 +353,7 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
     World* world = new World();
     // Create accelerator
     //SimpleSet* set = new SimpleSet();
-    Bvh* bvh = new Sbvh(10.f, false);
+    Bvh* bvh = new Sbvh(10.f, 8, false);
     //Bvh* bvh = new Bvh();
     // Create camera
     //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
@@ -546,6 +546,87 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
 }
 
 
+std::unique_ptr<World> BuildWorldCube(TextureSystem const& texsys)
+{
+    // Create world
+    World* world = new World();
+    // Create accelerator
+    Bvh* bvh = new Sbvh(0.01f, 1);
+    // Create camera
+    //Camera* camera = new PerscpectiveCamera(float3(0, 3, -8.5), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(0, 10, -25), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    // Create lights
+    //PointLight* light1 = new PointLight(float3(0, 5, 5), 30.f * float3(3.f, 3.f, 3.f));
+    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.6f);
+    //PointLight* light2 = new PointLight(float3(-5, 5, -2), 0.6 * float3(3.f, 2.9f, 2.4f));
+
+     // Add ground plane
+    float3 vertices[4] = {
+        float3(-1, 0, -1),
+        float3(-1, 0, 1),
+        float3(1, 0, 1),
+        float3(1, 0, -1)
+    };
+
+    float3 normals[4] = {
+        float3(0, 1, 0),
+        float3(0, 1, 0),
+        float3(0, 1, 0),
+        float3(0, 1, 0)
+    };
+
+    float2 uvs[4] = {
+        float2(0, 0),
+        float2(0, 1),
+        float2(1, 1),
+        float2(1, 0)
+    };
+
+    int indices[6] = {
+        0, 3, 1,
+        3, 1, 2
+    };
+
+    int materials[2] = {0,0};
+
+    matrix worldmat = translation(float3(0, -1.f, 0)) * scale(float3(5, 1, 5));
+
+    Mesh* mesh = new Mesh(&vertices[0].x, 4, sizeof(float3),
+                          &normals[0].x, 4, sizeof(float3),
+                          &uvs[0].x, 4, sizeof(float2),
+                          indices, sizeof(int),
+                          indices, sizeof(int),
+                          indices, sizeof(int),
+                          materials, sizeof(int),
+                          2, worldmat, inverse(worldmat));
+
+    std::vector<Primitive*> prims;
+    prims.push_back(mesh);
+
+    bvh->Build(prims);
+
+    // Attach accelerator to world
+    world->accelerator_ = std::unique_ptr<Primitive>(bvh);
+    // Attach camera
+    world->camera_ = std::unique_ptr<Camera>(camera);
+    // Attach point lights
+    world->lights_.push_back(std::unique_ptr<Light>(light1));
+    // Set background
+    world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
+
+    // Build materials
+
+    Matte* matte0 = new Matte(texsys, float3(0.7f, 0.6f, 0.6f));
+
+    world->materials_.push_back(std::unique_ptr<Material>(matte0));
+
+
+    // Return world
+    return std::unique_ptr<World>(world);
+}
+
+
+
 std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
 {
     // Create world
@@ -676,7 +757,7 @@ int main()
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldMitsuba(texsys);
+        std::unique_ptr<World> world = BuildWorldSibenik(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -712,6 +793,7 @@ int main()
             new StratifiedSampler(4, new McRng()), // Image sampler
             new RandomSampler(1, new McRng()), // Light sampler
             new RandomSampler(1, new McRng()), // Brdf sampler
+
             new MyReporter() // Progress reporter
             );
 

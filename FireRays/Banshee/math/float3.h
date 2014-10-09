@@ -80,10 +80,23 @@ inline float3 vmin(float3 const& v1, float3 const& v2)
     return float3(std::min(v1.x, v2.x), std::min(v1.y, v2.y), std::min(v1.z, v2.z));
 }
 
+inline void vmin(float3 const& v1, float3 const& v2, float3& v)
+{
+    v.x = std::min(v1.x, v2.x); 
+    v.y = std::min(v1.y, v2.y);
+    v.z = std::min(v1.z, v2.z);
+}
 
 inline float3 vmax(float3 const& v1, float3 const& v2)
 {
     return float3(std::max(v1.x, v2.x), std::max(v1.y, v2.y), std::max(v1.z, v2.z));
+}
+
+inline void vmax(float3 const& v1, float3 const& v2, float3& v)
+{
+    v.x = std::max(v1.x, v2.x); 
+    v.y = std::max(v1.y, v2.y);
+    v.z = std::max(v1.z, v2.z);
 }
 
 #endif // FLOAT3_H

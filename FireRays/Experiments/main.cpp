@@ -232,7 +232,7 @@ void segmented_scan_test(CLWContext context)
 
 void sort_test(CLWContext context)
 {
-    int const ARRAY_SIZE = 256000000;
+    int const ARRAY_SIZE = 10000000;
     
     auto deviceInputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
     auto deviceOutputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
@@ -242,7 +242,7 @@ void sort_test(CLWContext context)
     std::vector<int> hostArrayGold(ARRAY_SIZE);
     
     
-    std::generate(hostArray.begin(), hostArray.end(), []{return rand() % 1000000;});
+    std::generate(hostArray.begin(), hostArray.end(), []{return rand() % 16;});
     std::copy(hostArray.begin(), hostArray.end(), hostArrayGold.begin());
     std::sort(hostArrayGold.begin(), hostArrayGold.end());
 
@@ -255,10 +255,10 @@ void sort_test(CLWContext context)
 
     auto startTime = std::chrono::high_resolution_clock::now();
 
-    for (int i = 0; i < 5; ++i)
-    {
+    //for (int i = 0; i < 50; ++i)
+    //{
         //prims.SortRadix(0, deviceInputArray, deviceOutputArray);
-    }
+    //}
 
     context.Finish(0);
     auto endTime = std::chrono::high_resolution_clock::now();
@@ -374,6 +374,10 @@ int main(int argc, const char * argv[])
 
     }
     catch (CLWExcept& e)
+    {
+        std::cout << "\n" << e.what() << "\n";
+    }
+    catch (std::exception& e)
     {
         std::cout << "\n" << e.what() << "\n";
     }

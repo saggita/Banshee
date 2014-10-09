@@ -222,6 +222,14 @@ inline float3 lerp(float3 const& v1, float3 const& v2, float s)
     return (1.f - s) * v1 + s * v2;
 }
 
+// Linearly interpolate two float3 values
+inline void lerp(float3 const& v1, float3 const& v2, float s, float3& res)
+{
+    res.x = (1.f - s) * v1.x + s * v2.x;
+    res.y = (1.f - s) * v1.y + s * v2.y;
+    res.z = (1.f - s) * v1.z + s * v2.z;
+}
+
 // Linearly interpolate two float values
 inline float lerp(float v1, float v2, float s)
 {

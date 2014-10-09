@@ -44,6 +44,12 @@ public:
     // TODO: this is non-portable, optimization trial for fast intersection test
     float3 const& operator [] (int i) const { return *(&pmin + i); }
 
+    // Grow the bounding box by a point
+    void grow(float3 const& p);
+    // Grow the bounding box by a box
+    void grow(bbox const& b);
+
+
     float3 pmin;
     float3 pmax;
 };
@@ -69,6 +75,26 @@ inline bbox intersection(bbox const& box1, bbox const& box2)
     return bbox(vmax(box1.pmin, box2.pmin), vmin(box1.pmax, box2.pmax));
 }
 
+inline void intersection(bbox const& box1, bbox const& box2, bbox& box)
+{
+    vmax(box1.pmin, box2.pmin, box.pmin);
+    vmin(box1.pmax, box2.pmax, box.pmax);
+}
+
+inline void bbox::grow(float3 const& p)
+{
+    vmin(pmin, p, pmin);
+    vmax(pmax, p, pmax);
+}
+
+inline void bbox::grow(bbox const& b)
+{
+    vmin(pmin, b.pmin, pmin);
+    vmax(pmax, b.pmax, pmax);
+}
+
+#define BBOX_INTERSECTION_EPS 0.f
+
 inline bool intersects(bbox const& box1, bbox const& box2)
 {
     float3 b1c = box1.center();
@@ -76,9 +102,9 @@ inline bool intersects(bbox const& box1, bbox const& box2)
     float3 b2c = box2.center();
     float3 b2r = 0.5f * box2.extents();
 
-    return fabs(b2c.x - b1c.x) < b1r.x + b2r.x &&
-        fabs(b2c.y - b1c.y) < b1r.y + b2r.y &&
-        fabs(b2c.z - b1c.z) < b1r.z + b2r.z;
+    return (fabs(b2c.x - b1c.x) - (b1r.x + b2r.x)) <= BBOX_INTERSECTION_EPS &&
+           (fabs(b2c.y - b1c.y) - (b1r.y + b2r.y)) <= BBOX_INTERSECTION_EPS &&
+           (fabs(b2c.z - b1c.z) - (b1r.z + b2r.z)) <= BBOX_INTERSECTION_EPS;
 }
 
 inline bool contains(bbox const& box1, bbox const& box2)

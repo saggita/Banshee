@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <algorithm>
 
 #define WG_SIZE 64
 #define NUM_SCAN_ELEMS_PER_WI 8
@@ -52,15 +53,6 @@ CLWParallelPrimitives::CLWParallelPrimitives(CLWContext context)
     std::vector<char> sourceCode;
     load_file_contents("../../../CLW/CL/CLW.cl", sourceCode, false);
     program_ = CLWProgram::CreateFromSource(sourceCode, context_);
-
-
-    load_file_contents("../../../Experiments/CL/test.cl", sourceCode, false);
-    program_ = CLWProgram::CreateFromSource(sourceCode, context_);
-
-    auto buf = context_.CreateBuffer<int>(128, CL_MEM_READ_WRITE);
-
-    program_.GetKernel("k").SetArg(0, buf);
-    context_.Launch1D(0, 1, 1, program_.GetKernel("k"));
 }
 
 CLWParallelPrimitives::~CLWParallelPrimitives()
@@ -570,10 +562,9 @@ CLWEvent CLWParallelPrimitives::SortRadix(unsigned int deviceIdx, CLWBuffer<cl_i
     auto toKeys = &outputKeys;
     
     CLWKernel histogramKernel = program_.GetKernel("BitHistogram");
-    CLWKernel scatterKeys = program_.GetKernel("scatter_keys_k");
-    
-    int offset = 0;
-    //for (int offset = 0; offset <= 30; offset += 2)
+    CLWKernel scatterKeys = program_.GetKernel("ScatterKeys");
+
+    for (int offset = 0; offset < 32; offset += 4)
     {
         // Split
         histogramKernel.SetArg(0, offset);
@@ -583,31 +574,46 @@ CLWEvent CLWParallelPrimitives::SortRadix(unsigned int deviceIdx, CLWBuffer<cl_i
 
         context_.Launch1D(0, NUM_BLOCKS*WG_SIZE, WG_SIZE, histogramKernel);
 
-
-        std::vector<int> keys(64);
-        context_.ReadBuffer(0, *fromKeys, &keys[0], 64).Wait();
-        
-        std::vector<int> tkeys(64);
-        std::vector<int> hist(32);
-        context_.ReadBuffer(0, deviceTempKeys, &tkeys[0], 64).Wait();
-        context_.ReadBuffer(0, deviceHistograms, &hist[0], 32).Wait();
+//
+//        std::vector<int> keys(1024);
+//        context_.ReadBuffer(0, *fromKeys, &keys[0], 1024).Wait();
+//        
+//        std::vector<int> tkeys(1024);
+//        std::vector<int> hist(64);
+//        context_.ReadBuffer(0, deviceTempKeys, &tkeys[0], 1024).Wait();
+//        context_.ReadBuffer(0, deviceHistograms, &hist[0], 64).Wait();
+//        
+//        std::vector<int> histgold(64);
+//        for (int i = 0; i < 4; ++i)
+//        {
+//            for (int j = 0; j < 256; ++j)
+//            {
+//                int val = keys[i * 256 + j];
+//                int res = (val >> offset) & 0xF;
+//                ++histgold[res * 4 + i];
+//            }
+//        }
+//        
+//        for (int i = 0; i < 64; ++i)
+//        {
+//            assert (hist[i] == histgold[i]);
+//        }
         
         // Scan histograms
         ScanExclusiveAdd(0, deviceHistograms, deviceHistograms);
 
-        context_.ReadBuffer(0, deviceHistograms, &hist[0], 32).Wait();
+        //context_.ReadBuffer(0, deviceHistograms, &hist[0], 64).Wait();
 
         // Scatter keys
         scatterKeys.SetArg(0, offset);
-        scatterKeys.SetArg(1, deviceTempKeys);
+        scatterKeys.SetArg(1, *fromKeys);
         scatterKeys.SetArg(2, (cl_uint)toKeys->GetElementCount());
         scatterKeys.SetArg(3, deviceHistograms);
-        scatterKeys.SetArg(4, deviceLocalHistograms);
-        scatterKeys.SetArg(5, *toKeys);
+        scatterKeys.SetArg(4, *toKeys);
 
-        //context_.Launch1D(0, NUM_BLOCKS*WG_SIZE, WG_SIZE, scatterKeys);
+        context_.Launch1D(0, NUM_BLOCKS*WG_SIZE, WG_SIZE, scatterKeys);
 
-        context_.ReadBuffer(0, *toKeys, &keys[0], 64).Wait();
+        //context_.ReadBuffer(0, *toKeys, &keys[0], 1024).Wait();
 
         // Swap pointers
         std::swap(fromKeys, toKeys);

@@ -230,8 +230,8 @@ __kernel void distribute_part_sum_##type##4( __global type* in_sums, __global ty
 }
 
 
-DEFINE_MAKE_4(int)
-DEFINE_MAKE_4(float)
+//DEFINE_MAKE_4(int)
+//DEFINE_MAKE_4(float)
 
 DEFINE_SAFE_LOAD_4(int)
 DEFINE_SAFE_LOAD_4(float)
@@ -240,6 +240,7 @@ DEFINE_SAFE_STORE_4(int)
 DEFINE_SAFE_STORE_4(float)
 
 DEFINE_GROUP_SCAN_EXCLUSIVE(int)
+DEFINE_GROUP_SCAN_EXCLUSIVE(uint)
 DEFINE_GROUP_SCAN_EXCLUSIVE(float)
 DEFINE_GROUP_SCAN_EXCLUSIVE(short)
 
@@ -531,11 +532,17 @@ __kernel void split4way(int bitshift, __global int4* in_array, uint numElems, __
     }
 }
 
-// The kernel computes the histogram of the input
+// The kernel computes 16 bins histogram of the 256 input elements.
+// The bin is determined by (in_array[tid] >> bitshift) & 0xF
 __kernel void BitHistogram(
+                           // Number of bits to shift
                            int bitshift,
-                           __global int4* in_array, 
+                           // Input array
+                           __global int4* in_array,
+                           // Number of elements in input array
                            uint numelems,
+                           // Output histograms in column layout
+                           // [bin0_group0, bin0_group1, ... bin0_groupN, bin1_group0, bin1_group1, ... bin1_groupN, ...]
                            __global int* out_histogram
                            )
 {
@@ -580,7 +587,8 @@ __kernel void BitHistogram(
     if (localid < kNumBins)
     {
         short sum = 0;
-        for (int i = 0; i < kNumBins; ++i)
+        // TODO: perform reduction here if this is too slow
+        for (int i = 0; i < 64; ++i)
         {
             sum += histogram[i * kNumBins + localid];
         }
@@ -591,35 +599,179 @@ __kernel void BitHistogram(
 }
 
 
-//__kernel void ScatterKeys(int bitshift,
-//                          __global int4* in_keys,
-//                          uint numelems,
-//                          __global int*  in_histograms,
-//                          __global int4* out_keys,
-//                          )
-//{
-//    // Local memory for offsets counting
-//    __local short sdata[4 * 64];
-//
-//    int globalId  = get_global_id(0);
-//    int localId   = get_local_id(0);
-//    int groupSize = get_local_size(0);
-//    int groupId   = get_group_id(0);
-//    int numGroups = get_global_size(0) / groupSize;
-//
-//    /// Load single int4 value
-//    int4 value = safe_load_int4_intmax(in_array, globalid, numelems);
-//
-//
-//    for (int i = 0; i < 16; ++i)
-//    {
-//        sdata[
-//
-//
-//    }
-//
-//
-//}
+
+
+__kernel void ScatterKeys(// Number of bits to shift
+                          int bitshift,
+                          // Input ketys
+                          __global int4* in_keys,
+                          // Number of input keys
+                          uint           numelems,
+                          // Scanned histograms
+                          __global int*  in_histograms,
+                          // Output keys
+                          __global int*  out_keys
+                          )
+{
+    // Local memory for offsets counting
+    __local uint histogram[64];
+    __local int  keys[256];
+    __local ushort totalhist[4];
+
+    int globalid  = get_global_id(0);
+    int localid   = get_local_id(0);
+    int groupsize = get_local_size(0);
+    int groupid   = get_group_id(0);
+    int numgroups = get_global_size(0) / groupsize;
+
+    // Load single int4 value
+    int4 value = safe_load_int4_intmax(in_keys, globalid, numelems);
+    
+    // Clear the histogram
+    histogram[localid] = 0;
+    
+    // Make sure everything is up to date
+    barrier(CLK_LOCAL_MEM_FENCE);
+    
+    // Count local values
+    uchar localhist[4] = {0, 0, 0, 0};
+    int localvals[4] = {
+        value.x,
+        value.y,
+        value.z,
+        value.w
+    };
+    
+    // Do 2 bits per pass
+    for (int bit = 0; bit <= 2; bit += 2)
+    {
+        // Clear histogram
+        for (int i=0; i<4; ++i)
+        {
+            localhist[i] = 0;
+        }
+    
+        // Count histogram
+        for (int i=0; i<4; ++i)
+        {
+            ++localhist[((localvals[i] >> bitshift) >> bit) & 0x3];
+        }
+    
+        // Pack the histogram
+        uint packed_key =
+        (localhist[3] << 24) |
+        (localhist[2] << 16) |
+        (localhist[1] << 8 ) |
+        (localhist[0]);
+    
+        // Put into LDS
+        histogram[localid] = packed_key;
+    
+        // Make sure everything is up to date
+        barrier(CLK_LOCAL_MEM_FENCE);
+    
+        // Calc total hist
+        // TODO: temporary code, optimize later
+        if (localid < 4)
+        {
+            totalhist[localid] = 0;
+        
+            for (int i=0; i<64; ++i)
+            {
+                uchar val = (histogram[i] >> (localid * 8)) & 0xFF;
+                totalhist[localid] += val;
+            }
+        }
+    
+        // Make sure everything is up to date
+        barrier(CLK_LOCAL_MEM_FENCE);
+    
+        // TODO: optimize this, very slow
+        if (localid == 0)
+        {
+            totalhist[3] = totalhist[2] + totalhist[1] + totalhist[0];
+            totalhist[2] = totalhist[1] + totalhist[0];
+            totalhist[1] = totalhist[0];
+            totalhist[0] = 0;
+        }
+    
+        // Make sure everything is up to date
+        barrier(CLK_LOCAL_MEM_FENCE);
+    
+        // Scan the histogram in LDS with 4-way plus scan
+        group_scan_exclusive_uint(localid, groupsize, histogram);
+    
+        // Load value back
+        packed_key = histogram[localid];
+    
+        // Unpack the value
+        localhist[0] = (uchar)((packed_key)       & 0xFF);
+        localhist[1] = (uchar)((packed_key >> 8)  & 0xFF);
+        localhist[2] = (uchar)((packed_key >> 16) & 0xFF);
+        localhist[3] = (uchar)((packed_key >> 24) & 0xFF);
+    
+        // Pull the data to corresponding offsets to LDS
+        for (int i=0; i<4; ++i)
+        {
+            uchar current = ((localvals[i] >> bitshift) >> bit) & 0x3;
+            keys[totalhist[current] + localhist[current]] = localvals[i];
+            localhist[current]++;
+        }
+    
+        // Make sure everything is up to date
+        barrier(CLK_LOCAL_MEM_FENCE);
+        
+        // Reload values back to registers for the second bit pass
+        for (int i=0; i<4; ++i)
+        {
+            localvals[i] = keys[localid*4 + i];
+        }
+    }
+    
+    // Clear LDS
+    histogram[localid] = 0;
+    
+    // Make sure everything is up to date
+    barrier(CLK_LOCAL_MEM_FENCE);
+    
+    // TODO: Opimize this away
+    // Reconstruct 16 bins histogram
+    for (int i=0; i<4; ++i)
+    {
+        int bin = (localvals[i] >> bitshift) & 0xF;
+        atomic_inc(&histogram[bin]);
+    }
+    
+    // Make sure everything is up to date
+    barrier(CLK_LOCAL_MEM_FENCE);
+    
+    // Scan the histogram
+    if (localid == 0)
+    {
+        int sum = 0;
+        for (int i=0; i<16; ++i)
+        {
+            int t = histogram[i];
+            histogram[i] = sum;
+            sum += t;
+        }
+    }
+    
+    // Make sure everything is up to date
+    barrier(CLK_LOCAL_MEM_FENCE);
+    
+    
+    // Put data back to global memory
+    for (int i=0; i<4; ++i)
+    {
+        int v = (localvals[i] >> bitshift) & 0xF;
+        int offset = in_histograms[groupid + v * numgroups] + (localid*4 + i) - histogram[v];
+        if (offset < numelems)
+        {
+            out_keys[offset] = localvals[i];
+        }
+    }
+}
 
 
 __kernel void scatter_keys(int bitshift,

@@ -289,7 +289,7 @@ std::unique_ptr<World> BuildWorldMuseum(TextureSystem const& texsys)
     World* world = new World();
     // Create accelerator
     //SimpleSet* set = new SimpleSet();
-    Bvh* bvh = new Sbvh(1.f, 8, false, 48, 0.00001);
+    Bvh* bvh = new Sbvh(1.f, 8, false, 48, 0.00001f);
     //Bvh* bvh = new Bvh();
     // Create camera
     //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);

@@ -232,7 +232,7 @@ void segmented_scan_test(CLWContext context)
 
 void sort_test(CLWContext context)
 {
-    int const ARRAY_SIZE = 1000000;
+    int const ARRAY_SIZE = 100000000;
     
     auto deviceInputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
     auto deviceOutputArray = context.CreateBuffer<cl_int>(ARRAY_SIZE, CL_MEM_READ_WRITE);
@@ -255,15 +255,16 @@ void sort_test(CLWContext context)
 
     auto startTime = std::chrono::high_resolution_clock::now();
 
-    for (int i = 0; i < 10; ++i)
+    for (int i = 0; i < 50; ++i)
     {
-        prims.SortRadix(0, deviceInputArray, deviceOutputArray).Wait();
+        prims.SortRadix(0, deviceInputArray, deviceOutputArray);
     }
 
     context.Finish(0);
     auto endTime = std::chrono::high_resolution_clock::now();
 
     auto deltaTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+    float timeInMs = deltaTime.count() / 50.f;
 
     context.ReadBuffer(0, deviceOutputArray, &hostResultArray[0], ARRAY_SIZE).Wait();
 
@@ -272,13 +273,15 @@ void sort_test(CLWContext context)
         if (hostResultArray[i] != hostArrayGold[i])
         {
             std::cout << "Incorrect sort result\n";
-            std::cout << "Done in " << deltaTime.count() / 10.f << " ms\n";
+            std::cout << "Done in " << timeInMs << " ms\n";
+            std::cout << "Throughput: " <<  (ARRAY_SIZE / (timeInMs / 1000.f)) / 1000000.f << " Mkeys/s\n"; 
             exit(-1);
         }
     }
     
     std::cout << "Correct sort result\n";
-    std::cout << "Done in " << deltaTime.count() / 50.f << " ms\n";
+    std::cout << "Done in " <<  timeInMs << " ms\n";
+    std::cout << "Throughput: " <<  (ARRAY_SIZE / (timeInMs / 1000.f)) / 1000000.f << " Mkeys/s\n"; 
 }
 
 

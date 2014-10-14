@@ -2,6 +2,7 @@
 #define MATTE_H
 
 #include <string>
+#include <memory>
 
 #include "material.h"
 #include "../bsdf/lambert.h"

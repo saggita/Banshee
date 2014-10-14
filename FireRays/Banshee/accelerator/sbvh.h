@@ -44,7 +44,7 @@ private:
     // Struct to describe a split
     struct Split
     {
-        int dim;
+        int   dim;
         float sah;
         float border;
         float overlaparea;

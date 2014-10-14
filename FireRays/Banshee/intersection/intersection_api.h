@@ -5,6 +5,12 @@
 #include "../math/float2.h"
 #include "../math/ray.h"
 
+// Fake defines just to compile
+typedef int GR_DEVICE;
+typedef int cl_context;
+typedef int cl_mem;
+typedef int GR_MEMORY_VIEW_ATTACH_INFO;
+
 namespace FireRays {
     /// Represents a device, which can be used by API for intersection purposes.
     /// API is distributing the work across multiple devices itsels, so
@@ -19,8 +25,7 @@ namespace FireRays {
             kGpu,
             kAccelerator
         };
-        
-        // TODO: this is most likely not needed
+
         // API mask components
         enum Api
         {
@@ -29,7 +34,7 @@ namespace FireRays {
             kDirectCompute = 0x4,
             kMantle        = 0x8
         };
-        
+
         // Device name
         char const* name;
         // Device vendor
@@ -37,7 +42,6 @@ namespace FireRays {
         // Device type
         Type type;
         // Supported APIs
-        // TODO: this is most likely not needed !!
         int apis;
     };
     
@@ -47,7 +51,7 @@ namespace FireRays {
     class Instance;
     class Buffer;
     class Event;
-    
+
     /// IntersectionApi is designed to provide fast means for ray-scene intersection
     /// for AMD architectures. It effectively absracts underlying AMD hardware and
     /// software stack and allows user to issue low-latency batched ray queries.
@@ -68,46 +72,37 @@ namespace FireRays {
             kDynamicGeometry = 0x1,
             kCoherentRays    = 0x2
         };
-        
+
         // Describes a ray. Used in ray casting functionality.
         struct Ray;
         // Described an intersection.
         struct HitInfo;
-        
+
         /******************************************
                      Device management
          ******************************************/
         // Use this part of API to query for available devices and
         // limit the set of devices which API is going to use
-        
+
         // Get the number of devices available in the system
         static int GetIntersectionDeviceCount();
         // Get the information for the specified device
         static IntersectionDeviceInfo const& GetIntersectionDeviceInfo(int devidx);
-        
-        
+
         /******************************************
                   API lifetime management
          ******************************************/
         // usagehint is a bitmaks created with ApiUsageHint bitflags
         // By default a scene assumed to be static and expected to
         // be used for both coherent and incoherent ray tracing
-        // TODO: probably accept maximum batch size here to choose for most efficient implementation
-        // TODO: do we need a way to force to use say given OpenCL context??
-        // TODO: how do we interop with an app which needs data in GPU memory? How to use the same OpenCL context?
-        
-        // Single device versions
-        // THROWS:
         static IntersectionApi* Create(int usagehint);
-        static IntersectionApi* Create(int usagehint, int device, int apimask);
-        // Multi device version
-        // THROWS:
-        static IntersectionApi* Create(int usagehint, int const* devices, int const* apimasks, int numdevices);
-        
+        static IntersectionApi* Create(int usagehint, int* devindices, int* apis, int numdevices);
+        //static IntersectionApi* CreateFromMantleDevices(int usagehint, GR_DEVICE* devices, int numdevices);
+        //static IntersectionApi* CreateFromOpenClContext(int usagehint, cl_context context); 
+
         // Deallocation (to simplify DLL scenario)
         static void Delete(IntersectionApi* api);
-        
-        
+
         /******************************************
                   Geometry manipulation
          ******************************************/
@@ -120,23 +115,14 @@ namespace FireRays {
         virtual Mesh*     CreateMesh(
                                      // Position data
                                      float* vertices, int voffset, int vstride,
-                                     // Normal data
-                                     float* normals, int noffset, int nstride,
-                                     // UV
-                                     float* uv, int uvoffset, int uvstride,
                                      // Index data for vertices
-                                     int* vindices, int vioffset, int vistride,
-                                     // Index data for normals
-                                     int* nindices, int nioffset, int nistride,
-                                     // Index data for uvs
-                                     int* uvindices, int uvioffset, int uvistride,
+                                     int* indices, int ioffset, int istride,
                                      // Numbers of vertices per face
                                      int* numfacevertices,
                                      // Number of faces
                                      int  numface
-                                     
                                      ) const = 0;
-        
+
         // Create an instance of a shape with its own transform (set via Shape interface).
         // The call is blocking, so the returned value is ready upon return.
         virtual Instance* CreateInstance(Shape const* shape) const = 0;
@@ -148,13 +134,16 @@ namespace FireRays {
         virtual void DetachShape(Shape const* shape) = 0;
         // Commit all geometry creations/changes
         virtual void Commit() = 0;
-        
+
         /******************************************
                     Memory management
          ******************************************/
         // Create a buffer to use the most efficient acceleration possible
-        // TODO: Need to account for rear/write access
+        // TODO: Need to account for read/write access?
         virtual Buffer* CreateBuffer(size_t size, void* initdata) const = 0;
+        // Buffer* CreateBufferFromClBuffer(cl_mem buffer) const = 0;
+        //virtual Buffer* CreateBufferFromMantleMemory(GR_MEMORY_VIEW_ATTACH_INFO const* view) const = 0;
+
         // Delete the buffer
         virtual void DeleteBuffer(Buffer* buffer) = 0;
         // Map buffer
@@ -162,10 +151,10 @@ namespace FireRays {
         // TODO: Nick: probably need an async map not to break the submission, map discard
         // event pointer might be nullptr.
         // The call is asynchronous.
-        virtual void MapBuffer(Buffer const* buffer, size_t offset, size_t size, void** data, Event** event) const = 0;
+        // virtual void MapBuffer(Buffer const* buffer, size_t offset, size_t size, void** data, Event** event) const = 0;
         // Unmap buffer
-        virtual void UnmapBuffer(Buffer const* buffer) = 0;
-        
+        // virtual void UnmapBuffer(Buffer const* buffer) = 0;
+
         /******************************************
                       Ray casting
          ******************************************/
@@ -178,30 +167,27 @@ namespace FireRays {
         // Find any intersection.
         // The call is blocking.
         virtual void IntersectBatch(Ray const* rays, int numrays, int* hitresults) const = 0;
-        
+
         // Complete path:
         // Find closest intersection
         // TODO: do we need to modify rays' intersection range?
         // TODO: SoA vs AoS?
-        // The call is asynchronous. Event pointer might be nullptr.
-        virtual void IntersectBatch(Buffer const* rays, int numrays, Buffer* hitresults, Buffer* hitinfos, Event** event) const = 0;
+        // The call is asynchronous. Event pointers might be nullptrs.
+        virtual void IntersectBatch(Buffer const* rays, int numrays, Buffer* hitresults, Buffer* hitinfos, Event const* waitevent, Event** event) const = 0;
         // Find any intersection.
-        // The call is asynchronous. Event pointer might be nullptr.
-        virtual void IntersectBatch(Buffer const* rays, int numrays, Buffer* hitresults, Event** event) const = 0;
-        
-    
+        // The call is asynchronous. Event pointer mights be nullptrs.
+        virtual void IntersectBatch(Buffer const* rays, int numrays, Buffer* hitresults, Event const* waitevent, Event** event) const = 0;
+
         /******************************************
                    Experimental part
          ******************************************/
-        
-        
     protected:
         IntersectionApi();
         IntersectionApi(IntersectionApi const&);
         IntersectionApi& operator = (IntersectionApi const&);
         virtual ~IntersectionApi() = 0;
     };
-    
+
     struct IntersectionApi::Ray
     {
         // Ray origin
@@ -213,17 +199,17 @@ namespace FireRays {
         // Time
         float  time;
     };
-    
+
     struct IntersectionApi::HitInfo
     {
         // Parametric coordinates of a hit
         float2 uv;
         // Shape data specified in Shape's SetUserData call
-        int shapeuserdata;
+        int shapeid;
         // Primitive index within a shape
         int primidx;
     };
-    
+
     inline IntersectionApi::~IntersectionApi(){}
 }
 

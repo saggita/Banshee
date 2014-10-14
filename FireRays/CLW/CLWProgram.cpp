@@ -33,9 +33,9 @@ CLWProgram CLWProgram::CreateFromSource(std::vector<char> const& sourceCode, CLW
     {
         deviceIds[i] = context.GetDevice(i);
     }
-    
+
     status = clBuildProgram(program, context.GetDeviceCount(), &deviceIds[0], nullptr, nullptr, nullptr);
-    
+
     if(status != CL_SUCCESS)
     {
         std::vector<char> buildLog;

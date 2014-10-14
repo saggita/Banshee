@@ -2,6 +2,7 @@
 #define MESH_H
 
 #include <vector>
+#include <memory>
 
 #include "../math/float3.h"
 #include "../math/float2.h"

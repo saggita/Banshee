@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <functional>
 
-float3 DiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
+float3 DiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler, bool countemissives) const
 {
     Primitive::Intersection isect;
     float t = r.t.y;
@@ -21,7 +21,7 @@ float3 DiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
 
         if (mat.emissive())
         {
-            return mat.Le(Primitive::SampleData(isect), -r.d);
+            return countemissives ? mat.Le(Primitive::SampleData(isect), -r.d) : 0.f;
         }
         else
         {

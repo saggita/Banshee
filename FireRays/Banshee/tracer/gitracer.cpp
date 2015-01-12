@@ -3,7 +3,7 @@
 #include "../world/world.h"
 #include "../sampler/sampler.h"
 
-float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
+float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler, bool countemissives) const
 {
     Primitive::Intersection isect;
     float t = r.t.y;
@@ -16,7 +16,7 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
 
         if (mat.emissive())
         {
-            return mat.Le(Primitive::SampleData(isect), -r.d);
+            return countemissives ? mat.Le(Primitive::SampleData(isect), -r.d) : 0.f;
         }
         else
         {
@@ -52,7 +52,7 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
 
                     float3 bsdf = m.Sample(isect, samples[i], -r.d, newray.d, pdf);
 
-                    float3 le = Li(newray, world, lightsampler, brdfsampler);
+                    float3 le = Li(newray, world, lightsampler, brdfsampler, false);
 
                     // TODO: move PDF treshold to global settings
                     // TODO: accound for quadratic falloff

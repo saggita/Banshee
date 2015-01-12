@@ -2,6 +2,8 @@
 #define STRATIFIED_SAMPLER_H
 
 #include <memory>
+#include <vector>
+#include <numeric>
 
 
 #include "../rng/rng.h"
@@ -20,7 +22,9 @@ public:
         , gridsize_(gridsize)
         , sampleidx_(0)
         , cellsize_(1.f / gridsize)
+        , permutation_(gridsize*gridsize)
     {
+        std::iota(permutation_.begin(), permutation_.end(), 0);
     }
 
     // Calculate 2D sample in [0..1]x[0..1]
@@ -47,6 +51,8 @@ private:
     float cellsize_;
     // Current sample inded
     mutable int sampleidx_;
+    // Samples permutation
+    mutable std::vector<int> permutation_;
 };
 
 #endif // STRATIFIED_SAMPLER_H

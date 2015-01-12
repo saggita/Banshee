@@ -84,7 +84,7 @@ void MtImageRenderer::Render(World const& world) const
                             cam.GenerateRay(imgsample, r);
 
                             // Estimate radiance and add to image plane
-                            imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world, *private_lightsampler, *private_brdfsampler));
+                            imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world, *private_lightsampler, *private_brdfsampler, true));
                         }
                     }
 

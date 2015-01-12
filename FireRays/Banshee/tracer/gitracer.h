@@ -17,7 +17,7 @@ public:
     {}
 
     // Estimate a radiance coming from r
-    float3 Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const;
+    float3 Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler, bool countemissives) const;
 
 private:
     // Max depth to trace the ray to

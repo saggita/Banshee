@@ -9,6 +9,14 @@ float2 StratifiedSampler::Sample2D() const
     float2 subsample = float2(rng_->NextFloat(), rng_->NextFloat());
 
     int idx = (sampleidx_++) % (gridsize_ * gridsize_);
+
+    if (idx == 0)
+    {
+        std::random_shuffle(permutation_.begin(), permutation_.end());
+    }
+
+    idx = permutation_[idx];
+
     int2 subsampleidx = int2 (idx % gridsize_, idx / gridsize_);
 
     return float2( (subsampleidx.x + subsample.x) * cellsize_,

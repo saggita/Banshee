@@ -35,33 +35,28 @@ public:
 
         if (!normalmap_.empty())
         {
-            MapNormal(normalmap_, isectlocal);
+            MapNormal(normalmap_, isectlocal, dot(wi, isectlocal.n) < 0);
         }
 
         // TODO: add support for ray differentials
-        float  ndotwi = dot(isectlocal.n, wi);
+        float  ndotwi = fabs(dot(isectlocal.n, wi));
 
-        if (ndotwi > 0.f)
+        float3 kd = diffusemap_.empty() ? diffuse_ : texturesys_.Sample(diffusemap_, isect.uv, float2(0,0));
+        float3 ks = specular_;
+
+        // Fake for now
+        float kkt = ks.sqnorm() + kd.sqnorm();
+        float kkd = kd.sqnorm();
+        float prob = kkd / kkt;
+
+        if (rand_float() < prob)
         {
-            float3 kd = diffusemap_.empty() ? diffuse_ : texturesys_.Sample(diffusemap_, isect.uv, float2(0,0));
-            float3 ks = specular_;
-
-            // Fake for now
-            float kkt = ks.sqnorm() + kd.sqnorm();
-            float kkd = kd.sqnorm();
-            float prob = kkd / kkt;
-
-            if (rand_float() < prob)
-            {
-                return kd * diffusebsdf_->Sample(isectlocal, sample, wi, wo, pdf) * ndotwi;
-            }
-            else
-            {
-                return ks * specularbsdf_->Sample(isectlocal, sample, wi, wo, pdf);
-            }
+            return kd * diffusebsdf_->Sample(isectlocal, sample, wi, wo, pdf) * ndotwi;
         }
-
-        return float3(0,0,0);
+        else
+        {
+            return ks * specularbsdf_->Sample(isectlocal, sample, wi, wo, pdf);
+        }
     }
 
     // Evaluate combined BSDF value
@@ -72,22 +67,17 @@ public:
 
         if (!normalmap_.empty())
         {
-            MapNormal(normalmap_, isectlocal);
+            MapNormal(normalmap_, isectlocal, dot(wi, isectlocal.n) < 0);
         }
 
         // TODO: add support for ray differentials
-        float  ndotwi = dot(isectlocal.n, wi);
+        float  ndotwi = fabs(dot(isectlocal.n, wi));
 
-        if (ndotwi > 0.f)
-        {
-            float3 kd = diffusemap_.empty() ? diffuse_ : texturesys_.Sample(diffusemap_, isect.uv, float2(0,0));
-            float3 ks = specular_;
-            float3 f = kd * diffusebsdf_->Evaluate(isectlocal, wi, wo) * ndotwi + ks * specularbsdf_->Evaluate(isectlocal, wi, wo);
+        float3 kd = diffusemap_.empty() ? diffuse_ : texturesys_.Sample(diffusemap_, isect.uv, float2(0,0));
+        float3 ks = specular_;
+        float3 f = kd * diffusebsdf_->Evaluate(isectlocal, wi, wo) * ndotwi + ks * specularbsdf_->Evaluate(isectlocal, wi, wo);
 
-            return f;
-        }
-
-        return float3(0,0,0);
+        return f;
     }
 
     // Diffuse color

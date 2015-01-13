@@ -11,8 +11,8 @@ PerscpectiveCamera::PerscpectiveCamera(float3 const& eye, float3 const& at, floa
 {
     // Construct camera frame
     forward_ = normalize(at - eye);
-    right_   = cross(normalize(up), forward_);
-    up_      = cross(forward_, right_);
+    right_   = cross(forward_, normalize(up));
+    up_      = cross(right_, forward_);
 
     // Image plane parameters
     // tan(fovy/2) = (height / 2) / znear

@@ -34,6 +34,7 @@
 #include "material/matte.h"
 #include "material/phong.h"
 #include "material/emissive.h"
+#include "material/refract.h"
 #include "texture/oiio_texturesystem.h"
 #include "import/assimp_assetimporter.h"
 #include "util/progressreporter.h"
@@ -416,6 +417,7 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
     // Clear default material
     world->materials_.clear();
 
+    //world->materials_.push_back(std::unique_ptr<Material>(new Refract(texsys, 2.3f, float3(0.9f, 0.3f, 0.0f))));
     world->materials_.push_back(std::unique_ptr<Material>(new Phong(texsys, float3(0.4f, 0.0f, 0.0f), float3(0.3f, 0.15f, 0.15f))));
     world->materials_.push_back(std::unique_ptr<Material>(new Phong(texsys, float3(0.4f, 0.3f, 0.25f), float3(0.6f, 0.6f, 0.6f))));
 
@@ -465,7 +467,7 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
     // Create accelerator
     Bvh* bvh = new Sbvh(10.f, 8);
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(0, 3, -8.5), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(2, 4.3, -13.5), float3(2.0,0.0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     // Create lights
     //PointLight* light1 = new PointLight(float3(0, 5, 5), 30.f * float3(3.f, 3.f, 3.f));
@@ -474,10 +476,10 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
 
      // Add ground plane
     float3 vertices[4] = {
-        float3(-1, 0, -1),
-        float3(-1, 0, 1),
-        float3(1, 0, 1),
-        float3(1, 0, -1)
+        float3(-5, 0, -5),
+        float3(-5, 0, 5),
+        float3(5, 0, 5),
+        float3(5, 0, -5)
     };
 
     float3 normals[4] = {
@@ -521,6 +523,9 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
     worldmat = translation(float3(2, 0, 0));
     prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 2));
 
+    worldmat = translation(float3(6, 0, 0));
+    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 3));
+
     bvh->Build(prims);
 
     // Attach accelerator to world
@@ -534,12 +539,14 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
 
     // Build materials
 
-    Matte* matte0 = new Matte(texsys, float3(0.7f, 0.6f, 0.6f));
-    Matte* matte1 = new Matte(texsys, float3(0.6f, 0.6f, 0.5f), "", "carbonfiber.png");
+    Matte* matte0 = new Matte(texsys, float3(0.2f, 0.6f, 0.2f));
+    Matte* matte1 = new Matte(texsys, float3(0.5f, 0.5f, 0.4f), "", "carbonfiber.png");
+    Refract* refract = new Refract(texsys, 2.3f, float3(0.9f, 0.9f, 0.9f), "", "");
     Phong* phong = new Phong(texsys, float3(0.f, 0.f, 0.f), float3(0.5f, 0.5f, 0.5f));
     world->materials_.push_back(std::unique_ptr<Material>(matte0));
     world->materials_.push_back(std::unique_ptr<Material>(matte1));
     world->materials_.push_back(std::unique_ptr<Material>(phong));
+    world->materials_.push_back(std::unique_ptr<Material>(refract));
 
     // Return world
     return std::unique_ptr<World>(world);
@@ -552,7 +559,7 @@ std::unique_ptr<World> BuildWorldAntialias(TextureSystem const& texsys)
     // Create accelerator
     Bvh* bvh = new Sbvh(10.f, 8);
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(0, 1.1f, -8.5f), float3(0, 1.1f,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(0, 1.1f, -10.5f), float3(0, 1.1f,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     // Create lights
     //PointLight* light1 = new PointLight(float3(0, 5, 5), 30.f * float3(3.f, 3.f, 3.f));
@@ -752,7 +759,7 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     
     int materials[2] = {0,0};
     
-    matrix worldmat = translation(float3(0, -1.f, 0)) * scale(float3(5, 1, 5));
+    matrix worldmat = translation(float3(0, -1.f, 0)) * scale(float3(50, 1, 50));
     
     Mesh* mesh = new Mesh(&vertices[0].x, 4, sizeof(float3),
                           &normals[0].x, 4, sizeof(float3),
@@ -784,6 +791,18 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     worldmat = translation(float3(2, 0, 0));
     prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 2));
 
+    worldmat = translation(float3(-2, 0, -2.5)) * rotation_x(PI/2);
+    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 4));
+
+    worldmat = translation(float3(2, 0, -2.5));
+    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 5));
+
+    worldmat = translation(float3(-2, 0, 2.5)) * rotation_x(PI/2);
+    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 5));
+
+    worldmat = translation(float3(2, 0, 2.5));
+    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 4));
+
     bvh->Build(prims);
 
     // Attach accelerator to world
@@ -802,6 +821,8 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     world->materials_.push_back(std::unique_ptr<Material>(matte1));
     world->materials_.push_back(std::unique_ptr<Material>(phong));
     world->materials_.push_back(std::unique_ptr<Material>(emissive));
+    world->materials_.push_back(std::unique_ptr<Material>(new Refract(texsys, 1.3f, float3(1.f,1.f,1.f))));
+    world->materials_.push_back(std::unique_ptr<Material>(new Refract(texsys, 2.3f, float3(1.f,1.f,1.f))));
 
     std::vector<Primitive*> meshprims;
     lightmesh->Refine(meshprims);
@@ -829,13 +850,13 @@ int main()
 
         // File name to render
         std::string filename = "result.png";
-        int2 imgres = int2(1024, 1024);
+        int2 imgres = int2(512, 512);
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldAntialias(texsys);
+        std::unique_ptr<World> world = BuildWorldAreaLightTest(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -867,12 +888,11 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
-            new DiTracer(), // Tracer
-            new StratifiedSampler(2, new McRng()), // Image sampler
+            new GiTracer(6, 1.f), // Tracer
+            new StratifiedSampler(16, new McRng()), // Image sampler
             //new RegularSampler(2),
             new StratifiedSampler(1, new McRng()), // Light sampler
             new RandomSampler(1, new McRng()), // Brdf sampler
-
             new MyReporter() // Progress reporter
             );
 

@@ -111,12 +111,12 @@ void Sphere::FillIntersectionInfo(float3 const& p, Intersection& isect) const
 {
     // Don't use cross(dpdu, dpdv) due to singularity
     // This normal is always fine
-    float3 n = normalize(p);
+    // float3 n = normalize(p);
     float r = sqrtf(p.sqnorm());
 
     // Calculate spherical coords
     float theta = acosf(p.z / r);
-    float phi = atan2f(p.x, p.y);
+    float phi = atan2f(p.y, p.x);
 
     // Account for atan discontinuity
     if (phi < 0.f)
@@ -130,14 +130,15 @@ void Sphere::FillIntersectionInfo(float3 const& p, Intersection& isect) const
     // so transform position back into world space
     isect.p = transform_point(p, worldmat_);
 
-    isect.n = normalize(transform_normal(n, worldmatinv_));
+    isect.n = normalize(transform_normal(cross(dpdv, dpdu), worldmatinv_));
 
     // Remap spehrical coords into [0,1] uv range
     isect.uv = float2(phi/(2 * PI), theta/PI);
 
     // Transform partial derivatives into world space
-    isect.dpdu = transform_vector(dpdu, worldmat_);
-    isect.dpdv = transform_vector(dpdv, worldmat_);
+    isect.dpdu = normalize(transform_normal(dpdu, worldmatinv_));
+    isect.dpdv = normalize(transform_normal(dpdv, worldmatinv_));
+    //isect.n = cross(isect.dpdu, isect.dpdv); 
 
     // Material index
     isect.m  = m_;

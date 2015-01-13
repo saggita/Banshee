@@ -33,11 +33,11 @@ public:
 
         if (!normalmap_.empty())
         {
-            MapNormal(normalmap_, isectlocal);
+            MapNormal(normalmap_, isectlocal, dot(wi, isectlocal.n) < 0);
         }
 
         // TODO: add support for ray differentials
-        float  ndotwi = std::max(dot(isectlocal.n, wi), 0.f);
+        float  ndotwi = fabs(dot(isectlocal.n, wi));
         float3 kd = diffusemap_.empty() ? diffuse_ : texturesys_.Sample(diffusemap_, isect.uv, float2(0,0));
         return kd * bsdf_->Sample(isectlocal, sample, wi, wo, pdf) * ndotwi;
     }
@@ -50,11 +50,11 @@ public:
 
         if (!normalmap_.empty())
         {
-            MapNormal(normalmap_, isectlocal);
+            MapNormal(normalmap_, isectlocal, dot(wi, isectlocal.n) < 0);
         }
 
         // TODO: add support for ray differentials
-        float  ndotwi = std::max(dot(isectlocal.n, wi), 0.f);
+        float  ndotwi = fabs(dot(isectlocal.n, wi));
         float3 kd = diffusemap_.empty() ? diffuse_ : texturesys_.Sample(diffusemap_, isect.uv, float2(0,0));
         return kd * bsdf_->Evaluate(isectlocal, wi, wo) * ndotwi;
     }

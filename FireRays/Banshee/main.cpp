@@ -984,7 +984,7 @@ int main()
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
             new GiTracer(4, 1.f), // Tracer
-            new StratifiedSampler(20, new McRng()), // Image sampler
+            new StratifiedSampler(32, new McRng()), // Image sampler
             //new RegularSampler(2),
             new StratifiedSampler(1, new McRng()), // Light sampler
             new RandomSampler(1, new McRng()), // Brdf sampler

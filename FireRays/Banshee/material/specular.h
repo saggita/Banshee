@@ -6,7 +6,7 @@
 
 #include "material.h"
 #include "../bsdf/perfect_refract.h"
-#include "../bsdf/perfect_specular.h"
+#include "../bsdf/perfect_reflect.h"
 
 ///< Refract material for glass like objects
 ///<
@@ -24,7 +24,7 @@ public:
         , colormap_(colormap)
         , normalmap_(normalmap)
         , refractbsdf_(new PerfectRefract(eta))
-        , reflectbsdf_(new PerfectSpecular())
+        , reflectbsdf_(new PerfectReflect())
     {
     }
 
@@ -135,7 +135,7 @@ public:
     std::string normalmap_;
 
     // BSDF
-    std::unique_ptr<PerfectSpecular> reflectbsdf_;
+    std::unique_ptr<PerfectReflect> reflectbsdf_;
     std::unique_ptr<PerfectRefract> refractbsdf_;
 };
 

@@ -12,7 +12,7 @@
 ///< and that the incident, normal, and reflected directions are coplanar.
 ///< (c) Wikipedia
 ///<
-class PerfectSpecular : public Bsdf
+class PerfectReflect : public Bsdf
 {
 public:
     // Sample material and return outgoing ray direction along with combined BSDF value

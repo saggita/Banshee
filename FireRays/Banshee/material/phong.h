@@ -3,7 +3,7 @@
 
 #include "material.h"
 #include "../bsdf/lambert.h"
-#include "../bsdf/perfect_specular.h"
+#include "../bsdf/perfect_reflect.h"
 
 ///< Phong material provides the combination of Lambert + specular BRDFs
 ///< and is supposed to be used in simple renders and imported material translations
@@ -24,7 +24,7 @@ public:
         , diffusemap_(diffusemap)
         , normalmap_(normalmap)
         , diffusebsdf_(new Lambert())
-        , specularbsdf_(new PerfectSpecular())
+        , specularbsdf_(new PerfectReflect())
         , eta_(eta)
     {
     }

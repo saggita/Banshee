@@ -38,6 +38,9 @@ public:
 protected:
     // Function to support normal mapping
     virtual void MapNormal(std::string const& nmap, Primitive::Intersection& isect, bool flipnormal) const;
+    // Fresnel functions
+    static float FresnelDielectricReflectivity(float cosi, float cost, float etai, float etat);
+    static float FresnelConductorReflectivity(float cosi, float etai, float k);
 
     TextureSystem const& texturesys_;
 };
@@ -51,4 +54,19 @@ inline void Material::MapNormal(std::string const& nmap, Primitive::Intersection
     isect.n = flipnormal ? normalize(isect.n * normal.z - isect.dpdu * normal.x - isect.dpdv * normal.y) : normalize(isect.n * normal.z + isect.dpdu * normal.x + isect.dpdv * normal.y);
 }
 
+inline float Material::FresnelDielectricReflectivity(float cosi, float cost, float etai, float etat)
+{
+    float rparl = ((etat * cosi) - (etai * cost)) / ((etat * cosi) + (etai * cost));
+    float rperp = ((etai * cosi) - (etat * cost)) / ((etai * cosi) + (etat * cost));
+    return (rparl*rparl + rperp*rperp) * 0.5f;
+}
+
+ inline float Material::FresnelConductorReflectivity(float cosi, float eta, float k)
+ {
+     float tmp = (eta*eta + k*k) * cosi*cosi;
+     float rparl2 = (tmp - (2.f * eta * cosi) + 1) / (tmp + (2.f * eta * cosi) + 1);
+     float tmp_f = eta*eta + k*k;
+     float rperp2 = (tmp_f - (2.f * eta * cosi) + cosi*cosi) / (tmp_f + (2.f * eta * cosi) + cosi*cosi);
+     return (rparl2 + rperp2) / 2.f;
+ }
 #endif // MATERIAL_H

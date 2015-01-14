@@ -61,7 +61,7 @@ public:
         return float3(0.f, 0.f, 0.f);
     }
 
-private:
+//private:
     // Index of refraction
     float eta_;
 };

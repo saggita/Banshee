@@ -1,31 +1,30 @@
-#ifndef PHONG_H
-#define PHONG_H
+#ifndef SPECULAR_H
+#define SPECULAR_H
+
+#include <string>
+#include <memory>
 
 #include "material.h"
-#include "../bsdf/lambert.h"
+#include "../bsdf/perfect_refract.h"
 #include "../bsdf/perfect_specular.h"
 
-///< Phong material provides the combination of Lambert + specular BRDFs
-///< and is supposed to be used in simple renders and imported material translations
+///< Refract material for glass like objects
 ///<
-class Phong : public Material
+class Specular : public Material
 {
 public:
-    // If diffuse map is specified it is used as a diffuse color, otherwise diffuse color is used
-    Phong (TextureSystem const& texturesys,
+    // If color map is specified it is used as a refraction color, otherwise specified color value is used
+    Specular (TextureSystem const& texturesys, 
         float eta,
-        float3 const& diffuse, 
-        float3 const& specular, 
-        std::string const& diffusemap = "",
+        float3 const& color, 
+        std::string const& colormap = "",
         std::string const& normalmap = "")
         : Material(texturesys)
-        , diffuse_(diffuse)
-        , specular_(specular)
-        , diffusemap_(diffusemap)
+        , color_(color)
+        , colormap_(colormap)
         , normalmap_(normalmap)
-        , diffusebsdf_(new Lambert())
-        , specularbsdf_(new PerfectSpecular())
-        , eta_(eta)
+        , refractbsdf_(new PerfectRefract(eta))
+        , reflectbsdf_(new PerfectSpecular())
     {
     }
 
@@ -42,26 +41,24 @@ public:
             MapNormal(normalmap_, isectlocal, ndotwi < 0);
         }
 
-
-        float etat = eta_;
+        float etat = refractbsdf_->eta_;
         float etai = 1.f;
+
 
         if (ndotwi < 0)
         {
             float etat = 1.f;
-            float etai = eta_;
+            float etai = refractbsdf_->eta_;
             ndotwi = -ndotwi;
         }
 
         float sint = etai / etat * sqrtf(std::max(0.f, 1.f - ndotwi*ndotwi));
-
-        float3 kd = diffusemap_.empty() ? diffuse_ : texturesys_.Sample(diffusemap_, isect.uv, float2(0,0));
-        float3 ks = specular_;
+        float3 c = colormap_.empty() ? color_ : texturesys_.Sample(colormap_, isect.uv, float2(0,0));
 
         if (sint > 1.f)
         {
             // TIR
-            return ks*specularbsdf_->Sample(isectlocal, sample, wi, wo, pdf);
+            return c*reflectbsdf_->Sample(isectlocal, sample, wi, wo, pdf);
         }
         else
         {
@@ -72,11 +69,11 @@ public:
 
             if (rnd < r)
             {
-                return ks*specularbsdf_->Sample(isectlocal, sample, wi, wo, pdf);
+                return c*reflectbsdf_->Sample(isectlocal, sample, wi, wo, pdf);
             }
             else
             {
-                return kd*diffusebsdf_->Sample(isectlocal, sample, wi, wo, pdf);
+                return c*refractbsdf_->Sample(isectlocal, sample, wi, wo, pdf);
             }
         }
     }
@@ -94,26 +91,23 @@ public:
             MapNormal(normalmap_, isectlocal, ndotwi < 0);
         }
 
-
-        float etat = eta_;
+        float etat = refractbsdf_->eta_;
         float etai = 1.f;
 
         if (ndotwi < 0)
         {
             float etat = 1.f;
-            float etai = eta_;
+            float etai = refractbsdf_->eta_;
             ndotwi = -ndotwi;
         }
 
         float sint = etai / etat * sqrtf(std::max(0.f, 1.f - ndotwi*ndotwi));
-
-        float3 kd = diffusemap_.empty() ? diffuse_ : texturesys_.Sample(diffusemap_, isect.uv, float2(0,0));
-        float3 ks = specular_;
+        float3 c = colormap_.empty() ? color_ : texturesys_.Sample(colormap_, isect.uv, float2(0,0));
 
         if (sint > 1.f)
         {
             // TIR
-            return ks*specularbsdf_->Evaluate(isectlocal, wi, wo);
+            return c*reflectbsdf_->Evaluate(isectlocal, wi, wo);
         }
         else
         {
@@ -124,27 +118,25 @@ public:
 
             if (rnd < r)
             {
-                return ks*specularbsdf_->Evaluate(isectlocal, wi, wo);
+                return c*reflectbsdf_->Evaluate(isectlocal, wi, wo);
             }
             else
             {
-                return kd*diffusebsdf_->Evaluate(isectlocal, wi, wo);
+                return c*refractbsdf_->Evaluate(isectlocal, wi, wo);
             }
         }
     }
 
-    float eta_;
-    // Diffuse color
-    float3 diffuse_;
-    // Specular color
-    float3 specular_;
+    // Color
+    float3 color_;
     // Diffuse map
-    std::string diffusemap_;
+    std::string colormap_;
     // Normal map
     std::string normalmap_;
-    // BSDFs
-    std::unique_ptr<Bsdf> diffusebsdf_;
-    std::unique_ptr<Bsdf> specularbsdf_;
+
+    // BSDF
+    std::unique_ptr<PerfectSpecular> reflectbsdf_;
+    std::unique_ptr<PerfectRefract> refractbsdf_;
 };
 
-#endif // PHONG_H
+#endif // SPECULAR_H

@@ -85,7 +85,7 @@ void AssimpAssetImporter::Import()
         }
         else
         {
-            m = new Phong(texsys_, kd, ks, kdmap, nmap);
+            m = new Phong(texsys_, 2.5f, kd, ks, kdmap, nmap);
         }
 
         if (onmaterial_)

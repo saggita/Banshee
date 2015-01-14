@@ -22,6 +22,7 @@ public:
 
         wo = normalize(2.f * dot(n, wi) * n - wi);
         pdf = 1.f;
+
         return float3(1.f, 1.f, 1.f);
     }
 

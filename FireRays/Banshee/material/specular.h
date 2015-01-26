@@ -7,6 +7,7 @@
 #include "material.h"
 #include "../bsdf/perfect_refract.h"
 #include "../bsdf/perfect_reflect.h"
+#include "../bsdf/fresnel.h"
 
 ///< Refract material for glass like objects
 ///<
@@ -16,7 +17,8 @@ public:
     // If color map is specified it is used as a refraction color, otherwise specified color value is used
     Specular (TextureSystem const& texturesys, 
         float eta,
-        float3 const& color, 
+        float3 const& color,
+        Fresnel* f,
         std::string const& colormap = "",
         std::string const& normalmap = "")
         : Material(texturesys)
@@ -25,6 +27,8 @@ public:
         , normalmap_(normalmap)
         , refractbsdf_(new PerfectRefract(eta))
         , reflectbsdf_(new PerfectReflect())
+        , fresnel_(f)
+        , eta_(eta)
     {
     }
 
@@ -33,48 +37,27 @@ public:
     {
         // Copy to be able to alter normal
         Primitive::Intersection isectlocal = isect;
-
+        
         float ndotwi = dot(wi, isectlocal.n);
-
+        
         if (!normalmap_.empty())
         {
-            MapNormal(normalmap_, isectlocal, ndotwi < 0);
+            MapNormal(normalmap_, isectlocal);
         }
-
-        float etat = refractbsdf_->eta_;
-        float etai = 1.f;
-
-
-        if (ndotwi < 0)
-        {
-            float etat = 1.f;
-            float etai = refractbsdf_->eta_;
-            ndotwi = -ndotwi;
-        }
-
-        float sint = etai / etat * sqrtf(std::max(0.f, 1.f - ndotwi*ndotwi));
+        
         float3 c = colormap_.empty() ? color_ : texturesys_.Sample(colormap_, isect.uv, float2(0,0));
-
-        if (sint > 1.f)
+        
+        float f = fresnel_->Evaluate(1.f, eta_, ndotwi);
+        
+        float rnd = rand_float();
+        
+        if (rnd < f)
         {
-            // TIR
             return c*reflectbsdf_->Sample(isectlocal, sample, wi, wo, pdf);
         }
         else
         {
-            float cost = sqrtf(std::max(0.f, 1.f - sint*sint));  
-            float r = FresnelDielectricReflectivity(ndotwi, cost, etai, etat);
-
-            float rnd = rand_float();
-
-            if (rnd < r)
-            {
-                return c*reflectbsdf_->Sample(isectlocal, sample, wi, wo, pdf);
-            }
-            else
-            {
-                return c*refractbsdf_->Sample(isectlocal, sample, wi, wo, pdf);
-            }
+            return c*refractbsdf_->Sample(isectlocal, sample, wi, wo, pdf);
         }
     }
 
@@ -83,47 +66,27 @@ public:
     {
         // Copy to be able to alter normal
         Primitive::Intersection isectlocal = isect;
-
+        
         float ndotwi = dot(wi, isectlocal.n);
-
+        
         if (!normalmap_.empty())
         {
-            MapNormal(normalmap_, isectlocal, ndotwi < 0);
+            MapNormal(normalmap_, isectlocal);
         }
-
-        float etat = refractbsdf_->eta_;
-        float etai = 1.f;
-
-        if (ndotwi < 0)
-        {
-            float etat = 1.f;
-            float etai = refractbsdf_->eta_;
-            ndotwi = -ndotwi;
-        }
-
-        float sint = etai / etat * sqrtf(std::max(0.f, 1.f - ndotwi*ndotwi));
+        
         float3 c = colormap_.empty() ? color_ : texturesys_.Sample(colormap_, isect.uv, float2(0,0));
-
-        if (sint > 1.f)
+        
+        float f = fresnel_->Evaluate(1.f, eta_, ndotwi);
+        
+        float rnd = rand_float();
+        
+        if (rnd < f)
         {
-            // TIR
             return c*reflectbsdf_->Evaluate(isectlocal, wi, wo);
         }
         else
         {
-            float cost = sqrtf(std::max(0.f, 1.f - sint*sint));  
-            float r = FresnelDielectricReflectivity(ndotwi, cost, etai, etat);
-
-            float rnd = rand_float();
-
-            if (rnd < r)
-            {
-                return c*reflectbsdf_->Evaluate(isectlocal, wi, wo);
-            }
-            else
-            {
-                return c*refractbsdf_->Evaluate(isectlocal, wi, wo);
-            }
+            return c*refractbsdf_->Evaluate(isectlocal, wi, wo);
         }
     }
 
@@ -133,6 +96,10 @@ public:
     std::string colormap_;
     // Normal map
     std::string normalmap_;
+    // Fresnel component
+    std::unique_ptr<Fresnel> fresnel_;
+    // IOR
+    float eta_;
 
     // BSDF
     std::unique_ptr<PerfectReflect> reflectbsdf_;

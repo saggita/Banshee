@@ -37,7 +37,7 @@ public:
 
 protected:
     // Function to support normal mapping
-    virtual void MapNormal(std::string const& nmap, Primitive::Intersection& isect, bool flipnormal) const;
+    virtual void MapNormal(std::string const& nmap, Primitive::Intersection& isect) const;
     // Fresnel functions
     static float FresnelDielectricReflectivity(float cosi, float cost, float etai, float etat);
     static float FresnelConductorReflectivity(float cosi, float etai, float k);
@@ -45,13 +45,13 @@ protected:
     TextureSystem const& texturesys_;
 };
 
-inline void Material::MapNormal(std::string const& nmap, Primitive::Intersection& isect, bool flipnormal) const
+inline void Material::MapNormal(std::string const& nmap, Primitive::Intersection& isect) const
 {
     // We dont need bilinear interpolation while fetching normals
     // Use point instead
     TextureSystem::Options opts(TextureSystem::Options::kPoint);
     float3 normal = 2.f * texturesys_.Sample(nmap, isect.uv, float2(0,0), opts) - float3(1.f, 1.f, 1.f);
-    isect.n = flipnormal ? normalize(isect.n * normal.z - isect.dpdu * normal.x - isect.dpdv * normal.y) : normalize(isect.n * normal.z + isect.dpdu * normal.x + isect.dpdv * normal.y);
+    isect.n = normalize(isect.n * normal.z + isect.dpdu * normal.x + isect.dpdv * normal.y);
 }
 
 inline float Material::FresnelDielectricReflectivity(float cosi, float cost, float etai, float etat)

@@ -39,7 +39,7 @@ public:
 
         if (!normalmap_.empty())
         {
-            MapNormal(normalmap_, isectlocal, ndotwi < 0);
+            MapNormal(normalmap_, isectlocal);
         }
 
 
@@ -48,8 +48,8 @@ public:
 
         if (ndotwi < 0)
         {
-            float etat = 1.f;
-            float etai = eta_;
+            etat = 1.f;
+            etai = eta_;
             ndotwi = -ndotwi;
         }
 
@@ -91,7 +91,7 @@ public:
 
         if (!normalmap_.empty())
         {
-            MapNormal(normalmap_, isectlocal, ndotwi < 0);
+            MapNormal(normalmap_, isectlocal);
         }
 
 
@@ -100,8 +100,8 @@ public:
 
         if (ndotwi < 0)
         {
-            float etat = 1.f;
-            float etai = eta_;
+            etat = 1.f;
+            etai = eta_;
             ndotwi = -ndotwi;
         }
 

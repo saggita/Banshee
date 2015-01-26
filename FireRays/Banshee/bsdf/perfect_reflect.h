@@ -19,7 +19,6 @@ public:
     float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
         float3 n = dot(wi, isect.n) >= 0.f ? isect.n : -isect.n;
-
         wo = normalize(2.f * dot(n, wi) * n - wi);
         pdf = 1.f;
 
@@ -29,10 +28,7 @@ public:
     // Evaluate combined BSDF value
     float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
     {
-        float3 n = dot(wi, isect.n) >= 0.f ? isect.n : -isect.n;
-        float3 reflected = normalize(2.f * dot(n, wi) * n - wi);
-        float  delta = (reflected - wo).sqnorm(); 
-        return delta == 0.f ? float3(1.f, 1.f, 1.f) : float3(0.f, 0.f, 0.f);
+        return float3(0.f, 0.f, 0.f);
     }
 };
 

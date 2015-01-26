@@ -44,7 +44,7 @@ public:
         {
             wo = - (1.f / eta) * wi - (sqrtf(q) - ndotwi / eta)*n;
             pdf = 1.f;
-            return float3(1.f, 1.f, 1.f);
+            return eta*eta*float3(1.f,1.f,1.f);
         }
         else
         {

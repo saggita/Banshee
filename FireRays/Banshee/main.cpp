@@ -421,7 +421,7 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
     world->materials_.clear();
 
     //world->materials_.push_back(std::unique_ptr<Material>(new Refract(texsys, 2.3f, float3(0.9f, 0.3f, 0.0f))));
-    world->materials_.push_back(std::unique_ptr<Material>(new Specular(texsys, 1.3f, float3(0.8f, 0.0f, 0.0f), new FresnelDielectric())));
+    world->materials_.push_back(std::unique_ptr<Material>(new Specular(texsys, 1.3f, float3(0.8f, 0.0f, 0.0f))));
     world->materials_.push_back(std::unique_ptr<Material>(new Phong(texsys, 2.5f, float3(0.4f, 0.3f, 0.25f), float3(0.6f, 0.6f, 0.6f))));
 
     int materials[2] = {1, 1};
@@ -544,7 +544,7 @@ std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
 
     Matte* matte0 = new Matte(texsys, float3(0.2f, 0.6f, 0.2f));
     Matte* matte1 = new Matte(texsys, float3(0.5f, 0.5f, 0.4f), "", "carbonfiber.png");
-    Specular* refract = new Specular(texsys, 2.3f, float3(0.9f, 0.9f, 0.9f), new FresnelDielectric(), "", "");
+    Specular* refract = new Specular(texsys, 2.3f, float3(0.9f, 0.9f, 0.9f), "", "");
     Phong* phong = new Phong(texsys, 2.5f, float3(0.f, 0.f, 0.f), float3(0.5f, 0.5f, 0.5f));
     world->materials_.push_back(std::unique_ptr<Material>(matte0));
     world->materials_.push_back(std::unique_ptr<Material>(matte1));
@@ -914,7 +914,7 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     // Build materials
     Matte* matte0 = new Matte(texsys, float3(0.7f, 0.6f, 0.6f), "", "");
     Matte* matte1 = new Matte(texsys, float3(0.6f, 0.6f, 0.5f));
-    Phong* phong = new Phong(texsys, 2.5f, float3(0.2f, 0.2f, 0.2f), float3(0.5f, 0.5f, 0.5f));
+    Phong* phong = new Phong(texsys, 1.5f, float3(0.1f, 0.1f, 0.1f), float3(0.9f, 0.9f, 0.9f));
     Emissive* emissive = new Emissive(texsys, float3(20.f, 18.f, 14.f));
     world->materials_.push_back(std::unique_ptr<Material>(matte0));
     world->materials_.push_back(std::unique_ptr<Material>(matte1));

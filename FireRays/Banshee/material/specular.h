@@ -18,7 +18,6 @@ public:
     Specular (TextureSystem const& texturesys, 
         float eta,
         float3 const& color,
-        Fresnel* f,
         std::string const& colormap = "",
         std::string const& normalmap = "")
         : Material(texturesys)
@@ -27,7 +26,7 @@ public:
         , normalmap_(normalmap)
         , refractbsdf_(new PerfectRefract(eta))
         , reflectbsdf_(new PerfectReflect())
-        , fresnel_(f)
+        , fresnel_(new FresnelDielectric())
         , eta_(eta)
     {
     }

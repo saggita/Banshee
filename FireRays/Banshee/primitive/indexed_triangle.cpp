@@ -147,6 +147,20 @@ void IndexedTriangle::Sample(float2 const& sample, SampleData& sampledata, float
     pdf = 1.f / (sqrtf(fabs(cross(p3 - p1, p3 - p2).sqnorm())) * 0.5f);
 }
 
+void IndexedTriangle::Sample(float3 const& p, float2 const& sample, SampleData& sampledata, float& pdf) const
+{
+    Sample(sample, sampledata, pdf);
+    
+    if (pdf > 0.f)
+    {
+        // Construct vector to p
+        float3 d = sampledata.p - p;
+        
+        // Convert PDF to solid angle
+        pdf *= (d.sqnorm() / dot(sampledata.n, -normalize(d)));
+    }
+}
+
 float IndexedTriangle::surface_area() const
 {
     float3 p1 = transform_point(mesh_.vertices_[pidx1_], mesh_.worldmat_);

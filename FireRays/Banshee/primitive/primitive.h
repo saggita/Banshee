@@ -72,7 +72,14 @@ public:
     virtual float surface_area() const { return 0.f; };
     // Each primitive with an area > 0 is required to be able to provide sample points on its surface.
     // This method returns a sample point for a given sample in world space.
+    // The sample point is expected to be uniform over the area and pdf is returned
+    // with respect to surface area(!)
     virtual void Sample(float2 const& sample, SampleData& sampledata, float& pdf) const { return; }
+    // Each primitive with an area > 0 is required to be able to provide sample points on its surface.
+    // This method returns a sample point for a given sample in world space.
+    // The sample point is expected to be uniform and PDF is converted to solid angle
+    // substanded by the shape as visible from point p.
+    virtual void Sample(float3 const& p, float2 const& sample, SampleData& sampledata, float& pdf) const { return; }
     // The method is in charge of splitting primitive bounding box with axis-aligned plane.
     // Default implementation simply linearly interpolates between min and max points.
     // Overrides are expected to provide more preciese bounds.

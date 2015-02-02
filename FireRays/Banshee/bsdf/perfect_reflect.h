@@ -30,6 +30,12 @@ public:
     {
         return float3(0.f, 0.f, 0.f);
     }
+    
+    // Return pdf for wo to be sampled for wi
+    float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
+    {
+        return 0.f;
+    }
 };
 
 

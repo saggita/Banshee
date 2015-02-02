@@ -17,7 +17,11 @@ public:
     // Destructor
     virtual ~MicrofacetDistribution(){}
     // w - microfacet orientation (normal), n - surface normal
-    virtual float D(float3 const& w, float3 const& n) = 0;
+    virtual float D(float3 const& w, float3 const& n) const = 0;
+    // Sample the direction accordingly to this distribution
+    virtual void Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const = 0;
+    // PDF of the given direction
+    virtual float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const = 0;
 };
 
 
@@ -46,12 +50,17 @@ public:
     // Sample material and return outgoing ray direction along with combined BSDF value
     float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
-        // will need to account for samling strategy later and provide a sampler
-        float invpi = 1.f / PI;
-        float3 n = dot(wi, isect.n) >= 0.f ? isect.n : -isect.n;
-        wo = map_to_hemisphere(n, sample, 1.f);
-        pdf = dot(n, wo) * invpi;
-        return Evaluate(isect, wi, wo);
+        Primitive::Intersection isectlocal = isect;
+        
+        if (dot(isectlocal.n, wi) < 0)
+        {
+            isectlocal.n = -isectlocal.n;
+            isectlocal.dpdu = -isectlocal.dpdu;
+            isectlocal.dpdv = -isectlocal.dpdv;
+        }
+        
+        md_->Sample(isectlocal, sample, wi, wo, pdf);
+        return Evaluate(isectlocal, wi, wo);
     }
     
     // Evaluate combined BSDF value
@@ -97,6 +106,23 @@ public:
         return std::min(1.f, std::min(2.f * ndotwh * ndotwo / wodotwh, 2.f * ndotwh * ndotwi / wodotwh));
     }
     
+    // Return pdf for wo to be sampled for wi
+    float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
+    {
+        Primitive::Intersection isectlocal = isect;
+        
+        if (dot(isectlocal.n, wi) < 0)
+        {
+            isectlocal.n = -isectlocal.n;
+            isectlocal.dpdu = -isectlocal.dpdu;
+            isectlocal.dpdv = -isectlocal.dpdv;
+        }
+        
+        return md_->Pdf(isectlocal, wi, wo);
+    }
+    
+private:
+    
     // Roughness
     float roughness_;
     // IOR
@@ -121,10 +147,42 @@ public:
     }
     
     // Distribution fucntiom
-    float D(float3 const& w, float3 const& n)
+    float D(float3 const& w, float3 const& n) const
     {
         float ndotw = fabs(dot(n, w));
         return (1.f / (2*PI)) * (e_ + 2) * powf(ndotw, e_);
+    }
+    
+    // Sample the distribution
+    void Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
+    {
+        // Sample halfway vector first, then reflect wi around that
+        float costheta = std::powf(sample.x, 1.f / (e_ + 1.f));
+        float sintheta = std::sqrt(1.f - costheta * costheta);
+        
+        // phi = 2*PI*ksi2
+        float cosphi = std::cosf(2.f*PI*sample.y);
+        float sinphi = std::sinf(2.f*PI*sample.y);
+        
+        // Calculate wh
+        float3 wh = normalize(isect.dpdu * sintheta * cosphi + isect.dpdv * sintheta * sinphi + isect.n * costheta);
+        
+        // Reflect wi around wh
+        wo = -wi + 2.f*dot(wi, wh) * wh;
+        
+        // Calc pdf
+        pdf = Pdf(isect, wi, wo);
+    }
+    
+    // PDF of the given direction
+    float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
+    {
+        // We need to convert pdf(wh)->pdf(wo)
+        float3 wh = normalize(wi + wo);
+        // costheta
+        float ndotwh = dot(isect.n, wh);
+        // See Humphreys and Pharr for derivation
+        return ((e_ + 1.f) / std::powf(ndotwh, e_)) / (2.f * PI * 4.f * dot (wo,wh));
     }
     
     // Exponent

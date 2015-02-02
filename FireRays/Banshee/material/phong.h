@@ -4,6 +4,8 @@
 #include "material.h"
 #include "../bsdf/lambert.h"
 #include "../bsdf/perfect_reflect.h"
+#include "../bsdf/fresnel.h"
+
 
 ///< Phong material provides the combination of Lambert + specular BRDFs
 ///< and is supposed to be used in simple renders and imported material translations
@@ -23,6 +25,7 @@ public:
         , specular_(specular)
         , diffusemap_(diffusemap)
         , normalmap_(normalmap)
+        , fresnel_(new FresnelDielectric())
         , diffusebsdf_(new Lambert())
         , specularbsdf_(new PerfectReflect())
         , eta_(eta)
@@ -42,42 +45,20 @@ public:
             MapNormal(normalmap_, isectlocal);
         }
 
-
-        float etat = eta_;
-        float etai = 1.f;
-
-        if (ndotwi < 0)
-        {
-            etat = 1.f;
-            etai = eta_;
-            ndotwi = -ndotwi;
-        }
-
-        float sint = etai / etat * sqrtf(std::max(0.f, 1.f - ndotwi*ndotwi));
-
         float3 kd = diffusemap_.empty() ? diffuse_ : texturesys_.Sample(diffusemap_, isect.uv, float2(0,0));
         float3 ks = specular_;
+        
+        float r = fresnel_->Evaluate(1.f, eta_, ndotwi);
 
-        if (sint > 1.f)
+        float rnd = rand_float();
+        
+        if (rnd < r)
         {
-            // TIR
             return ks*specularbsdf_->Sample(isectlocal, sample, wi, wo, pdf);
         }
         else
         {
-            float cost = sqrtf(std::max(0.f, 1.f - sint*sint));  
-            float r = FresnelDielectricReflectivity(ndotwi, cost, etai, etat);
-
-            float rnd = rand_float();
-
-            if (rnd < r)
-            {
-                return ks*specularbsdf_->Sample(isectlocal, sample, wi, wo, pdf);
-            }
-            else
-            {
-                return kd*diffusebsdf_->Sample(isectlocal, sample, wi, wo, pdf);
-            }
+            return kd*diffusebsdf_->Sample(isectlocal, sample, wi, wo, pdf);
         }
     }
 
@@ -94,42 +75,25 @@ public:
             MapNormal(normalmap_, isectlocal);
         }
 
-
-        float etat = eta_;
-        float etai = 1.f;
-
-        if (ndotwi < 0)
+        if (!normalmap_.empty())
         {
-            etat = 1.f;
-            etai = eta_;
-            ndotwi = -ndotwi;
+            MapNormal(normalmap_, isectlocal);
         }
-
-        float sint = etai / etat * sqrtf(std::max(0.f, 1.f - ndotwi*ndotwi));
-
+        
         float3 kd = diffusemap_.empty() ? diffuse_ : texturesys_.Sample(diffusemap_, isect.uv, float2(0,0));
         float3 ks = specular_;
-
-        if (sint > 1.f)
+        
+        float r = fresnel_->Evaluate(1.f, eta_, ndotwi);
+        
+        float rnd = rand_float();
+        
+        if (rnd < r)
         {
-            // TIR
             return ks*specularbsdf_->Evaluate(isectlocal, wi, wo);
         }
         else
         {
-            float cost = sqrtf(std::max(0.f, 1.f - sint*sint));  
-            float r = FresnelDielectricReflectivity(ndotwi, cost, etai, etat);
-
-            float rnd = rand_float();
-
-            if (rnd < r)
-            {
-                return ks*specularbsdf_->Evaluate(isectlocal, wi, wo);
-            }
-            else
-            {
-                return kd*diffusebsdf_->Evaluate(isectlocal, wi, wo);
-            }
+            return kd*diffusebsdf_->Evaluate(isectlocal, wi, wo);
         }
     }
 
@@ -142,6 +106,8 @@ public:
     std::string diffusemap_;
     // Normal map
     std::string normalmap_;
+    // Fresnel component
+    std::unique_ptr<Fresnel> fresnel_;
     // BSDFs
     std::unique_ptr<Bsdf> diffusebsdf_;
     std::unique_ptr<Bsdf> specularbsdf_;

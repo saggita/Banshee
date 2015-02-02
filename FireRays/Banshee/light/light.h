@@ -22,6 +22,9 @@ public:
     // This method is supposed to be called by the renderer when the ray misses the geometry.
     // It allows implementing IBL, etc.
     virtual float3 Le(ray const& r) const = 0;
+    
+    // PDF of a given direction sampled from isect.p
+    virtual float Pdf(Primitive::Intersection const& isect, float3 const& w) const = 0;
 };
 
 #endif // LIGHT_H

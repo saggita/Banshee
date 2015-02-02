@@ -30,17 +30,29 @@ float3 AreaLight::Sample(Primitive::Intersection const& isect, float2 const& sam
     Primitive::SampleData sampledata;
     primitive_.Sample(sample, sampledata, pdf);
 
-    if (pdf > 0.f)
+    // Set direction to the light
+    d = sampledata.p - isect.p;
+    
+    // If the object facing the light compute emission
+    if (pdf > 0.f && dot(sampledata.n, -normalize(d)) > 0.f)
     {
-        // Set direction to the light
-        d = sampledata.p - isect.p;
-
         // Emissive power with squared fallof
         float d2inv = 1.f / d.sqnorm();
 
         // Return emission characteristic of the material
         return material_.Le(sampledata, -normalize(d)) * d2inv;
     }
+    else
+    {
+        // Otherwise just set probability to 0
+        pdf = 0.f;
+        return float3(0,0,0);
+    }
+}
 
-    return float3(0,0,0);
+float AreaLight::Pdf(Primitive::Intersection const& isect, float3 const& w) const
+{
+    
+    // TODO: implement me
+    return 0.f;
 }

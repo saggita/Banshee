@@ -32,6 +32,9 @@ public:
     // This method is supposed to be called by the renderer when the ray misses the geometry.
     // It allows implementing IBL, etc.
     float3 Le(ray const& r) const;
+    
+    // PDF of a given direction sampled from isect.p
+    float Pdf(Primitive::Intersection const& isect, float3 const& w) const;
 
 private:
     // Texture system

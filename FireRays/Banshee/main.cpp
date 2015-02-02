@@ -921,9 +921,9 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     world->materials_.push_back(std::unique_ptr<Material>(phong));
     world->materials_.push_back(std::unique_ptr<Material>(emissive));
     //world->materials_.push_back(std::unique_ptr<Material>(new Specular(texsys, 1.3f, float3(1.f,1.f,1.f), new FresnelDielectric())));
-    world->materials_.push_back(std::unique_ptr<Material>(new Glossy(texsys, float3(1,1,1), 2.f, 300.f)));
+    world->materials_.push_back(std::unique_ptr<Material>(new Glossy(texsys, float3(1,1,1), 6.f, 300.f)));
     //world->materials_.push_back(std::unique_ptr<Material>(new Specular(texsys, 2.3f, float3(1.f,1.f,1.f), new FresnelDielectric())));
-    world->materials_.push_back(std::unique_ptr<Material>(new Glossy(texsys, float3(1,1,1), 2.f, 10.f)));
+    world->materials_.push_back(std::unique_ptr<Material>(new Glossy(texsys, float3(0.1,0.7,0.1), 2.f, 10.f)));
 
     std::vector<Primitive*> meshprims;
     lightmesh->Refine(meshprims);
@@ -1181,7 +1181,7 @@ int main()
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldAreaLightTest(texsys);
+        std::unique_ptr<World> world = BuildWorldFresnelTest(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -1213,7 +1213,7 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
-            new GiTracer(2, 1.f), // Tracer
+            new GiTracer(1, 1.f), // Tracer
             new StratifiedSampler(8, new McRng()), // Image sampler
             //new RegularSampler(2),
             new StratifiedSampler(1, new McRng()), // Light sampler

@@ -27,6 +27,12 @@ public:
         return float3(0, 0, 0);
     }
     
+    // PDF of a given direction sampled from isect.p
+    float Pdf(Primitive::Intersection const& isect, float3 const& w) const
+    {
+        return 0.f;
+    }
+    
 private:
     // World space position
     float3 p_;

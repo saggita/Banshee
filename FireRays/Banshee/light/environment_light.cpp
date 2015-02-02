@@ -39,3 +39,13 @@ float3 EnvironmentLight::Le(ray const& r) const
     // Fetch radiance value and scale it
     return scale_ * texsys_.Sample(texture_, uv, float2(0,0));
 }
+
+// PDF of a given direction sampled from isect.p
+float EnvironmentLight::Pdf(Primitive::Intersection const& isect, float3 const& w) const
+{
+    // Precompute invpi
+    float invpi = 1.f / PI;
+    
+    // PDF is proportional to dot(n,d)
+    return dot(isect.n, normalize(w)) * invpi;
+}

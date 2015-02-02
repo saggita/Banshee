@@ -89,6 +89,15 @@ public:
         return float3(invpi, invpi, invpi) * (a + b * maxcos * sin_alpha * tan_beta);
     }
     
+    // Return pdf for wo to be sampled for wi
+    float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
+    {
+        float invpi = 1.f / PI;
+        float3 n = dot(wi, isect.n) >= 0.f ? isect.n : -isect.n;
+        return dot(n, wo) * invpi;
+    }
+
+private:
     // Roughness
     float roughness_;
 };

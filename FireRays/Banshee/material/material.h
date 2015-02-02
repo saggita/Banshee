@@ -5,14 +5,13 @@
 
 #include "../texture/texturesystem.h"
 #include "../primitive/primitive.h"
-#include "../bsdf/bsdf.h"
 
 
 ///< Material is an interface for the renderer to call
 ///< when handling intersections. It encapsulates all
 ///< the surface appearance evaluations.
 ///<
-class Material : public Bsdf
+class Material
 {
 public:
     Material (TextureSystem const& texturesys)

@@ -27,9 +27,12 @@ public:
     // It allows implementing IBL, etc.
     float3 Le(ray const& r) const
     {
-        // Nothing should be emitted here for point light
+        // Nothing should be emitted here for area light
         return float3(0, 0, 0);
     }
+    
+    // PDF of a given direction sampled from isect.p
+    float Pdf(Primitive::Intersection const& isect, float3 const& w) const;
     
 private:
     // Primitive declaring the shape of the light

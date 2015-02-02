@@ -35,8 +35,11 @@ public:
     // Bounding box override
     bbox Bounds() const { return bounds_; }
 
-    // Calculate a sample point on the surface of a triangle
+    // Calculate sample point on the surface of a triangle
     void Sample(float2 const& sample, SampleData& sampledata, float& pdf) const;
+    
+    // Calculate sample point in solid angle
+    void Sample(float3 const& p, float2 const& sample, SampleData& sampledata, float& pdf) const;
 
     // Surface area of a triangle
     float surface_area() const;

@@ -4,6 +4,7 @@
 #include "../imageplane/imageplane.h"
 #include "../tracer/tracer.h"
 #include "../util/progressreporter.h"
+#include "../math/mathutils.h"
 
 
 #include <cassert>
@@ -84,7 +85,7 @@ void MtImageRenderer::Render(World const& world) const
                             cam.GenerateRay(imgsample, r);
 
                             // Estimate radiance and add to image plane
-                            imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world, *private_lightsampler, *private_brdfsampler, true));
+                            imgplane_.AddSample(imgsample, sample_weight, tracer_->Li(r, world, *private_lightsampler, *private_brdfsampler));
                         }
                     }
 

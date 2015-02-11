@@ -9,9 +9,9 @@
 #include "postprocess.h"
 #include "scene.h"
 
-#include "../material/matte.h"
-#include "../material/phong.h"
 #include "../material/emissive.h"
+#include "../material/simplematerial.h"
+#include "../bsdf/lambert.h"
 #include "../primitive/mesh.h"
 #include "../light/arealight.h"
 
@@ -74,18 +74,18 @@ void AssimpAssetImporter::Import()
         material->Get(AI_MATKEY_NAME, matname);
 
         float3 kd = float3(diffuse.r, diffuse.g, diffuse.b);
-        float3 ks = float3(specular.r, specular.g, specular.b);
+        //float3 ks = float3(specular.r, specular.g, specular.b);
         float3 ke = float3(emission.r, emission.b, emission.g);
 
         Material* m = nullptr;
 
         if (ke.sqnorm() > 0.f || matname == aiString("light"))
         {
-            m = new Emissive(texsys_, 0.6f * float3(60.f,55.f,40.f));
+            m = new Emissive(0.6f * float3(60.f,55.f,40.f));
         }
         else
         {
-            m = new Phong(texsys_, 2.5f, kd, ks, kdmap, nmap);
+            m = new SimpleMaterial(new Lambert(texsys_, kd, kdmap, nmap));
         }
 
         if (onmaterial_)

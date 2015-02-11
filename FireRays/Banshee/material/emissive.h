@@ -13,15 +13,14 @@
 class Emissive : public Material
 {
 public:
-    Emissive (TextureSystem const& texturesys, float3 const& e)
-        : Material(texturesys)
-        , e_(e)
+    Emissive (float3 const& e)
+        : e_(e)
     {
     }
 
 
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
+    float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf, int& type) const
     {
         // Make sure to set PDF to 0, method is not supposed to be called 
         pdf = 0.f;
@@ -35,6 +34,12 @@ public:
     {
         // This method is not supposed to be called on emissive, but anyway
         return Le(isect, wi);
+    }
+    
+    // PDF of a given direction sampled from isect.p
+    float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
+    {
+        return 0.f;
     }
 
     // Indicate whether the materials has emission component and will be used for direct light evaluation

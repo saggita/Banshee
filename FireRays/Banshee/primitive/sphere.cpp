@@ -142,6 +142,9 @@ void Sphere::FillIntersectionInfo(float3 const& p, Intersection& isect) const
 
     // Material index
     isect.m  = m_;
+    
+    // Primitive
+    isect.primitive = this;
 }
 
 void Sphere::Sample(float2 const& sample, SampleData& sampledata, float& pdf) const

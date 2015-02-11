@@ -1,81 +1,111 @@
 #include "gitracer.h"
 
+#include <cassert>
+
 #include "../world/world.h"
 #include "../sampler/sampler.h"
+#include "../bsdf/bsdf.h"
+#include "../math/mathutils.h"
 
-float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler, bool countemissives) const
+float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
 {
+    // Only 1 BSDF sample for indirect supported for now
+    assert (brdfsampler.num_samples() == 1);
+    
+    // Intersection along the ray
     Primitive::Intersection isect;
+    
+    // Ray distance
     float t = r.t.y;
-    float3 radiance;
-
-    if (world.Intersect(r, t, isect))
+    
+    // Accumulated radiance
+    float3 radiance = float3();
+    
+    // Path throughput
+    float3 throughput = float3(1.f, 1.f, 1.f);
+    
+    for (int bounce=0; bounce<maxdepth_; ++ bounce)
     {
-        // If we hit emissive object just return its emission characteristic
-        Material const& mat = *world.materials_[isect.m];
-
-        if (mat.emissive())
+        // If camera ray intersection occurs
+        if (world.Intersect(r, t, isect))
         {
-            return countemissives ? mat.Le(Primitive::SampleData(isect), -r.d) : 0.f;
-        }
-        else
-        {
+            Material const& mat = *world.materials_[isect.m];
+            
+            // If we hit emissive object as a first bounce add its contribution
+            if (bounce == 0 && mat.emissive())
+            {
+                Primitive::SampleData sampledata(isect);
+                radiance += mat.Le(sampledata, -r.d);
+                
+                // TODO: implement mixed emissive-bsdf materials
+                break;
+            }
+            
             // Evaluate DI component
             for (int i = 0; i < world.lights_.size(); ++i)
             {
-                radiance += Di(world, *world.lights_[i], lightsampler, -r.d, isect);
+                radiance += throughput * Di(world, *world.lights_[i], lightsampler, brdfsampler, -r.d, isect);
             }
-
-            // Evaluate indirect
-            if (r.id < maxdepth_ && indirect_contrib_ > 0.f)
+            
+            assert(!has_nans(radiance));
+            
+            // Sample BSDF to continue path
+            float2 bsdfsample = brdfsampler.Sample2D();
+            // BSDF type
+            int bsdftype = 0.f;
+            // BSDF PDF
+            float bsdfpdf = 0.f;
+            // Direction
+            float3 wi;
+            
+            // Sample material
+            float3 bsdf = mat.Sample(isect, bsdfsample, -r.d, wi, bsdfpdf, bsdftype);
+            
+            // Bail out if zero BSDF sampled
+            if (bsdf.sqnorm() == 0.f || bsdfpdf == 0.f)
             {
-                // Get the material for this intersection
-                Material& m = *world.materials_[isect.m];
-                // Generate new ray by sampling BSDF
-
-                // BSDF sampling
-                float3 indirect;
-                int numsamples = brdfsampler.num_samples();
-                std::vector<float2> samples(numsamples);
-
-                for (int i = 0; i < numsamples; ++i)
-                    samples[i] = brdfsampler.Sample2D();
-
-                ray newray;
-                newray.o = isect.p;
-
-                for (int i = 0; i < numsamples; ++i)
-                {
-                    float pdf;
-                    newray.t = float2(0.002f, 10000.f);
-                    newray.id = r.id + 1;
-
-                    float3 bsdf = m.Sample(isect, samples[i], -r.d, newray.d, pdf);
-
-                    float3 le = Li(newray, world, lightsampler, brdfsampler, false);
-
-                    // TODO: move PDF treshold to global settings
-                    // TODO: accound for quadratic falloff
-                    if (bsdf.sqnorm() > 0.f && le.sqnorm() > 0.f && pdf > 0.05f)
-                    {
-                        indirect +=   indirect_contrib_ * bsdf * le * (1.f / pdf);
-                    }
-                }
-
-                indirect *= (1.f/numsamples);
-                radiance += indirect;
+                break;
             }
+            
+            // Construct ray
+            r.o = isect.p;
+            r.d = normalize(wi);
+            r.t = float2(0.001f, 10000.f);
+            
+            // Update througput
+            throughput *= (bsdf * (fabs(dot(isect.n, wi)) / bsdfpdf));
+            
+            assert(!has_nans(throughput));
+            
+            // Apply Russian roulette
+            // TODO: pass RNG inside not to have this ugly dep
+            if (bounce > 3)
+            {
+                float rnd = rand_float();
+                
+                float q = std::min(0.5f, throughput.sqnorm());
+                
+                if (rnd > q)
+                    break;
+                
+                throughput *= (1.f / q);
+            }
+            
+            assert(!has_nans(radiance));
         }
-    }
-    else
-    {
-        radiance = world.bgcolor_;
-
-        for (int i = 0; i < world.lights_.size(); ++i)
+        else
         {
-            radiance += world.lights_[i]->Le(r);
+            radiance += throughput * world.bgcolor_;
+            
+            for (int i = 0; i < world.lights_.size(); ++i)
+            {
+                radiance += throughput * world.lights_[i]->Le(r);
+            }
+            
+            // Bail out as the ray missed geometry
+            break;
         }
     }
-
+    
     return radiance;
 }

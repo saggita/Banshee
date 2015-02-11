@@ -15,39 +15,86 @@
 class OrenNayar : public Bsdf
 {
 public:
-    OrenNayar(float roughness)
-    : roughness_(roughness)
+    OrenNayar(
+              // Texture system
+              TextureSystem const& texturesys,
+              // Diffuse color
+              float3 kd = float3(1.f, 1.f, 1.f),
+              // Roughness value
+              float  kr = 1.f,
+              // Diffuse map
+              std::string const& kdmap = "",
+              // Roughness map
+              std::string const& krmap = "",
+              // Normal map
+              std::string const& nmap = ""
+              )
+    : Bsdf(texturesys, REFLECTION | DIFFUSE)
+    , kd_(kd)
+    , kr_(kr)
+    , kdmap_(kdmap)
+    , krmap_(krmap)
+    , nmap_(nmap)
     {
     }
     
     // Sample material and return outgoing ray direction along with combined BSDF value
     float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
-        // will need to account for samling strategy later and provide a sampler
-        float invpi = 1.f / PI;
-        float3 n = dot(wi, isect.n) >= 0.f ? isect.n : -isect.n;
+        // Backup for normal mapping
+        Primitive::Intersection isectlocal = isect;
+        
+        // Alter normal if needed
+        // TODO: fix tangents as well
+        MAP_NORMAL(nmap_, isectlocal);
+        
+        // Revert normal based on ORIGINAL normal, not mapped one
+        float3 n = dot(wi, isect.n) >= 0.f ? isectlocal.n : -isectlocal.n;
+        
+        // Map random sample to hemisphere getting cosine weigted distribution
         wo = map_to_hemisphere(n, sample, 1.f);
+        
+        // Normalization multiplier
+        float invpi = 1.f / PI;
+        
+        // PDF proportional to cos
         pdf = dot(n, wo) * invpi;
+        
+        // Evaluate
         return Evaluate(isect, wi, wo);
     }
     
     // Evaluate combined BSDF value
     float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
     {
-        float3 n = isect.n;
-        float3 s = isect.dpdu;
-        float3 t = isect.dpdv;
+        // Return 0 if wo and wi are on different sides
+        float sameside = dot(wi, isect.n) * dot(wo, isect.n) ;
+        if (sameside < 0.f)
+            return float3(0, 0, 0);
         
-        //
-        if (dot(wi, n) < 0.f)
+        // Backup for normal mapping
+        Primitive::Intersection isectlocal = isect;
+        
+        // Alter normal if needed
+        // TODO: fix tangents as well
+        MAP_NORMAL(nmap_, isectlocal);
+        
+        float3 n = isectlocal.n;
+        float3 s = isectlocal.dpdu;
+        float3 t = isectlocal.dpdv;
+        
+        // Revert normal based on ORIGINAL normal, not mapped one
+        if (dot(wi, isect.n) < 0.f)
         {
             n = -n;
             s = -s;
             t = -t;
         }
         
+        // Get roughness value
+        float kr = GET_VALUE(kr_, krmap_, isectlocal.uv).x;
         float invpi = 1.f / PI;
-        float r2 = roughness_*roughness_;
+        float r2 = kr*kr;
         
         // A
         float a = 1.f - 0.5f * r2 / (r2 + 0.33f);
@@ -92,14 +139,34 @@ public:
     // Return pdf for wo to be sampled for wi
     float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
     {
-        float invpi = 1.f / PI;
-        float3 n = dot(wi, isect.n) >= 0.f ? isect.n : -isect.n;
-        return dot(n, wo) * invpi;
+        // If wi and wo are on the same side of the surface
+        float sameside = dot(wi, isect.n) * dot(wo, isect.n);
+        
+        if (sameside > 0.f)
+        {
+            float3 n = dot(wi, isect.n) >= 0.f ? isect.n : -isect.n;
+            
+            float invpi = 1.f / PI;
+            
+            return dot(n, wo) * invpi;
+        }
+        else
+        {
+            return 0.f;
+        }
     }
 
 private:
-    // Roughness
-    float roughness_;
+    // Diffuse color
+    float3 kd_;
+    // Roughness value
+    float kr_;
+    // Diffuse texture
+    std::string kdmap_;
+    // Roughness map
+    std::string krmap_;
+    // Normal texture
+    std::string nmap_;
 };
 
 

@@ -24,116 +24,6 @@ public:
     virtual float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const = 0;
 };
 
-
-///< Torrance-Sparrow microfacet model. A physically based specular BRDF is based on micro-facet theory,
-///< which describe a surface is composed of many micro-facets and each micro-facet will only reflect light
-///< in a single direction according to their normal(m):
-///< F(wi,wo) = D(wh)*Fresnel(wh, n)*G(wi, wo, n)/(4 * cos_theta_i * cos_theta_o)
-///<
-class Microfacet : public Bsdf
-{
-public:
-    // eta - refractive index of the object
-    // fresnel - Fresnel component
-    // md - microfacet distribution
-    Microfacet(
-               float eta,
-               Fresnel* fresnel,
-               MicrofacetDistribution* md
-               )
-    : fresnel_(fresnel)
-    , eta_(eta)
-    , md_(md)
-    {
-    }
-    
-    // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
-    {
-        Primitive::Intersection isectlocal = isect;
-        
-        if (dot(isectlocal.n, wi) < 0)
-        {
-            isectlocal.n = -isectlocal.n;
-            isectlocal.dpdu = -isectlocal.dpdu;
-            isectlocal.dpdv = -isectlocal.dpdv;
-        }
-        
-        md_->Sample(isectlocal, sample, wi, wo, pdf);
-        return Evaluate(isectlocal, wi, wo);
-    }
-    
-    // Evaluate combined BSDF value
-    float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
-    {
-        float3 n = isect.n;
-        float3 s = isect.dpdu;
-        float3 t = isect.dpdv;
-        
-        // Account for backfacing normal
-        if (dot(wi, n) < 0.f)
-        {
-            n = -n;
-            s = -s;
-            t = -t;
-        }
-        
-        // Incident and reflected zenith angles
-        float cos_theta_o = dot(n, wo);
-        float cos_theta_i = dot(n, wi);
-        
-        if (cos_theta_i == 0.f || cos_theta_o == 0.f)
-            return float3(0.f, 0.f, 0.f);
-        
-        // Calc halfway vector
-        float3 wh = normalize(wi + wo);
-        
-        // Calc Fresnel for wh faced microfacets
-        float fresnel = fresnel_->Evaluate(1.f, eta_, dot(wi, wh));
-        
-        // F(wi,wo) = D(wh)*Fresnel(wh, n)*G(wi, wo, n)/(4 * cos_theta_i * cos_theta_o)
-        return float3(1.f, 1.f, 1.f) * (md_->D(wh, n) * G(wi, wo, wh, n) * fresnel / (4.f * cos_theta_i * cos_theta_o));
-    }
-    
-    // Geometric factor accounting for microfacet shadowing, masking and interreflections
-    float G(float3 const& wi, float3 const& wo, float3 const& wh, float3 const& n ) const
-    {
-        float ndotwh = fabs(dot(n, wh));
-        float ndotwo = fabs(dot(n, wo));
-        float ndotwi = fabs(dot(n, wi));
-        float wodotwh = fabs(dot(wo, wh));
-        
-        return std::min(1.f, std::min(2.f * ndotwh * ndotwo / wodotwh, 2.f * ndotwh * ndotwi / wodotwh));
-    }
-    
-    // Return pdf for wo to be sampled for wi
-    float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
-    {
-        Primitive::Intersection isectlocal = isect;
-        
-        if (dot(isectlocal.n, wi) < 0)
-        {
-            isectlocal.n = -isectlocal.n;
-            isectlocal.dpdu = -isectlocal.dpdu;
-            isectlocal.dpdv = -isectlocal.dpdv;
-        }
-        
-        return md_->Pdf(isectlocal, wi, wo);
-    }
-    
-private:
-    
-    // Roughness
-    float roughness_;
-    // IOR
-    float eta_;
-    // Fresnel component
-    std::unique_ptr<Fresnel> fresnel_;
-    // Microfacet distribution
-    std::unique_ptr<MicrofacetDistribution> md_;
-};
-
-
 ///< Blinn distribution of microfacets based on Gaussian distribution : D(wh) ~ (dot(wh, n)^e)
 ///< D(wh) = (e + 2) / (2*PI) * dot(wh,n)^e
 ///<
@@ -188,6 +78,152 @@ public:
     // Exponent
     float e_;
 };
+
+
+///< Torrance-Sparrow microfacet model. A physically based specular BRDF is based on microfacet theory,
+///< which describe a surface is composed of many micro-facets and each micro-facet will only reflect light
+///< in a single direction according to their normal(m):
+///< F(wi,wo) = D(wh)*Fresnel(wh, n)*G(wi, wo, n)/(4 * cos_theta_i * cos_theta_o)
+///<
+class Microfacet : public Bsdf
+{
+public:
+    // eta - refractive index of the object
+    // fresnel - Fresnel component
+    // md - microfacet distribution
+    Microfacet(
+               // Texture system
+               TextureSystem const& texturesys,
+               // Refractive index
+               float eta = 1.f,
+               // Reflection color
+               float3 ks = float3(1.f, 1.f, 1.f),
+               // Reflection map
+               std::string const& ksmap = "",
+               // Normal map
+               std::string const& nmap = "",
+               // Fresnel component
+               Fresnel* fresnel = nullptr,
+               // Microfacet distribution
+               MicrofacetDistribution* md = nullptr
+               )
+    : Bsdf(texturesys, REFLECTION | GLOSSY)
+    , eta_(eta)
+    , ks_(ks)
+    , ksmap_(ksmap)
+    , nmap_(nmap)
+    , fresnel_(fresnel ? fresnel : new FresnelDielectric())
+    , md_(md ? md : new BlinnDistribution(10.f))
+    {
+    }
+    
+    // Sample material and return outgoing ray direction along with combined BSDF value
+    float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
+    {
+        Primitive::Intersection isectlocal = isect;
+        
+        // Alter normal if needed
+        // TODO: fix tangents as well
+        MAP_NORMAL(nmap_, isectlocal);
+        
+        // Revert normal if needed
+        if (dot(isect.n, wi) < 0.f)
+        {
+            isectlocal.n = -isectlocal.n;
+            isectlocal.dpdu = -isectlocal.dpdu;
+            isectlocal.dpdv = -isectlocal.dpdv;
+        }
+        
+        // Sample distribution
+        md_->Sample(isectlocal, sample, wi, wo, pdf);
+        
+        // Evaluate
+        return Evaluate(isect, wi, wo);
+    }
+    
+    // Evaluate combined BSDF value
+    float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
+    {
+        // Return 0 if wo and wi are on different sides
+        float sameside = dot(wi, isect.n) * dot(wo, isect.n);
+        if (sameside < 0.f)
+            return float3(0, 0, 0);
+        
+        Primitive::Intersection isectlocal = isect;
+        
+        // Alter normal if needed
+        // TODO: fix tangents as well
+        MAP_NORMAL(nmap_, isectlocal);
+        
+        // Revert normal if needed
+        float3 n = dot(isect.n, wi) < 0.f ? -isectlocal.n : isectlocal.n;
+        
+        // Incident and reflected zenith angles
+        float cos_theta_o = dot(n, wo);
+        float cos_theta_i = dot(n, wi);
+        
+        if (cos_theta_i == 0.f || cos_theta_o == 0.f)
+            return float3(0.f, 0.f, 0.f);
+        
+        // Calc halfway vector
+        float3 wh = normalize(wi + wo);
+        
+        // Calc Fresnel for wh faced microfacets
+        float fresnel = fresnel_->Evaluate(1.f, eta_, dot(wi, wh));
+        
+        // F(wi,wo) = D(wh)*Fresnel(wh, n)*G(wi, wo, n)/(4 * cos_theta_i * cos_theta_o)
+        return float3(1.f, 1.f, 1.f) * (md_->D(wh, n) * G(wi, wo, wh, n) * fresnel / (4.f * cos_theta_i * cos_theta_o));
+    }
+    
+    // Geometric factor accounting for microfacet shadowing, masking and interreflections
+    float G(float3 const& wi, float3 const& wo, float3 const& wh, float3 const& n ) const
+    {
+        float ndotwh = fabs(dot(n, wh));
+        float ndotwo = fabs(dot(n, wo));
+        float ndotwi = fabs(dot(n, wi));
+        float wodotwh = fabs(dot(wo, wh));
+        
+        return std::min(1.f, std::min(2.f * ndotwh * ndotwo / wodotwh, 2.f * ndotwh * ndotwi / wodotwh));
+    }
+    
+    // Return pdf for wo to be sampled for wi
+    float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
+    {
+        // Return 0 if wo and wi are on different sides
+        float sameside = dot(wi, isect.n) * dot(wo, isect.n);
+        if (sameside < 0.f)
+            return 0.f;
+        
+        Primitive::Intersection isectlocal = isect;
+        
+        if (dot(isectlocal.n, wi) < 0)
+        {
+            isectlocal.n = -isectlocal.n;
+            isectlocal.dpdu = -isectlocal.dpdu;
+            isectlocal.dpdv = -isectlocal.dpdv;
+        }
+        
+        return md_->Pdf(isectlocal, wi, wo);
+    }
+    
+private:
+    
+    // Reflection color
+    float3 ks_;
+    // IOR
+    float eta_;
+    // Diffuse texture
+    std::string ksmap_;
+    // Normal texture
+    std::string nmap_;
+    // Fresnel component
+    std::unique_ptr<Fresnel> fresnel_;
+    // Microfacet distribution
+    std::unique_ptr<MicrofacetDistribution> md_;
+};
+
+
+
 
 
 #endif // MICROFACET_H

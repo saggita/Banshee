@@ -7,7 +7,7 @@
 #include "../primitive/primitive.h"
 #include "../material/material.h"
 
-AreaLight::AreaLight(Primitive const& primitive, Material const& material)
+AreaLight::AreaLight(Primitive& primitive, Material const& material)
     : primitive_(primitive)
     , material_(material)
 {
@@ -21,6 +21,9 @@ AreaLight::AreaLight(Primitive const& primitive, Material const& material)
     {
         throw std::runtime_error("AreaLight: The material passed is not an emissive one");
     }
+    
+    // Set this area light for the primitive
+    primitive_.arealight_ = this;
 }
 
 
@@ -52,7 +55,5 @@ float3 AreaLight::Sample(Primitive::Intersection const& isect, float2 const& sam
 
 float AreaLight::Pdf(Primitive::Intersection const& isect, float3 const& w) const
 {
-    
-    // TODO: implement me
-    return 0.f;
+    return primitive_.Pdf(isect.p, w);
 }

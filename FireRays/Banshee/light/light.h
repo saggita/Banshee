@@ -25,6 +25,9 @@ public:
     
     // PDF of a given direction sampled from isect.p
     virtual float Pdf(Primitive::Intersection const& isect, float3 const& w) const = 0;
+    
+    // Check if the light is singular (represented by delta function or not)
+    virtual bool singular() const { return true; }
 };
 
 #endif // LIGHT_H

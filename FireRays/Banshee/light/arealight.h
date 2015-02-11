@@ -15,7 +15,7 @@ public:
     // The callers responsibility to pass only samplable primitives(i.e. area > 0) in there and only emissive materials.
     // Area light rely on primitives ability to provide sample points on its surface.
     //
-    AreaLight(Primitive const& primitive, Material const& material);
+    AreaLight(Primitive& primitive, Material const& material);
 
     // Sample method generates a direction to the light(d), calculates pdf in that direction (pdf)
     // and returns radiance emitted(return value) into the direction specified by isect
@@ -34,9 +34,12 @@ public:
     // PDF of a given direction sampled from isect.p
     float Pdf(Primitive::Intersection const& isect, float3 const& w) const;
     
+    // Check if the light is singular (represented by delta function or not)
+    bool singular() const { return false; }
+    
 private:
     // Primitive declaring the shape of the light
-    Primitive const& primitive_;
+    Primitive& primitive_;
     // Material
     Material const& material_;
 };

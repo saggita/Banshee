@@ -40,6 +40,9 @@ public:
     
     // Calculate sample point in solid angle
     void Sample(float3 const& p, float2 const& sample, SampleData& sampledata, float& pdf) const;
+    
+    // Calculate PDF of a w direction being sampled from p
+    float Pdf(float3 const& p, float3 const& w) const;
 
     // Surface area of a triangle
     float surface_area() const;

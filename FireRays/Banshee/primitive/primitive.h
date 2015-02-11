@@ -7,6 +7,8 @@
 #include "../math/ray.h"
 #include "../math/bbox.h"
 
+class AreaLight;
+
 ///< Base class for all CPU-based geometric primitives.
 ///< Override methods to add new geometry types
 ///<
@@ -28,6 +30,8 @@ public:
         float2 uv;
         // Material index
         int    m;
+        // Primitive
+        Primitive const* primitive;
     };
 
     struct SampleData
@@ -49,6 +53,9 @@ public:
         {
         }
     };
+    
+    // Constructor
+    Primitive() : arealight_(nullptr){}
 
     // Destructor
     virtual ~Primitive(){}
@@ -80,11 +87,19 @@ public:
     // The sample point is expected to be uniform and PDF is converted to solid angle
     // substanded by the shape as visible from point p.
     virtual void Sample(float3 const& p, float2 const& sample, SampleData& sampledata, float& pdf) const { return; }
+    // Each primitive with an area > 0 is required to be able to provide sample points on its surface.
+    // The methods provides PDF value of an event that w direction is sampled from p
+    // while sampling this primitive
+    virtual float Pdf(float3 const& p, float3 const& w) const { return 0.f; }
     // The method is in charge of splitting primitive bounding box with axis-aligned plane.
     // Default implementation simply linearly interpolates between min and max points.
     // Overrides are expected to provide more preciese bounds.
     // true indicates that the bounds was split, otherwise the plane misses it
     virtual bool SplitBounds(int axis, float border, bbox& leftbounds, bbox& rightbounds) const;
+    
+    
+    // Primitive might be linked to some AreaLight object if it has emissive material
+    AreaLight* arealight_;
 };
 
 inline bool Primitive::SplitBounds(int axis, float border, bbox& leftbounds, bbox& rightbounds) const

@@ -14,58 +14,25 @@
 class Material
 {
 public:
-    Material (TextureSystem const& texturesys)
-        : texturesys_(texturesys)
-    {
-    }
+    Material ()
+    {}
 
     // Destructor
     virtual ~Material() {}
 
-    // Sample material and return outgoing ray direction along with combined BSDF value
-    virtual float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const = 0;
+    // Sample material and return outgoing ray direction along with combined BSDF value and sampled BSDF type
+    virtual float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf, int& type) const = 0;
 
     // Evaluate combined BSDF value
     virtual float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const = 0;
+    
+    // PDF of a given direction sampled from isect.p
+    virtual float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const = 0;
 
     // Indicate whether the materials has emission component and will be used for direct light evaluation
     virtual bool emissive() const { return false; }
 
     // Emission component of the material
     virtual float3 Le(Primitive::SampleData const& sampledata, float3 const& wo) const { return float3(0,0,0); }
-
-protected:
-    // Function to support normal mapping
-    virtual void MapNormal(std::string const& nmap, Primitive::Intersection& isect) const;
-    // Fresnel functions
-    static float FresnelDielectricReflectivity(float cosi, float cost, float etai, float etat);
-    static float FresnelConductorReflectivity(float cosi, float etai, float k);
-
-    TextureSystem const& texturesys_;
 };
-
-inline void Material::MapNormal(std::string const& nmap, Primitive::Intersection& isect) const
-{
-    // We dont need bilinear interpolation while fetching normals
-    // Use point instead
-    TextureSystem::Options opts(TextureSystem::Options::kPoint);
-    float3 normal = 2.f * texturesys_.Sample(nmap, isect.uv, float2(0,0), opts) - float3(1.f, 1.f, 1.f);
-    isect.n = normalize(isect.n * normal.z + isect.dpdu * normal.x + isect.dpdv * normal.y);
-}
-
-inline float Material::FresnelDielectricReflectivity(float cosi, float cost, float etai, float etat)
-{
-    float rparl = ((etat * cosi) - (etai * cost)) / ((etat * cosi) + (etai * cost));
-    float rperp = ((etai * cosi) - (etat * cost)) / ((etai * cosi) + (etat * cost));
-    return (rparl*rparl + rperp*rperp) * 0.5f;
-}
-
- inline float Material::FresnelConductorReflectivity(float cosi, float eta, float k)
- {
-     float tmp = (eta*eta + k*k) * cosi*cosi;
-     float rparl2 = (tmp - (2.f * eta * cosi) + 1) / (tmp + (2.f * eta * cosi) + 1);
-     float tmp_f = eta*eta + k*k;
-     float rperp2 = (tmp_f - (2.f * eta * cosi) + cosi*cosi) / (tmp_f + (2.f * eta * cosi) + cosi*cosi);
-     return (rparl2 + rperp2) / 2.f;
- }
 #endif // MATERIAL_H

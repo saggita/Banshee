@@ -235,4 +235,14 @@ inline float lerp(float v1, float v2, float s)
 {
     return (1.f - s) * v1 + s * v2;
 }
+
+// Multiple importance sampling power heuristic
+inline float PowerHeuristic(int nf, float fpdf, int ng, float gpdf)
+{
+    float f = nf * fpdf;
+    float g = ng * gpdf;
+    return (f*f) / (f*f + g*g);
+}
+
+
 #endif // MATHUTILS_H

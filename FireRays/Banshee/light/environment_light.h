@@ -35,6 +35,10 @@ public:
     
     // PDF of a given direction sampled from isect.p
     float Pdf(Primitive::Intersection const& isect, float3 const& w) const;
+    
+    // Check if the light is singular (represented by delta function or not)
+    bool singular() const { return false; }
+    
 
 private:
     // Texture system

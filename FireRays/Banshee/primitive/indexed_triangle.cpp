@@ -74,6 +74,7 @@ bool IndexedTriangle::Intersect(ray& r, float& t, Intersection& isect) const
 
         isect.uv = (1.f - b1 - b2) * t1 + b1 * t2 + b2 * t3;
         isect.m = m_;
+        isect.primitive = this;
 
         return true;
     }
@@ -158,6 +159,32 @@ void IndexedTriangle::Sample(float3 const& p, float2 const& sample, SampleData& 
         
         // Convert PDF to solid angle
         pdf *= (d.sqnorm() / dot(sampledata.n, -normalize(d)));
+    }
+}
+
+float IndexedTriangle::Pdf(float3 const& p, float3 const& w) const
+{
+    // TODO: put this to global settings
+    ray r(p, w, float2(0.001f, 100000.f));
+    
+    Intersection isect;
+    float dist = 0.f;
+    
+    // Intersect this primitive
+    if (Intersect(r, dist, isect) && dot(-w, isect.n) > 0.f)
+    {
+        // Construct direction
+        float3 d = p - isect.p;
+        
+        // Convert surface area PDF to solid angle PDF
+        float pdf = d.sqnorm() / (dot(normalize(d), isect.n) * surface_area());
+        
+        return pdf;
+    }
+    else
+    {
+        // If the ray doesn't intersect the object set PDF to 0
+        return 0.f;
     }
 }
 

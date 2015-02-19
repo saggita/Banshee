@@ -57,7 +57,7 @@ void Hlbvh::BuildImpl(std::vector<Primitive*> const& prims)
     {
         mortoncodes[i] = std::make_pair(i, CalcMortonCode(prims[i]->Bounds().center()));
     }
-    
+
     // STEP 2: sort primitives by their Morton codes
     std::sort(mortoncodes.begin(), mortoncodes.end(),
     [](std::pair<int, unsigned int> const& p1, std::pair<int, unsigned int> const& p2)

@@ -39,6 +39,13 @@ public:
         }
     };
 
+    struct TextureDesc
+    {
+        // Texture resolution
+        int width;
+        int height;
+    };
+
     TextureSystem(){}
     // Destructor
     virtual ~TextureSystem(){}
@@ -47,6 +54,9 @@ public:
     // TODO: add support for texturing options
     // TODO: add support for float4 lookups
     virtual float3 Sample(std::string const& filename, float2 const& uv, float2 const& duvdx, Options const& opts = Options()) const = 0;
+
+    // Query texture information
+    virtual void GetTextureInfo(std::string const& filename, TextureDesc& texdesc) const = 0;
 
 protected:
     TextureSystem(TextureSystem const&);

@@ -30,48 +30,19 @@
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     (This is the Modified BSD License)
 */
-#ifndef SIMPLEMATERIAL_H
-#define SIMPLEMATERIAL_H
+
+#ifndef SHPROJECT_H
+#define SHPROJECT_H
 
 #include <string>
-#include <memory>
 
-#include "material.h"
-#include "../bsdf/bsdf.h"
+#include "../texture/texturesystem.h"
+#include "../imageio/imageio.h"
 
-///< SimpleMaterial consists of a single BSDF and routes method calls directly to it
-///<
-class SimpleMaterial : public Material
-{
-public:
-    // If diffuse map is specified it is used as a diffuse color, otherwise diffuse color is used
-    SimpleMaterial(Bsdf* bsdf)
-    : bsdf_(bsdf)
-    {
-    }
+///< The function projects latitude-longitude environment map to SH basis up to lmax band
+void ShProjectEnvironmentMap(TextureSystem const& texsys, std::string const& texture, int lmax, float3* coeffs);
 
-    // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf, int& type) const
-    {
-        type = bsdf_->GetType();
-        return bsdf_->Sample(isect, sample, wi, wo, pdf);
-    }
-    
-    // PDF of a given direction sampled from isect.p
-    float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
-    {
-        return bsdf_->Pdf(isect, wi, wo);
-    }
+///< The function evaluates SH functions and dumps values to latitude-longitude map
+void ShEvaluateAndDump(ImageIo& io, std::string const& filename,  int width, int height, int lmax, float3 const* coeffs);
 
-    // Evaluate combined BSDF value
-    float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
-    {
-        return bsdf_->Evaluate(isect, wi, wo);
-    }
-    
-private:
-    // BSDF
-    std::unique_ptr<Bsdf> bsdf_;
-};
-
-#endif // SIMPLEMATERIAL_H
+#endif // SHPROJECT_H

@@ -52,7 +52,7 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
             // Sample BSDF to continue path
             float2 bsdfsample = brdfsampler.Sample2D();
             // BSDF type
-            int bsdftype = 0.f;
+            int bsdftype = 0;
             // BSDF PDF
             float bsdfpdf = 0.f;
             // Direction

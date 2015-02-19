@@ -21,6 +21,9 @@ public:
     // TODO: add support for float4 lookups
     float3 Sample(std::string const& filename, float2 const& uv, float2 const& duvdx, Options const& opts = Options()) const;
 
+    // Query texture information
+    void GetTextureInfo(std::string const& filename, TextureDesc& texdesc) const;
+
 private:
     OIIO_NAMESPACE::TextureSystem* texturesys_;
 };

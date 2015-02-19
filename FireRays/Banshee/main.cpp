@@ -1,3 +1,35 @@
+/*
+    Banshee and all code, documentation, and other materials contained
+    therein are:
+
+        Copyright 2013 Dmitry Kozlov
+        All Rights Reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are
+    met:
+        * Redistributions of source code must retain the above copyright
+        notice, this list of conditions and the following disclaimer.
+        * Redistributions in binary form must reproduce the above copyright
+        notice, this list of conditions and the following disclaimer in the
+        documentation and/or other materials provided with the distribution.
+        * Neither the name of the software's owners nor the names of its
+        contributors may be used to endorse or promote products derived from
+        this software without specific prior written permission.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+    A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+    OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+    SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+    LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+    DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+    THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+    (This is the Modified BSD License)
+*/
 #include <chrono>
 #include <cassert>
 #include <vector>
@@ -43,62 +75,124 @@
 #include "util/progressreporter.h"
 
 
-//std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
-//{
-//    // Create world
-//    World* world = new World();
-//    // Create accelerator
-//    //SimpleSet* set = new SimpleSet();
-//    Bvh* bvh = new Sbvh(10.f, 8);
-//    // Create camera
-//    Camera* camera = new PerscpectiveCamera(float3(0, 1.0f, 4.5), float3(0, 1.0f, 0), float3(0, 1.f, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
-//    //Camera* camera = new PerscpectiveCamera(float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
-//    //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
-//
-//    rand_init();
-//
-//    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
-//    AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
-//    //AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.obj");
-//
-//    assimp.onmaterial_ = [&world](Material* mat)->int
-//    {
-//        world->materials_.push_back(std::unique_ptr<Material>(mat));
-//        return (int)(world->materials_.size() - 1);
-//    };
-//
-//    std::vector<Primitive*> primitives;
-//    assimp.onprimitive_ = [&primitives](Primitive* prim)
-//    //assimp.onprimitive_ = [&set](Primitive* prim)
-//    {
-//        //set->Emplace(prim);
-//        primitives.push_back(prim);
-//    };
-//
-//    assimp.onlight_ = [&world](Light* light)
-//    //assimp.onprimitive_ = [&set](Primitive* prim)
-//    {
-//        //set->Emplace(prim);
-//        world->lights_.push_back(std::unique_ptr<Light>(light));
-//    };
-//
-//    // Start assets import
-//    assimp.Import();
-//
-//    // Build acceleration structure
-//    bvh->Build(primitives);
-//
-//    // Attach accelerator to world
-//    world->accelerator_ = std::unique_ptr<Primitive>(bvh);
-//    //world->accelerator_ = std::unique_ptr<Primitive>(set);
-//    // Attach camera
-//    world->camera_ = std::unique_ptr<Camera>(camera);
-//    // Set background
-//    world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
-//
-//    // Return world
-//    return std::unique_ptr<World>(world);
-//}
+std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
+{
+    // Create world
+    World* world = new World();
+    // Create accelerator
+    //SimpleSet* set = new SimpleSet();
+    Bvh* bvh = new Sbvh(10.f, 8);
+    // Create camera
+    Camera* camera = new PerscpectiveCamera(float3(0, 1.0f, 4.5), float3(0, 1.0f, 0), float3(0, 1.f, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    //Camera* camera = new PerscpectiveCamera(float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
+    //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
+
+
+    rand_init();
+
+    AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.obj");
+
+    assimp.onmaterial_ = [&world](Material* mat)->int
+    {
+        world->materials_.push_back(std::unique_ptr<Material>(mat));
+        return (int)(world->materials_.size() - 1);
+    };
+
+    std::vector<Primitive*> primitives;
+    assimp.onprimitive_ = [&primitives](Primitive* prim)
+    //assimp.onprimitive_ = [&set](Primitive* prim)
+    {
+        //set->Emplace(prim);
+        primitives.push_back(prim);
+    };
+
+    assimp.onlight_ = [&world](Light* light)
+    //assimp.onprimitive_ = [&set](Primitive* prim)
+    {
+        //set->Emplace(prim);
+        world->lights_.push_back(std::unique_ptr<Light>(light));
+    };
+
+    // Start assets import
+    assimp.Import();
+
+    // Build acceleration structure
+    bvh->Build(primitives);
+
+    // Attach accelerator to world
+    world->accelerator_ = std::unique_ptr<Primitive>(bvh);
+    //world->accelerator_ = std::unique_ptr<Primitive>(set);
+    // Attach camera
+    world->camera_ = std::unique_ptr<Camera>(camera);
+    // Set background
+    world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
+
+
+    // Return world
+    return std::unique_ptr<World>(world);
+}
+
+std::unique_ptr<World> BuildWorldBlender(TextureSystem const& texsys)
+{
+    // Create world
+    World* world = new World();
+    // Create accelerator
+    //SimpleSet* set = new SimpleSet();
+    Bvh* bvh = new Sbvh(10.f, 8, true, 10, 0.0001f);
+    // Create camera
+    Camera* camera = new PerscpectiveCamera(float3(-20.5, 5.0f, 10.f), float3(0, 5.0f, 0), float3(0, 1.f, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    //Camera* camera = new PerscpectiveCamera(float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
+    //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
+    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.3f);
+
+    rand_init();
+
+    AssimpAssetImporter assimp(texsys, "../../../Resources/contest/blender.obj");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.obj");
+
+    assimp.onmaterial_ = [&world, &texsys](Material* mat)->int
+    {
+        world->materials_.push_back(std::unique_ptr<Material>(new SimpleMaterial(new PerfectRefract(texsys, 1.5f, float3(0.8f, 0.8f, 0.8f), "", ""))));
+        return (int)(world->materials_.size() - 1);
+    };
+
+    std::vector<Primitive*> primitives;
+    assimp.onprimitive_ = [&primitives](Primitive* prim)
+    //assimp.onprimitive_ = [&set](Primitive* prim)
+    {
+        //set->Emplace(prim);
+        primitives.push_back(prim);
+    };
+
+    assimp.onlight_ = [&world](Light* light)
+    //assimp.onprimitive_ = [&set](Primitive* prim)
+    {
+        //set->Emplace(prim);
+        world->lights_.push_back(std::unique_ptr<Light>(light));
+    };
+
+    // Start assets import
+    assimp.Import();
+
+    // Build acceleration structure
+    bvh->Build(primitives);
+
+    // Attach accelerator to world
+    world->accelerator_ = std::unique_ptr<Primitive>(bvh);
+    //world->accelerator_ = std::unique_ptr<Primitive>(set);
+    // Attach camera
+    world->camera_ = std::unique_ptr<Camera>(camera);
+    // Set background
+    world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
+    // Attach light
+    world->lights_.push_back(std::unique_ptr<Light>(light1));
+
+    // Return world
+    return std::unique_ptr<World>(world);
+}
 //
 //
 //std::unique_ptr<World> BuildWorldHairball(TextureSystem const& texsys)
@@ -357,7 +451,7 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
     World* world = new World();
     // Create accelerator
     //SimpleSet* set = new SimpleSet();
-    Bvh* bvh = new Hlbvh(); //Sbvh(10.f, 8, true, 10, 0.001f);
+    Bvh* bvh = new Sbvh(10.f, 8, true, 10, 0.001f);
     //Bvh* bvh = new Bvh();
     // Create camera
     //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
@@ -819,7 +913,7 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     // Create world
     World* world = new World();
     // Create accelerator
-    Bvh* bvh = new Hlbvh();//new Sbvh(10.f, 8);
+    Bvh* bvh = new Sbvh(10.f, 8);
     // Create camera
     Camera* camera = new PerscpectiveCamera(float3(0, 3, -10.5), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
@@ -1287,7 +1381,7 @@ int main()
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldAreaLightTest(texsys);
+        std::unique_ptr<World> world = BuildWorldDragon(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;

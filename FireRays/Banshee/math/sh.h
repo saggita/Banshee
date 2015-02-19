@@ -30,48 +30,40 @@
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     (This is the Modified BSD License)
 */
-#ifndef SIMPLEMATERIAL_H
-#define SIMPLEMATERIAL_H
 
-#include <string>
-#include <memory>
+#ifndef SH_H
+#define SH_H
 
-#include "material.h"
-#include "../bsdf/bsdf.h"
+#include "float3.h"
 
-///< SimpleMaterial consists of a single BSDF and routes method calls directly to it
+///< In mathematics, spherical harmonics are the angular portion of a set of solutions to Laplace's equation. 
+///< Represented in a system of spherical coordinates, Laplace's spherical harmonics 
+///<  Y_l_m are a specific set of spherical harmonics that forms an orthogonal system, first introduced by Pierre Simon de Laplace in 1782.
+///< Spherical harmonics are important in many theoretical and practical applications, 
+///< particularly in the computation of atomic orbital electron configurations, 
+///< representation of gravitational fields, geoids, and the magnetic fields of planetary bodies and stars, 
+///< and characterization of the cosmic microwave background radiation. 
+///< In 3D computer graphics, spherical harmonics play a special role in a wide variety of topics including 
+///< indirect lighting (ambient occlusion, global illumination, precomputed radiance transfer, etc.) and modelling of 3D shapes.
 ///<
-class SimpleMaterial : public Material
+
+///< The function gives the total number of coefficients required for the term up to specified band
+inline int NumShTerms(int l)
 {
-public:
-    // If diffuse map is specified it is used as a diffuse color, otherwise diffuse color is used
-    SimpleMaterial(Bsdf* bsdf)
-    : bsdf_(bsdf)
-    {
-    }
+    return (l + 1)*(l + 1);
+}
 
-    // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf, int& type) const
-    {
-        type = bsdf_->GetType();
-        return bsdf_->Sample(isect, sample, wi, wo, pdf);
-    }
-    
-    // PDF of a given direction sampled from isect.p
-    float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
-    {
-        return bsdf_->Pdf(isect, wi, wo);
-    }
+///< The function flattens 2D (l,m) index into 1D to be used in array indexing
+inline int ShIndex(int l, int m)
+{
+    return l*l + l + m;
+}
 
-    // Evaluate combined BSDF value
-    float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
-    {
-        return bsdf_->Evaluate(isect, wi, wo);
-    }
-    
-private:
-    // BSDF
-    std::unique_ptr<Bsdf> bsdf_;
-};
 
-#endif // SIMPLEMATERIAL_H
+///< The function evaluates the value of Y_l_m(p) coefficient up to lmax band. 
+///< coeffs array should have at least NumShTerms(lmax) elements.
+void ShEvaluate(float3 const&p, int lmax, float* out);
+
+
+
+#endif // SH_H

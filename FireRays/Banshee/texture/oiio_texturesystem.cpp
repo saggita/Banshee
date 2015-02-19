@@ -61,3 +61,21 @@ float3 OiioTextureSystem::Sample(std::string const& filename, float2 const& uv, 
         throw std::runtime_error("Texture fetch failed");
     }
 }
+
+// Query texture information
+void OiioTextureSystem::GetTextureInfo(std::string const& filename, TextureDesc& texdesc) const
+{
+    ustring name = ustring(filename.c_str());
+
+    ImageSpec const* spec = texturesys_->imagespec(name, 0); 
+
+    if (spec)
+    {
+        texdesc.width = spec->width;
+        texdesc.height = spec->height;
+    }
+    else
+    {
+        throw std::runtime_error("OpenImageIO error");
+    }
+}

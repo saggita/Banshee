@@ -104,7 +104,7 @@ public:
         // costheta
         float ndotwh = dot(isect.n, wh);
         // See Humphreys and Pharr for derivation
-        return ((e_ + 1.f) / std::powf(ndotwh, e_)) / (2.f * PI * 4.f * dot (wo,wh));
+        return ((e_ + 1.f) * std::powf(ndotwh, e_)) / (2.f * PI * 4.f * dot (wo,wh));
     }
     
     // Exponent
@@ -178,6 +178,7 @@ public:
     {
         // Return 0 if wo and wi are on different sides
         float sameside = dot(wi, isect.n) * dot(wo, isect.n);
+        
         if (sameside < 0.f)
             return float3(0, 0, 0);
         
@@ -203,8 +204,10 @@ public:
         // Calc Fresnel for wh faced microfacets
         float fresnel = fresnel_->Evaluate(1.f, eta_, dot(wi, wh));
         
+        float3 ks = GET_VALUE(ks_, ksmap_, isect.uv);
+        
         // F(wi,wo) = D(wh)*Fresnel(wh, n)*G(wi, wo, n)/(4 * cos_theta_i * cos_theta_o)
-        return float3(1.f, 1.f, 1.f) * (md_->D(wh, n) * G(wi, wo, wh, n) * fresnel / (4.f * cos_theta_i * cos_theta_o));
+        return ks * (md_->D(wh, n) * G(wi, wo, wh, n) * fresnel / (4.f * cos_theta_i * cos_theta_o));
     }
     
     // Geometric factor accounting for microfacet shadowing, masking and interreflections

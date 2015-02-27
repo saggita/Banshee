@@ -46,7 +46,7 @@ void ShProjectEnvironmentMap(TextureSystem const& texsys, std::string const& tex
         for (int theta = 0; theta < texdesc.height; ++theta)
         {
             // Construct direction vector
-            float3 w = normalize(float3(sintheta[theta] * cosphi[phi], sintheta[theta] * sinphi[phi], costheta[theta]));
+            float3 w = normalize(float3(sintheta[theta] * cosphi[phi], costheta[theta], sintheta[theta] * sinphi[phi]));
 
             // Construct uv sample coordinates
             float2 uv = float2((float)phi / texdesc.width, (float)theta / texdesc.height);
@@ -106,7 +106,7 @@ void ShProjectEnvironmentMap(float3 const* envmap, int width, int height, int lm
         for (int theta = 0; theta < height; ++theta)
         {
             // Construct direction vector
-            float3 w = normalize(float3(sintheta[theta] * cosphi[phi], sintheta[theta] * sinphi[phi], costheta[theta]));
+            float3 w = normalize(float3(sintheta[theta] * cosphi[phi], costheta[theta], sintheta[theta] * sinphi[phi]));
 
             // Construct uv sample coordinates
             float2 uv = float2((float)phi / width, (float)theta / height);
@@ -167,7 +167,7 @@ void ShEvaluateAndDump(ImageIo& io, std::string const& filename,  int width, int
         for (int theta = 0; theta < height; ++theta)
         {
             // Calculate direction
-            float3 w = normalize(float3(sintheta[theta] * cosphi[phi], sintheta[theta] * sinphi[phi], costheta[theta]));
+            float3 w = normalize(float3(sintheta[theta] * cosphi[phi], costheta[theta], sintheta[theta] * sinphi[phi]));
 
             // Evaluate SH functions at w up to lmax band
             ShEvaluate(w, lmax, &ylm[0]);

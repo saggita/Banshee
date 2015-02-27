@@ -3,6 +3,8 @@
 #include "../texture/texturesystem.h"
 #include "../math/mathutils.h"
 
+#include <cassert>
+
 float3 EnvironmentLight::Sample(Primitive::Intersection const& isect, float2 const& sample, float3& d, float& pdf) const
 {
     // Precompute invpi

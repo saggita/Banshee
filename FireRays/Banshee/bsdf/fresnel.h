@@ -72,7 +72,7 @@ public:
         // Evaluate sin(theta_t)
         float sint = (ei / et) * sqrtf(std::max(0.f, 1.f - ndotwi * ndotwi));
         
-        if (sint >= 1.f)
+        if (sint > 1.f)
         {
             // Total internal reflection
             return 1.f;

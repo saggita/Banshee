@@ -56,6 +56,7 @@
 #include "tracer/ditracer.h"
 #include "tracer/gitracer.h"
 #include "tracer/aotracer.h"
+#include "tracer/shtracer.h"
 #include "light/pointlight.h"
 #include "light/directional_light.h"
 #include "light/environment_light.h"
@@ -66,6 +67,8 @@
 #include "rng/mcrng.h"
 #include "material/simplematerial.h"
 #include "material/emissive.h"
+#include "material/glass.h"
+#include "material/mixedmaterial.h"
 #include "bsdf/lambert.h"
 #include "bsdf/microfacet.h"
 #include "bsdf/perfect_reflect.h"
@@ -73,6 +76,8 @@
 #include "texture/oiio_texturesystem.h"
 #include "import/assimp_assetimporter.h"
 #include "util/progressreporter.h"
+#include "math/sh.h"
+#include "math/shproject.h"
 
 
 std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
@@ -87,14 +92,13 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     //Camera* camera = new PerscpectiveCamera(float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
     //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
 
-
     rand_init();
 
     AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
     //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
     //AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.obj");
 
-    assimp.onmaterial_ = [&world](Material* mat)->int
+    assimp.onmaterial_ = [&world, &texsys](Material* mat)->int
     {
         world->materials_.push_back(std::unique_ptr<Material>(mat));
         return (int)(world->materials_.size() - 1);
@@ -128,7 +132,6 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
     world->camera_ = std::unique_ptr<Camera>(camera);
     // Set background
     world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
-
 
     // Return world
     return std::unique_ptr<World>(world);
@@ -465,7 +468,7 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
 
     //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
     //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
-    AssimpAssetImporter assimp(texsys, "../../../Resources/dragon/dragon1.obj");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/dragon/dragon.obj");
 
     assimp.onmaterial_ = [&world](Material* mat)->int
     {
@@ -915,7 +918,7 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     // Create accelerator
     Bvh* bvh = new Sbvh(10.f, 8);
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(0, 3, -10.5), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(5.f, 5.f, -10.5), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
 
     
@@ -985,10 +988,10 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 1));
 
     worldmat = translation(float3(2, 0, 0));
-    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 1));
+    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 4));
 
     worldmat = translation(float3(-2, 0, -2.5)) * rotation_x(PI/2);
-    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 1));
+    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 4));
 
     worldmat = translation(float3(2, 0, -2.5));
     prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 3));
@@ -1012,7 +1015,7 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     SimpleMaterial* sm = new SimpleMaterial(new Lambert(texsys, float3(0.7f, 0.7f, 0.7f), "", ""));
     SimpleMaterial* sm1 = new SimpleMaterial(new Lambert(texsys, float3(0.7f, 0.2f, 0.2f), "", ""));
     SimpleMaterial* sm2 = new SimpleMaterial(new Microfacet(texsys, 2.5f, float3(0.1f, 0.8f, 0.2f), "", "", new FresnelDielectric(), new BlinnDistribution(100.f)));
-    SimpleMaterial* sm3 = new SimpleMaterial(new PerfectReflect(texsys, 2.5f, float3(0.8f, 0.8f, 0.8f), "", ""));
+    Glass* sm3 = new Glass(texsys, 1.5f, float3(0.4f, 0.8f, 0.4f), "");
     Emissive* emissive = new Emissive(float3(20.f, 18.f, 14.f));
     world->materials_.push_back(std::unique_ptr<Material>(sm));
     world->materials_.push_back(std::unique_ptr<Material>(sm1));
@@ -1044,7 +1047,7 @@ std::unique_ptr<World> BuildWorldIblTest(TextureSystem const& texsys)
     // Create accelerator
     Bvh* bvh = new Sbvh(10.f, 8);
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(0, 10.f, -10.5f), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(0.f, 5.f, -10.5f), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     
     EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.6f);
@@ -1094,7 +1097,7 @@ std::unique_ptr<World> BuildWorldIblTest(TextureSystem const& texsys)
     prims.push_back(mesh);
     
     worldmat = translation(float3(-2, 0, 0)) * rotation_x(PI/2);
-    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 1));
+    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 5));
     
     worldmat = translation(float3(2, 0, 0));
     prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 1));
@@ -1103,10 +1106,10 @@ std::unique_ptr<World> BuildWorldIblTest(TextureSystem const& texsys)
     prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 5));
     
     worldmat = translation(float3(2, 0, -2.5));
-    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 3));
+    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 6));
     
     worldmat = translation(float3(-2, 0, 2.5)) * rotation_x(PI/2);
-    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 3));
+    prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 6));
     
     worldmat = translation(float3(2, 0, 2.5));
     prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 4));
@@ -1127,7 +1130,7 @@ std::unique_ptr<World> BuildWorldIblTest(TextureSystem const& texsys)
     SimpleMaterial* sm1 = new SimpleMaterial(new Lambert(texsys, float3(0.7f, 0.2f, 0.2f), "", ""));
     SimpleMaterial* sm2 = new SimpleMaterial(new Microfacet(texsys, 2.5f, float3(0.1f, 0.8f, 0.2f), "", "", new FresnelDielectric(), new BlinnDistribution(100.f)));
     SimpleMaterial* sm3 = new SimpleMaterial(new PerfectReflect(texsys, 2.5f, float3(0.8f, 0.8f, 0.8f), "", ""));
-    SimpleMaterial* sm4 = new SimpleMaterial(new PerfectRefract(texsys, 2.5f, float3(0.8f, 0.8f, 0.8f), "", ""));
+    Glass* sm4 = new Glass(texsys, 1.5f, float3(0.8f, 0.8f, 0.8f), "");
     Emissive* emissive = new Emissive(float3(20.f, 18.f, 14.f));
     world->materials_.push_back(std::unique_ptr<Material>(sm));
     world->materials_.push_back(std::unique_ptr<Material>(sm1));
@@ -1136,6 +1139,121 @@ std::unique_ptr<World> BuildWorldIblTest(TextureSystem const& texsys)
     world->materials_.push_back(std::unique_ptr<Material>(sm3));
     world->materials_.push_back(std::unique_ptr<Material>(sm4));
     
+    MixedMaterial* mm = new MixedMaterial(3.5f);
+    mm->AddBsdf(new Microfacet(texsys, 3.5f, float3(0.1f, 0.8f, 0.1f), "", "", new FresnelDielectric(), new BlinnDistribution(100.f)));
+    mm->AddBsdf(new PerfectRefract(texsys, 3.5f, float3(0.8f, 0.8f, 0.8f), "", ""));
+    mm->AddBsdf(new Lambert(texsys, float3(0.05f, 0.05f, 0.6f), "", ""));
+    world->materials_.push_back(std::unique_ptr<Material>(mm));
+    
+    
+    // Return world
+    return std::unique_ptr<World>(world);
+}
+
+std::unique_ptr<World> BuildWorldShTest(TextureSystem const& texsys)
+{
+    // Create world
+    World* world = new World();
+    // Create accelerator
+    Bvh* bvh = new Sbvh(10.f, 8, true, 10, 0.001f);
+    // Create camera
+    Camera* camera = new PerscpectiveCamera(float3(1, 0, -1.1f), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.6f);
+    
+    std::vector<Primitive*> prims;
+    
+    //matrix worldmat = translation(float3(0,0,0));//rotation_x(PI/2);
+    //prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 0));
+    
+    AssimpAssetImporter assimp(texsys, "../../../Resources/dragon/dragon1.obj");
+    
+    assimp.onmaterial_ = [&world](Material* mat)->int
+    {
+        world->materials_.push_back(std::unique_ptr<Material>(mat));
+        return (int)(world->materials_.size() - 1);
+    };
+    
+    assimp.onprimitive_ = [&prims](Primitive* prim)
+    //assimp.onprimitive_ = [&set](Primitive* prim)
+    {
+        //set->Emplace(prim);
+        prims.push_back(prim);
+    };
+    
+    // Start assets import
+    assimp.Import();
+    
+    bvh->Build(prims);
+    
+    // Attach accelerator to world
+    world->accelerator_ = std::unique_ptr<Primitive>(bvh);
+    // Attach camera
+    world->camera_ = std::unique_ptr<Camera>(camera);
+    // Set background
+    world->bgcolor_ = float3(0.0f, 0.05f, 0.0f);
+    // Add light
+    world->lights_.push_back(std::unique_ptr<Light>(light1));
+
+    
+    // Build materials
+    SimpleMaterial* sm = new SimpleMaterial(new Lambert(texsys, float3(0.7f, 0.7f, 0.7f), "", ""));
+    world->materials_.push_back(std::unique_ptr<Material>(sm));
+    
+    // Return world
+    return std::unique_ptr<World>(world);
+}
+
+
+std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
+{
+    // Create world
+    World* world = new World();
+    // Create accelerator
+    Bvh* bvh = new Sbvh(10.f, 8, true, 10, 0.001f);
+    // Create camera
+    Camera* camera = new PerscpectiveCamera(float3(1, 0, -1.1f), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.6f);
+    
+    std::vector<Primitive*> prims;
+    
+    //matrix worldmat = translation(float3(0,0,0));//rotation_x(PI/2);
+    //prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 0));
+    
+    AssimpAssetImporter assimp(texsys, "../../../Resources/dragon/dragon1.obj");
+    
+    assimp.onmaterial_ = [&world, &texsys](Material* mat)->int
+    {
+        world->materials_.push_back(std::unique_ptr<Material>(new Glass(texsys, 1.4f, float3(0.7f, 0.7f, 0.7f), "")));
+        return (int)(world->materials_.size() - 1);
+    };
+    
+    assimp.onprimitive_ = [&prims](Primitive* prim)
+    //assimp.onprimitive_ = [&set](Primitive* prim)
+    {
+        //set->Emplace(prim);
+        prims.push_back(prim);
+    };
+    
+    // Start assets import
+    assimp.Import();
+    
+    bvh->Build(prims);
+    
+    // Attach accelerator to world
+    world->accelerator_ = std::unique_ptr<Primitive>(bvh);
+    // Attach camera
+    world->camera_ = std::unique_ptr<Camera>(camera);
+    // Set background
+    world->bgcolor_ = float3(0.0f, 0.05f, 0.0f);
+    // Add light
+    world->lights_.push_back(std::unique_ptr<Light>(light1));
+    
+    
+    // Build materials
+    SimpleMaterial* sm = new SimpleMaterial(new PerfectRefract(texsys, 1.4f, float3(0.7f, 0.7f, 0.7f), "", ""));
+    world->materials_.push_back(std::unique_ptr<Material>(sm));
     
     // Return world
     return std::unique_ptr<World>(world);
@@ -1381,7 +1499,7 @@ int main()
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldDragon(texsys);
+        std::unique_ptr<World> world = BuildWorldIblTest(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -1410,11 +1528,18 @@ int main()
             int prevprogress_;
         };
 
+        // std::vector<float3> coeffs(NumShTerms(5));
+        // Prepare harmonics
+        // ShProjectEnvironmentMap(texsys, "Apartment.hdr", 5, &coeffs[0]);
+        // Dump temporary map
+        // ShEvaluateAndDump(io, "sky_daytime_blue_SH.jpg", 512, 256, 5, &coeffs[0]);
+        
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
             new GiTracer(10, 1.f), // Tracer
-            new StratifiedSampler(8, new McRng()), // Image sampler
+            // new ShTracer(5, &coeffs[0]),
+            new RegularSampler(16), // Image sampler
             //new RegularSampler(2),
             new StratifiedSampler(1, new McRng()), // Light sampler
             new RandomSampler(1, new McRng()), // Brdf sampler

@@ -10,8 +10,9 @@
 #include <algorithm>
 #include <functional>
 #include <cassert>
+#include <iostream>
 
-float3 DiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler, bool countemissives) const
+float3 DiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
 {
     Primitive::Intersection isect;
     float t = r.t.y;
@@ -24,7 +25,7 @@ float3 DiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
 
         if (mat.emissive())
         {
-            return countemissives ? mat.Le(Primitive::SampleData(isect), -r.d) : 0.f;
+            return 0.f;
         }
         else
         {
@@ -148,6 +149,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                 // Sample material
                 float3 bsdf = mat.Sample(isect, bsdfsamples[i], wo, wi, bsdfpdf, bsdftype);
                 assert(!has_nans(bsdf));
+                assert(!has_nans(bsdfpdf < 1000000.f));
                 
                 // Normalize wi
                 wi = normalize(wi);

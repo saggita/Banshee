@@ -149,3 +149,30 @@ void ShEvaluate(float3 const& p, int lmax, float* coefs)
         }
     }
 }
+
+static inline float lambda(float l)
+{
+    return sqrtf((4.f * M_PI) / (2.f * l + 1.));
+}
+
+void ShConvolveCosTheta(int lmax, float3 const* cin, float3* cout)
+{
+    static const float s_costheta[18] = { 0.8862268925, 1.0233267546,
+        0.4954159260, 0.0000000000, -0.1107783690, 0.0000000000,
+        0.0499271341, 0.0000000000, -0.0285469331, 0.0000000000,
+        0.0185080823, 0.0000000000, -0.0129818395, 0.0000000000,
+        0.0096125342, 0.0000000000, -0.0074057109, 0.0000000000 };
+    
+    for (int l = 0; l <= lmax; ++l)
+    {
+        for (int m = -l; m <= l; ++m)
+        {
+            int o = ShIndex(l, m);
+            
+            if (l < 18)
+                cout[o] = lambda(l) * cin[o] * s_costheta[l];
+            else
+                cout[o] = 0.f;
+        }
+    }
+}

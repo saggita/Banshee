@@ -47,7 +47,7 @@ public:
     float3 operator-() const        { return float3(-x, -y, -z); }
 
     float  sqnorm() const           { return x*x + y*y + z*z; }
-    void   normalize()              { (*this)/=(std::sqrt(sqnorm()));} 
+    void   normalize()              { if (sqnorm() > 0.f)(*this)/=(std::sqrt(sqnorm()));}
 
     float3& operator += (float3 const& o) { x+=o.x; y+=o.y; z+= o.z; return *this;}
     float3& operator -= (float3 const& o) { x-=o.x; y-=o.y; z-= o.z; return *this;}

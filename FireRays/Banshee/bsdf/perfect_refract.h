@@ -112,9 +112,6 @@ public:
             // Transmitted ray
             wo = normalize(- (1.f / eta) * wi - (sqrtf(q) - ndotwi / eta)*n);
             
-            // TODO: fix this
-            assert(!has_nans(wo));
-            
             // PDF is infinite at that point, but deltas are going to cancel out while evaluating
             // so set it to 1.f
             pdf = 1.f;
@@ -123,7 +120,8 @@ public:
             float3 ks = GET_VALUE(ks_, ksmap_, isect.uv);
             
             // Account for reflectance
-            return ndotwi > 0.f ? eta*eta*(1.f - reflectance)*ks*(1.f / ndotwi) : float3(0.f, 0.f, 0.f);
+            // TODO: accuary issue, fix later
+            return ndotwi > 0.01f ? eta*eta*(1.f - reflectance)*ks*(1.f / ndotwi) : float3(0.f, 0.f, 0.f);
         }
         else
         {

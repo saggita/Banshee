@@ -65,5 +65,9 @@ inline int ShIndex(int l, int m)
 void ShEvaluate(float3 const&p, int lmax, float* out);
 
 
+///< Apply convolution with dot(n,wi) term
+void ShConvolveCosTheta(int lmax, float3 const* cin, float3* cout);
+
+
 
 #endif // SH_H

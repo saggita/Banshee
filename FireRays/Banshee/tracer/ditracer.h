@@ -50,7 +50,7 @@ public:
     DiTracer(){}
 
     // Estimate a radiance coming from r due to direct illumination
-    float3 Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler, bool countemissives) const;
+    float3 Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const;
 
 protected:
     // Estimate direct illimination component due to light contribution reflected along wo

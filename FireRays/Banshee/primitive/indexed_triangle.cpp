@@ -1,6 +1,8 @@
 #include "indexed_triangle.h"
 #include "mesh.h"
 
+#include <cassert>
+
 #include "../math/mathutils.h"
 
 bool IndexedTriangle::Intersect(ray& r, float& t, Intersection& isect) const
@@ -46,6 +48,7 @@ bool IndexedTriangle::Intersect(ray& r, float& t, Intersection& isect) const
 
         isect.p = transform_point((1.f - b1 - b2) * p1 + b1 * p2 + b2 * p3, mesh_.worldmat_);
         isect.n = normalize(transform_normal((1.f - b1 - b2) * n1 + b1 * n2 + b2 * n3, mesh_.worldmatinv_));
+        
         // Account for backfacing normal
         // if (dot(isect.n, -r.d) < 0.f) isect.n = -isect.n;
 
@@ -63,8 +66,8 @@ bool IndexedTriangle::Intersect(ray& r, float& t, Intersection& isect) const
         if (det != 0.f)
         {
             float invdet = 1.f / det;
-            isect.dpdu = normalize(( dv2 * dp1 - dv1 * dp2) * invdet);
-            isect.dpdv = normalize((-du2 * dp1 + du1 * dp2) * invdet);
+            isect.dpdu = normalize(transform_normal(( dv2 * dp1 - dv1 * dp2) * invdet, mesh_.worldmatinv_));
+            isect.dpdv = normalize(transform_normal((-du2 * dp1 + du1 * dp2) * invdet, mesh_.worldmatinv_));
         }
         else
         {

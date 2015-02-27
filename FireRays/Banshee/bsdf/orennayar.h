@@ -165,7 +165,9 @@ public:
             tan_beta = sin_theta_o / cos_theta_o;
         }
         
-        return float3(invpi, invpi, invpi) * (a + b * maxcos * sin_alpha * tan_beta);
+        float3 kd = GET_VALUE(kd_, kdmap_, isect.uv);
+        
+        return kd * float3(invpi, invpi, invpi) * (a + b * maxcos * sin_alpha * tan_beta);
     }
     
     // Return pdf for wo to be sampled for wi

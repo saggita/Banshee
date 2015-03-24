@@ -45,11 +45,16 @@ public:
         unsigned xres, yres;
         unsigned nchannels;
 
+        ImageDesc()
+        {
+        }
+        
         ImageDesc(unsigned w, unsigned h, unsigned nc)
             : xres(w)
             , yres(h)
             , nchannels(nc)
-        {}
+        {
+        }
     };
 
     ImageIo(){}

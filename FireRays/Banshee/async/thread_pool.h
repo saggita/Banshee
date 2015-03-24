@@ -110,10 +110,6 @@ public:
         int num_threads = std::thread::hardware_concurrency();
         num_threads = num_threads == 0 ? 2 : num_threads;
 
-#ifdef _DEBUG
-        std::cout << num_threads << " hardware threads available\n";
-#endif
-
         for (int i=0; i < num_threads; ++i)
         {
             threads_.push_back(std::thread(&thread_pool::run_loop, this));

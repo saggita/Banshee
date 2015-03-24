@@ -1,5 +1,5 @@
 project "Banshee"
-    kind "ConsoleApp"
+    kind "StaticLib"
     location "../Banshee"
     links {"assimp"}
     files { "../Banshee/**.h", "../Banshee/**.cpp", "../Banshee/**.cl", "../Banshee/**.fsh", "../Banshee/**.vsh" } 

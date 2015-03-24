@@ -106,7 +106,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                 shadowray.d = wi;
                 
                 // TODO: move ray epsilon into some global options object
-                shadowray.t = float2(0.01f, dist);
+                shadowray.t = float2(0.01f, dist-0.01f);
                 
                 // Check for an occlusion
                 float shadow = world.Intersect(shadowray) ? 0.f : 1.f;

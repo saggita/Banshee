@@ -74,6 +74,13 @@ inline void	cartesian_to_spherical ( float3 const& cart, float3& sph )
 	cartesian_to_spherical(cart, sph.x, sph.y, sph.z);
 }
 
+
+/// Clamp int value to [a, b] range
+inline int clamp(int x, int a, int b)
+{
+    return x < a ? a : (x > b ? b : x);
+}
+
 /// Clamp float value to [a, b) range
 inline float clamp(float x, float a, float b)
 {

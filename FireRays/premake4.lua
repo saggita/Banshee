@@ -3,7 +3,7 @@ function fileExists(name)
    if f~=nil then io.close(f) return true else return false end
 end
 
-solution "FireRays"
+solution "Banshee"
 	configurations { "Debug", "Release" }    		
 	language "C++"
 	flags { "NoMinimalRebuild", "EnableSSE", "EnableSSE2" }
@@ -24,7 +24,7 @@ solution "FireRays"
     if os.is("windows") then
         targetName = "win"
 		defines{ "WIN32" }
-        if _ACTION == "vs2010" then
+        if _ACTION == "vs2010" or _ACTION == "vs2012" or _ACTION == "vs2013" then
             buildoptions { "/MP"  } --multiprocessor build
             defines {"_CRT_SECURE_NO_WARNINGS"}
             configuration {"Release"}
@@ -42,6 +42,7 @@ solution "FireRays"
         --includedirs { "./dist/debug/include" }
 	configuration "Release"
 		defines { "NDEBUG" }
+		flags {"Optimize"}
         --includedirs { "./dist/release/include" }
 
 	configuration {"x64", "Debug"}
@@ -52,41 +53,26 @@ solution "FireRays"
 		targetsuffix "D"
         --libdirs { "./dist/debug/lib/x86" }
         --targetdir "./dist/debug/bin/x86"
+
 	configuration {"x64", "Release"}
 		targetsuffix "64"
-        --libdirs { "./dist/release/lib/x86_64" }
-        --targetdir "./dist/release/bin/x86_64"
-	--configuration {"x32", "Release"}
-        --libdirs { "./dist/release/lib/x86" }
-        --targetdir "./dist/release/bin/x86"
-		--flags { "Optimize" }
-
-	configuration "x64"
-		--libdirs { "./contrib/lib/"..targetName.."64" }
-		--defines {"_X64"}
-	configuration "x32"
-		--libdirs { "./contrib/lib/"..targetName }
     
     configuration {} -- back to all configurations
     -- generate the projects
-
-    if fileExists("./FireRays/FireRays.lua") then
-		dofile("./FireRays/FireRays.lua")
-	end
-	
-	if fileExists("./Launcher/Launcher.lua") then
-		dofile("./Launcher/Launcher.lua")
-	end
-	
-	if fileExists("./Experiments/Experiments.lua") then
-		dofile("./Experiments/Experiments.lua")
-	end
-	
-	if fileExists("./CLW/CLW.lua") then
-		dofile("./CLW/CLW.lua")
-	end
 	
 	if fileExists("./Banshee/Banshee.lua") then
 		dofile("./Banshee/Banshee.lua")
+	end
+
+	if fileExists("./Standalone/Standalone.lua") then
+		dofile("./Standalone/Standalone.lua")
+	end
+
+	if fileExists("./Gtest/gtest.lua") then
+		dofile("./Gtest/gtest.lua")
+	end
+
+	if fileExists("./UnitTest/UnitTest.lua") then
+		dofile("./UnitTest/UnitTest.lua")
 	end
 	

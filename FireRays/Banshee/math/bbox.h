@@ -187,6 +187,38 @@ inline bool intersects(ray& r, float3 const& invrd, bbox const& box, int dirneg[
     return (tmin < r.t.y) && (tmax > r.t.x);
 }
 
+// Fast bbox test: PBRT book
+inline bool intersects(ray& r, float3 const& invrd, bbox const& box, int dirneg[3], float2& range)
+{
+    // Check for ray intersection against $x$ and $y$ slabs
+    float tmin =  (box[  dirneg[0]].x - r.o.x) * invrd.x;
+    float tmax =  (box[1-dirneg[0]].x - r.o.x) * invrd.x;
+    float tymin = (box[  dirneg[1]].y - r.o.y) * invrd.y;
+    float tymax = (box[1-dirneg[1]].y - r.o.y) * invrd.y;
+    if ((tmin > tymax) || (tymin > tmax))
+        return false;
+    if (tymin > tmin) tmin = tymin;
+    if (tymax < tmax) tmax = tymax;
+    
+    // Check for ray intersection against $z$ slab
+    float tzmin = (box[  dirneg[2]].z - r.o.z) * invrd.z;
+    float tzmax = (box[1-dirneg[2]].z - r.o.z) * invrd.z;
+    if ((tmin > tzmax) || (tzmin > tmax))
+        return false;
+    if (tzmin > tmin)
+        tmin = tzmin;
+    if (tzmax < tmax)
+        tmax = tzmax;
+    
+    if ((tmin < r.t.y) && (tmax > r.t.x))
+    {
+        range = float2(std::max(r.t.x, tmin), std::min(r.t.y, tmax));
+        return true;
+    }
+    
+    return false;
+}
+
 inline int bbox::maxdim() const
 {
     float3 ext = extents();

@@ -101,7 +101,10 @@ public:
         {
             float invpi = 1.f / PI;
             
-            return invpi * kd_;
+            // Diffuse albedo
+            float3 kd = GET_VALUE(kd_, kdmap_, isect.uv);
+            
+            return invpi * kd;
         }
         else
         {
@@ -117,7 +120,14 @@ public:
         
         if (sameside > 0.f)
         {
-            float3 n = dot(wi, isect.n) >= 0.f ? isect.n : -isect.n;
+            // Backup for normal mapping
+            Primitive::Intersection isectlocal = isect;
+            
+            // Alter normal if needed
+            // TODO: fix tangents as well
+            MAP_NORMAL(nmap_, isectlocal);
+            
+            float3 n = dot(wi, isect.n) >= 0.f ? isectlocal.n : -isectlocal.n;
             
             float invpi = 1.f / PI;
             

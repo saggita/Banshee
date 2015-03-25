@@ -1,4 +1,5 @@
 #include "basic_features.h"
+#include "materials.h"
 
 #include <gtest/gtest.h>
 
@@ -10,7 +11,7 @@ std::string g_output_image_path = "./OutputImages";
 std::string g_texture_path = "../../../Resources/Textures";
 std::string g_ref_image_path = "../../../Resources/Reference";
 bool g_compare = false;
-int2 g_imgres = int2(512, 512);
+int2 g_imgres = int2(256, 256);
 
 
 char* GetCmdOption(char ** begin, char ** end, const std::string & option)

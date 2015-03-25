@@ -1,7 +1,9 @@
 #include "sh.h"
 
 #include "mathutils.h"
-#include <cmath>
+
+#define _USE_MATH_DEFINES
+#include <math.h>
 #include <algorithm>
 #include <vector>
 
@@ -56,8 +58,8 @@ static float DivFact(int a, int b)
         return 1.f;
     }
 
-    float fa = a;
-    float fb = std::fabsf(b);
+    float fa = (float)a;
+    float fb = std::fabsf((float)b);
     float v = 1.f;
 
     for (float x = fa-fb+1.f; x <= fa+fb; x += 1.f)
@@ -152,16 +154,16 @@ void ShEvaluate(float3 const& p, int lmax, float* coefs)
 
 static inline float lambda(float l)
 {
-    return sqrtf((4.f * M_PI) / (2.f * l + 1.));
+    return sqrtf((4.f * (float)M_PI) / (2.f * l + 1.f));
 }
 
 void ShConvolveCosTheta(int lmax, float3 const* cin, float3* cout)
 {
-    static const float s_costheta[18] = { 0.8862268925, 1.0233267546,
-        0.4954159260, 0.0000000000, -0.1107783690, 0.0000000000,
-        0.0499271341, 0.0000000000, -0.0285469331, 0.0000000000,
-        0.0185080823, 0.0000000000, -0.0129818395, 0.0000000000,
-        0.0096125342, 0.0000000000, -0.0074057109, 0.0000000000 };
+    static const float s_costheta[18] = { 0.8862268925f, 1.0233267546f,
+        0.4954159260f, 0.0000000000f, -0.1107783690f, 0.0000000000f,
+        0.0499271341f, 0.0000000000f, -0.0285469331f, 0.0000000000f,
+        0.0185080823f, 0.0000000000f, -0.0129818395f, 0.0000000000f,
+        0.0096125342f, 0.0000000000f, -0.0074057109f, 0.0000000000f };
     
     for (int l = 0; l <= lmax; ++l)
     {
@@ -170,7 +172,7 @@ void ShConvolveCosTheta(int lmax, float3 const* cin, float3* cout)
             int o = ShIndex(l, m);
             
             if (l < 18)
-                cout[o] = lambda(l) * cin[o] * s_costheta[l];
+                cout[o] = lambda((float)l) * cin[o] * s_costheta[l];
             else
                 cout[o] = 0.f;
         }

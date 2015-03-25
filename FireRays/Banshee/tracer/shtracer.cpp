@@ -3,6 +3,9 @@
 #include "../math/sh.h"
 #include "../math/shproject.h"
 
+#define _USE_MATH_DEFINES
+#include <math.h>
+
 ShTracer::ShTracer(int lmax, float3* const shcoeffs)
 : lmax_(lmax)
 , shcoeffs_(lmax)

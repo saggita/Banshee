@@ -121,7 +121,7 @@ public:
             
             // Account for reflectance
             // TODO: accuary issue, fix later
-            return ndotwi > 0.01f ? eta*eta*(1.f - reflectance)*ks*(1.f / ndotwi) : float3(0.f, 0.f, 0.f);
+            return ndotwi > 0.0f ? eta*eta*(1.f - reflectance)*ks*(1.f / ndotwi) : float3(0.f, 0.f, 0.f);
         }
         else
         {

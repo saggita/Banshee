@@ -461,17 +461,18 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
     //Bvh* bvh = new Bvh();
     // Create camera
     //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
-    Camera* camera = new PerscpectiveCamera(float3(1, 0, -1.1f), float3(0, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(1, 0, -1.1f), float3(0, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1920.f / 1080.f);
     //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(1,0,0), float3(0, 1, 0), float2(0.01f, 10000.f));
 
     // Create lights
-    PointLight* light1 = new PointLight(float3(1.f, 1.f, -1.f), float3(0.97f, 0.85f, 0.55f));
+    //PointLight* light1 = new PointLight(float3(1.f, 1.f, -1.f), float3(0.85f, 0.85f, 0.85f));
+    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.3f);
 
     rand_init();
 
     //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
     //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
-    AssimpAssetImporter assimp(texsys, "../../../Resources/dragon/dragon.obj");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/dragon/dragon1.obj");
 
     assimp.onmaterial_ = [&world](Material* mat)->int
     {
@@ -522,10 +523,10 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
 
     //world->materials_.push_back(std::unique_ptr<Material>(new Refract(texsys, 2.3f, float3(0.9f, 0.3f, 0.0f))));
     world->materials_.push_back(std::unique_ptr<Material>(new SimpleMaterial(
-                                                          new Lambert(texsys, float3(0.4f, 0.4f, 0.2f)))));
+                                                                             new Microfacet(texsys, 2.f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new BlinnDistribution(100.f)))));
     
     world->materials_.push_back(std::unique_ptr<Material>(new SimpleMaterial(
-                                                                             new Microfacet(texsys, 5.f, float3(1.f, 1.f, 1.f), "", "", new FresnelDielectric(), new BlinnDistribution(300.f)))));
+                                                                             new Microfacet(texsys, 5.f, float3(0.3f, 0.7f, 0.3f), "", "", new FresnelDielectric(), new BlinnDistribution(300.f)))));
 
     int materials[2] = {1, 1};
 
@@ -1498,13 +1499,13 @@ int main()
 
         // File name to render
         std::string filename = "result.png";
-        int2 imgres = int2(512, 512);
+        int2 imgres = int2(1920, 1080);
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorld(texsys);
+        std::unique_ptr<World> world = BuildWorldDragon(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -1525,7 +1526,7 @@ int main()
 
                 if (percents - prevprogress_ >= 5)
                 {
-                    std::cout << percents << "%... ";
+                    std::cout << percents << "%... " << std::flush;
                     prevprogress_ = percents;
                 }
             }
@@ -1538,7 +1539,7 @@ int main()
         MtImageRenderer renderer(plane, // Image plane
             new GiTracer(10, 1.f), // Tracer
             // new ShTracer(5, &coeffs[0]),
-            new RegularSampler(16), // Image sampler
+            new RegularSampler(6), // Image sampler
             //new RegularSampler(2),
             new StratifiedSampler(1, new McRng()), // Light sampler
             new RandomSampler(1, new McRng()), // Brdf sampler

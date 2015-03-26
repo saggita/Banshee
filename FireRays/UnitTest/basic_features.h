@@ -46,6 +46,7 @@ extern std::string g_ref_image_path;
 extern std::string g_texture_path;
 extern int2 g_imgres;
 extern bool g_compare;
+extern int  g_num_spp;
 
 class BasicFeatures : public ::testing::Test
 {
@@ -275,7 +276,7 @@ TEST_F(BasicFeatures, PointLight)
     MtImageRenderer imgrenderer(
                         imgplane, // Image plane
                         new DiTracer(), // Tracer
-                        new RegularSampler(1), // Image sampler
+                        new RegularSampler(g_num_spp), // Image sampler
                         new RegularSampler(1), // Light sampler
                         new RegularSampler(1) // Brdf sampler
                         );
@@ -314,7 +315,7 @@ TEST_F(BasicFeatures, DirectionalLight)
     MtImageRenderer imgrenderer(
                                 imgplane, // Image plane
                                 new DiTracer(), // Tracer
-                                new RegularSampler(1), // Image sampler
+                                new RegularSampler(g_num_spp), // Image sampler
                                 new RegularSampler(1), // Light sampler
                                 new RegularSampler(1) // Brdf sampler
                                 );
@@ -353,7 +354,7 @@ TEST_F(BasicFeatures, EnvironmentLight)
     MtImageRenderer imgrenderer(
                                 imgplane, // Image plane
                                 new DiTracer(), // Tracer
-                                new RegularSampler(2), // Image sampler
+                                new RegularSampler(g_num_spp), // Image sampler
                                 new StratifiedSampler(1, new McRng()), // Light sampler
                                 new StratifiedSampler(1, new McRng()) // Brdf sampler
                                 );
@@ -392,7 +393,7 @@ TEST_F(BasicFeatures, AreaLight)
     MtImageRenderer imgrenderer(
                                 imgplane, // Image plane
                                 new DiTracer(), // Tracer
-                                new RegularSampler(2), // Image sampler
+                                new RegularSampler(g_num_spp), // Image sampler
                                 new StratifiedSampler(1, new McRng()), // Light sampler
                                 new StratifiedSampler(1, new McRng()) // Brdf sampler
                                 );
@@ -425,7 +426,7 @@ TEST_F(BasicFeatures, PerspectiveCamera)
     MtImageRenderer imgrenderer(
                                 imgplane, // Image plane
                                 new DiTracer(), // Tracer
-                                new RegularSampler(1), // Image sampler
+                                new RegularSampler(g_num_spp), // Image sampler
                                 new RegularSampler(1), // Light sampler
                                 new RegularSampler(1) // Brdf sampler
                                 );
@@ -468,10 +469,10 @@ TEST_F(BasicFeatures, EnvironmentCamera)
     FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
     
     // Create renderer
-    MtImageRenderer imgrenderer(
+    ImageRenderer imgrenderer(
                                 imgplane, // Image plane
                                 new DiTracer(), // Tracer
-                                new RegularSampler(1), // Image sampler
+                                new RegularSampler(g_num_spp), // Image sampler
                                 new RegularSampler(1), // Light sampler
                                 new RegularSampler(1) // Brdf sampler
                                 );

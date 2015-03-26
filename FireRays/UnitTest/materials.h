@@ -55,6 +55,7 @@ extern std::string g_ref_image_path;
 extern std::string g_texture_path;
 extern int2 g_imgres;
 extern bool g_compare;
+extern int  g_num_spp;
 
 class Materials : public ::testing::Test
 {
@@ -206,7 +207,7 @@ TEST_F(Materials, Lambert)
     ImageRenderer imgrenderer(
                                 imgplane, // Image plane
                                 new GiTracer(4, 1.f), // Tracer
-                                new RegularSampler(1), // Image sampler
+                                new RegularSampler(g_num_spp), // Image sampler
                                 new StratifiedSampler(1, new McRng()), // Light sampler
                                 new StratifiedSampler(1, new McRng()) // Brdf sampler
                                 );
@@ -239,7 +240,7 @@ TEST_F(Materials, LambertTextured)
     ImageRenderer imgrenderer(
                                 imgplane, // Image plane
                                 new GiTracer(4, 1.f), // Tracer
-                                new RegularSampler(4), // Image sampler
+                                new RegularSampler(g_num_spp), // Image sampler
                                 new StratifiedSampler(1, new McRng()), // Light sampler
                                 new StratifiedSampler(1, new McRng()) // Brdf sampler
                                 );
@@ -274,7 +275,7 @@ TEST_F(Materials, LambertNormalMapped)
     ImageRenderer imgrenderer(
                                 imgplane, // Image plane
                                 new GiTracer(4, 1.f), // Tracer
-                                new RegularSampler(4), // Image sampler
+                                new RegularSampler(g_num_spp), // Image sampler
                                 new StratifiedSampler(1, new McRng()), // Light sampler
                                 new StratifiedSampler(1, new McRng()) // Brdf sampler
                                 );
@@ -307,7 +308,7 @@ TEST_F(Materials, OrenNayar)
     ImageRenderer imgrenderer(
                                 imgplane, // Image plane
                                 new GiTracer(4, 1.f), // Tracer
-                                new RegularSampler(1), // Image sampler
+                                new RegularSampler(g_num_spp), // Image sampler
                                 new StratifiedSampler(1, new McRng()), // Light sampler
                                 new StratifiedSampler(1, new McRng()) // Brdf sampler
                                 );
@@ -340,7 +341,7 @@ TEST_F(Materials, Microfacet)
     ImageRenderer imgrenderer(
                                 imgplane, // Image plane
                                 new GiTracer(4, 1.f), // Tracer
-                                new RegularSampler(4), // Image sampler
+                                new RegularSampler(g_num_spp), // Image sampler
                                 new StratifiedSampler(1, new McRng()), // Light sampler
                                 new StratifiedSampler(1, new McRng()) // Brdf sampler
                                 );
@@ -373,7 +374,7 @@ TEST_F(Materials, Reflect)
     ImageRenderer imgrenderer(
                                 imgplane, // Image plane
                                 new GiTracer(4, 1.f), // Tracer
-                                new RegularSampler(4), // Image sampler
+                                new RegularSampler(g_num_spp), // Image sampler
                                 new StratifiedSampler(1, new McRng()), // Light sampler
                                 new StratifiedSampler(1, new McRng()) // Brdf sampler
                                 );
@@ -406,7 +407,7 @@ TEST_F(Materials, Refract)
     ImageRenderer imgrenderer(
                                 imgplane, // Image plane
                                 new GiTracer(4, 1.f), // Tracer
-                                new RegularSampler(4), // Image sampler
+                                new RegularSampler(g_num_spp), // Image sampler
                                 new StratifiedSampler(1, new McRng()), // Light sampler
                                 new StratifiedSampler(1, new McRng()) // Brdf sampler
                                 );
@@ -436,10 +437,10 @@ TEST_F(Materials, Glass)
     FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
     
     // Create renderer
-    ImageRenderer imgrenderer(
+    MtImageRenderer imgrenderer(
                                 imgplane, // Image plane
                                 new GiTracer(4, 1.f), // Tracer
-                                new RegularSampler(4), // Image sampler
+                                new RegularSampler(g_num_spp), // Image sampler
                                 new StratifiedSampler(1, new McRng()), // Light sampler
                                 new StratifiedSampler(1, new McRng()) // Brdf sampler
                                 );

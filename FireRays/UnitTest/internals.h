@@ -14,6 +14,7 @@
 
 #include "math/mathutils.h"
 #include "math/distribution1d.h"
+#include "math/distribution2d.h"
 
 extern std::string g_output_image_path;
 extern std::string g_ref_image_path;
@@ -73,6 +74,31 @@ TEST_F(Internals, Distribution1D)
     ASSERT_GT(bins[1], bins[0]);
     ASSERT_GT(bins[1], bins[2]);
     ASSERT_GT(bins[1], bins[3]);
+}
+
+///< Test 1D piecewise constant distribution RNG
+TEST_F(Internals, Distribution2D)
+{
+    static int kNumSamples = 10000;
+    float pdf[] = {0.2f, 0.2f, 0.9f, 0.0f};
+    
+    Distribution2D dist(2,2,pdf);
+    
+    int bins[2][2] = {0, 0, 0, 0};
+    float vpdf = 0.f;
+    
+    for (int i = 0; i < kNumSamples; ++i)
+    {
+        float2 v = dist.Sample2D(float2(rand_float(), rand_float()), vpdf);
+        
+        int x = clamp((int)(v.x/0.5), 0, 1);
+        int y = clamp((int)(v.y/0.5), 0, 1);
+        bins[y][x]++;
+    }
+    
+    ASSERT_GT(bins[1][0], bins[0][0]);
+    ASSERT_GT(bins[1][0], bins[0][1]);
+    ASSERT_GT(bins[1][0], bins[1][1]);
 }
 
 

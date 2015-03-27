@@ -46,3 +46,15 @@ float Distribution1D::Sample1D(float u, float& pdf) const
     // Return corresponding value
     return (segidx - 1 + du) / numsegments_;
 }
+
+float Distribution1D::Pdf(float u)
+{
+    // Find the segment here u lies
+    auto segiter = std::lower_bound(cdf_.cbegin() , cdf_.cend(), u);
+    
+    // Find segment index : clamp it as last may be returned for 1
+    int segidx = clamp((int)std::distance(cdf_.cbegin(), segiter), 1, numsegments_+1);
+    
+    // Calc pdf
+    return funcvals_[segidx-1] / funcint_;
+}

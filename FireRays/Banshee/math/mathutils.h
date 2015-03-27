@@ -238,6 +238,23 @@ inline float3 map_to_hemisphere(float3 const& n, float2 const& s, float e)
     return normalize(u * sintheta * cospsi + v * sintheta * sinpsi + n * costheta);
 }
 
+// Map [0..1]x[0..1] value to unit hemisphere with pow e cos weighted pdf
+inline float3 map_to_hemisphere(float3 const& n, float2 const& s)
+{
+    float3 u = orthovector(n);
+    
+    float3 v = cross(u, n);
+    u = cross(n, v);
+    
+    float sinpsi = sinf(2*PI*s.x);
+    float cospsi = cosf(2*PI*s.x);
+    
+    float costheta = cosf(PI*s.y);
+    float sintheta = sinf(PI*s.y);
+    
+    return normalize(u * sintheta * cospsi + v * sintheta * sinpsi + n * costheta);
+}
+
 // Map [0..1]x[0..1] value to triangle and return barycentric coords
 inline float3 map_to_triangle(float2 const& s)
 {

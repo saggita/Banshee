@@ -61,6 +61,7 @@
 #include "light/pointlight.h"
 #include "light/directional_light.h"
 #include "light/environment_light.h"
+#include "light/environment_light_is.h"
 #include "light/arealight.h"
 #include "sampler/random_sampler.h"
 #include "sampler/regular_sampler.h"
@@ -461,12 +462,13 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
     //Bvh* bvh = new Bvh();
     // Create camera
     //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
-    Camera* camera = new PerscpectiveCamera(float3(1, 0, -1.1f), float3(0, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1920.f / 1080.f);
+    Camera* camera = new PerscpectiveCamera(float3(1, 0, -1.1f), float3(0, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
     //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(1,0,0), float3(0, 1, 0), float2(0.01f, 10000.f));
 
     // Create lights
     //PointLight* light1 = new PointLight(float3(1.f, 1.f, -1.f), float3(0.85f, 0.85f, 0.85f));
-    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.3f);
+    //EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.3f);
+    EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "Apartment.hdr", 0.3f);
 
     rand_init();
 
@@ -1499,7 +1501,7 @@ int main()
 
         // File name to render
         std::string filename = "result.png";
-        int2 imgres = int2(1920, 1080);
+        int2 imgres = int2(512, 512);
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");
 
@@ -1537,9 +1539,9 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
-            new GiTracer(10, 1.f), // Tracer
+            new GiTracer(3, 1.f), // Tracer
             // new ShTracer(5, &coeffs[0]),
-            new RegularSampler(6), // Image sampler
+            new RegularSampler(64), // Image sampler
             //new RegularSampler(2),
             new StratifiedSampler(1, new McRng()), // Light sampler
             new RandomSampler(1, new McRng()), // Brdf sampler

@@ -30,35 +30,36 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  (This is the Modified BSD License)
  */
-#ifndef DISTRIBUTION1D_H
-#define DISTRIBUTION1D_H
+#ifndef DISTRIBUTION2D_H
+#define DISTRIBUTION2D_H
 
-#include <vector>
+#include <memory>
 
-///< The class represents 1D piecewise constant distribution of random variable.
-///< The PDF is proprtional to passed function defined at N points in [0,1] interval
-///< Partially taken from Pharr & Humphreys, but a bug with lower bound fixed.
+#include "float2.h"
+#include "distribution1d.h"
+
+///< The class represents 2D piecewise constant distribution of random variable.
+///< The PDF is proprtional to passed function defined at NxM points in [0,1]x[0,1] interval
 ///<
-class Distribution1D
+class Distribution2D
 {
 public:
-    // values are function values at equal spacing at numsegments points within [0,1] range
-    Distribution1D(int numsegments, float const* values);
+    // values are function values at equal spacing at nxm points within [0,1]x[0,1] range
+    Distribution2D(int n, int m,  float const* values);
     
     // Sample one value using this distribution
-    float Sample1D(float u, float& pdf) const;
+    float2 Sample2D(float2 u, float& pdf) const;
     
     // PDF
-    float Pdf(float u);
+    float Pdf(float2 uv);
     
-    // Function values
-    std::vector<float> funcvals_;
-    // Cumulative distribution function
-    std::vector<float> cdf_;
-    // Number of segments
-    int numsegments_;
-    // Integral of the function over the whole range (normalizer)
-    float funcint_;
+private:
+    // Dimension of the grid
+    int n_, m_;
+    // 1D conditional distributions for rows (m_ lines)
+    std::vector<std::unique_ptr<Distribution1D> > conddist_;
+    // Marginal density
+    std::unique_ptr<Distribution1D> marginaldist_;
 };
 
 

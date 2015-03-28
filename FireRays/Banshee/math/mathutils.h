@@ -62,7 +62,7 @@ inline unsigned	rand_uint() { return (unsigned)std::rand(); }
 /// Convert cartesian coordinates to spherical
 inline void	cartesian_to_spherical ( float3 const& cart, float& r, float& phi, float& theta )
 {
-    float temp = std::atan2(cart.x, cart.z);
+    float temp = std::atan2(cart.z, cart.x);
     r = std::sqrt(cart.x*cart.x + cart.y*cart.y + cart.z*cart.z);
     phi = (float)((temp >= 0)?temp:(temp + 2*PI));
     theta = std::acos(cart.y/r);

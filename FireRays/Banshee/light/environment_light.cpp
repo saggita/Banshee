@@ -24,6 +24,9 @@ float3 EnvironmentLight::Sample(Primitive::Intersection const& isect, float2 con
     // Compose the textcoord to fetch
     float2 uv(phi / (2*PI), theta / PI);
 
+    // Make it long
+    d *= 10000000.f;
+
     // Fetch radiance value and scale it
     return scale_ * texsys_.Sample(texture_, uv, float2(0,0));
 }

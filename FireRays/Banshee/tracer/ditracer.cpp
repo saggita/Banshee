@@ -138,19 +138,18 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                     }
                 }
             }
-            
-            
+
             // Sample BSDF if the light is not singular
             if (!singularlight)
             {
                 int bsdftype = 0;
                 float3 wi;
-                
+
                 // Sample material
                 float3 bsdf = mat.Sample(isect, bsdfsamples[i], wo, wi, bsdfpdf, bsdftype);
                 assert(!has_nans(bsdf));
                 assert(!has_nans(bsdfpdf < 1000000.f));
-                
+
                 // Normalize wi
                 wi = normalize(wi);
                 
@@ -174,17 +173,17 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                         // Apply heuristic
                         weight = PowerHeuristic(1, bsdfpdf, 1, lightpdf);
                     }
-                    
+
                     // Spawn shadow ray
                     ray shadowray;
                     // From an intersection point
                     shadowray.o = isect.p;
                     // Into evaluated direction
                     shadowray.d = wi;
-                    
+
                     // TODO: move ray epsilon into some global options object
                     shadowray.t = float2(0.01f, 10000.f);
-                    
+
                     // Cast the ray into the scene
                     float t = 0.f;
                     Primitive::Intersection shadowisect;
@@ -206,7 +205,6 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                         // This is to give a chance for IBL to contribute
                         le = light.Le(shadowray);
                     }
-                    
                     if (le.sqnorm() > 0.f)
                     {
                         // Estimate with Monte-Carlo L(wo) = int{ Ld(wi, wo) * fabs(dot(n, wi)) * dwi }

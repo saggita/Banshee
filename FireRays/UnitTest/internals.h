@@ -16,6 +16,9 @@
 #include "math/distribution1d.h"
 #include "math/distribution2d.h"
 
+#include "texture/oiio_texturesystem.h"
+#include "light/environment_light_is.h"
+
 extern std::string g_output_image_path;
 extern std::string g_ref_image_path;
 extern std::string g_texture_path;
@@ -76,6 +79,7 @@ TEST_F(Internals, Distribution1D)
     ASSERT_GT(bins[1], bins[3]);
 }
 
+
 ///< Test 1D piecewise constant distribution RNG
 TEST_F(Internals, Distribution2D)
 {
@@ -100,6 +104,51 @@ TEST_F(Internals, Distribution2D)
     ASSERT_GT(bins[1][0], bins[0][1]);
     ASSERT_GT(bins[1][0], bins[1][1]);
 }
+
+///< Test 1D piecewise constant distribution RNG
+TEST_F(Internals, Distribution2D_Pdf)
+{
+    static int kNumSamples = 10000;
+    float pdf[] = {0.2f, 0.2f, 0.9f, 0.0f};
+    
+    Distribution2D dist(2,2,pdf);
+    
+    int bins[2][2] = {0, 0, 0, 0};
+    float vpdf = 0.f;
+    
+    for (int i = 0; i < kNumSamples; ++i)
+    {
+        float2 v = dist.Sample2D(float2(rand_float(), rand_float()), vpdf);
+
+        float vpdf1 = dist.Pdf(v);
+
+        ASSERT_LE(abs(vpdf1-vpdf), 0.001f);
+    }
+}
+
+
+///< EnvironmentLight with importance sampling 
+TEST_F(Internals, EnvironmentLightIs)
+{
+    OiioTextureSystem texsys("../../../Resources/Textures");
+    EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "Apartment.hdr", 0.6f);
+
+    static int kNumSamples = 10000;
+
+    for (int i = 0; i < kNumSamples; ++i)
+    {
+        Primitive::Intersection isect;
+        float2 uv(rand_float(), rand_float());
+        float3 d;
+        float pdf;
+        light1->Sample(isect, uv, d, pdf);
+
+        float pdf1 = light1->Pdf(isect, d);
+
+        ASSERT_LE(abs(pdf - pdf1), 0.001f);
+    }
+}
+
 
 
 

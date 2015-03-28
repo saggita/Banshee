@@ -127,7 +127,7 @@ public:
                               2, worldmat, inverse(worldmat));
         
         
-        worldmat = translation(float3(0, 3.f, 0)) * rotation_x(M_PI);
+        worldmat = translation(float3(0, 3.f, 0)) * rotation_x((float)M_PI);
         
         int ematerials[2] = {2,2};
         Mesh* lightmesh = new Mesh(&vertices[0].x, 4, sizeof(float3),

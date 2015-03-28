@@ -37,16 +37,16 @@ float2 Distribution2D::Sample2D(float2 u, float& pdf) const
     
     // Sample marginal distribution for the row
     sample.y = marginaldist_->Sample1D(u.y, rpdf);
-    
+
     // Convert to row index
     int rowidx = clamp((int)(sample.y * m_), 0, m_-1);
     
     // Sample conditional density for column
     sample.x = conddist_[rowidx]->Sample1D(u.x, cpdf);
-    
+
     // Multiply pdfs
     pdf = rpdf * cpdf;
-    
+
     return sample;
 }
 

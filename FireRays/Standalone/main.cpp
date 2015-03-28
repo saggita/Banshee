@@ -1054,9 +1054,10 @@ std::unique_ptr<World> BuildWorldIblTest(TextureSystem const& texsys)
     // Create camera
     Camera* camera = new PerscpectiveCamera(float3(0.f, 5.f, -10.5f), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
-    
-    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.6f);
-    
+
+    //EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.6f);
+    EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "Apartment.hdr", 0.6f);
+
     // Add ground plane
     float3 vertices[4] = {
         float3(-1, 0, -1),
@@ -1118,12 +1119,9 @@ std::unique_ptr<World> BuildWorldIblTest(TextureSystem const& texsys)
     
     worldmat = translation(float3(2, 0, 2.5));
     prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 4));
-    
-    //bvh->Build(prims);
-    
-    Grid* grid = new Grid();
-    grid->Build(prims);
-    
+
+    bvh->Build(prims);
+
     // Attach accelerator to world
     world->accelerator_ = std::unique_ptr<Primitive>(bvh);
     // Attach camera
@@ -1134,7 +1132,7 @@ std::unique_ptr<World> BuildWorldIblTest(TextureSystem const& texsys)
     world->lights_.push_back(std::unique_ptr<Light>(light1));
     
     // Build materials
-    SimpleMaterial* sm = new SimpleMaterial(new Lambert(texsys, float3(0.7f, 0.7f, 0.7f), "", ""));
+    SimpleMaterial* sm = new SimpleMaterial(new Microfacet(texsys, 2.5f, float3(0.3f, 0.4f, 0.3f), "", "", new FresnelDielectric(), new BlinnDistribution(200.f)));
     SimpleMaterial* sm1 = new SimpleMaterial(new Lambert(texsys, float3(0.7f, 0.2f, 0.2f), "", ""));
     SimpleMaterial* sm2 = new SimpleMaterial(new Microfacet(texsys, 2.5f, float3(0.1f, 0.8f, 0.2f), "", "", new FresnelDielectric(), new BlinnDistribution(100.f)));
     SimpleMaterial* sm3 = new SimpleMaterial(new PerfectReflect(texsys, 2.5f, float3(0.8f, 0.8f, 0.8f), "", ""));
@@ -1152,8 +1150,8 @@ std::unique_ptr<World> BuildWorldIblTest(TextureSystem const& texsys)
     mm->AddBsdf(new PerfectRefract(texsys, 3.5f, float3(0.8f, 0.8f, 0.8f), "", ""));
     mm->AddBsdf(new Lambert(texsys, float3(0.05f, 0.05f, 0.6f), "", ""));
     world->materials_.push_back(std::unique_ptr<Material>(mm));
-    
-    
+
+
     // Return world
     return std::unique_ptr<World>(world);
 }
@@ -1507,7 +1505,7 @@ int main()
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldDragon(texsys);
+        std::unique_ptr<World> world = BuildWorldIblTest(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -1539,12 +1537,10 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
-            new GiTracer(3, 1.f), // Tracer
-            // new ShTracer(5, &coeffs[0]),
-            new RegularSampler(64), // Image sampler
-            //new RegularSampler(2),
+            new GiTracer(10, 1.f), // Tracer
+            new RegularSampler(6), // Image sampler
             new StratifiedSampler(1, new McRng()), // Light sampler
-            new RandomSampler(1, new McRng()), // Brdf sampler
+            new StratifiedSampler(1, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter
             );
 

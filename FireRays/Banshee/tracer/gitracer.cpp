@@ -9,21 +9,18 @@
 
 float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
 {
-    // Only 1 BSDF sample for indirect supported for now
-    assert (brdfsampler.num_samples() == 1);
-    
     // Intersection along the ray
     Primitive::Intersection isect;
-    
+
     // Ray distance
     float t = r.t.y;
-    
+
     // Accumulated radiance
     float3 radiance = float3();
-    
+
     // Path throughput
     float3 throughput = float3(1.f, 1.f, 1.f);
-    
+
     for (int bounce=0; bounce<maxdepth_; ++ bounce)
     {
         // If camera ray intersection occurs
@@ -40,15 +37,19 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
                 // TODO: implement mixed emissive-bsdf materials
                 break;
             }
-            
+
             // Evaluate DI component
             for (int i = 0; i < world.lights_.size(); ++i)
             {
                 radiance += throughput * Di(world, *world.lights_[i], lightsampler, brdfsampler, -r.d, isect);
             }
-            
+
             assert(!has_nans(radiance));
-            
+
+            // TODO: workaround for more than 1 brdf sample
+            for (int s=0; s<brdfsampler.num_samples()-1; ++s)
+                brdfsampler.Sample2D();
+
             // Sample BSDF to continue path
             float2 bsdfsample = brdfsampler.Sample2D();
             // BSDF type
@@ -71,37 +72,37 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
             r.o = isect.p;
             r.d = normalize(wi);
             r.t = float2(0.001f, 10000.f);
-            
+
             // Update througput
             throughput *= (bsdf * (fabs(dot(isect.n, wi)) / bsdfpdf));
-            
+
             assert(!has_nans(throughput));
-            
+
             // Apply Russian roulette
             // TODO: pass RNG inside not to have this ugly dep
             if (bounce > 3)
             {
                 float rnd = rand_float();
-                
+
                 float q = std::min(0.5f, throughput.sqnorm());
-                
+
                 if (rnd > q)
                     break;
-                
+
                 throughput *= (1.f / q);
             }
-            
+
             assert(!has_nans(radiance));
         }
-        else
+        else if (bounce == 0)
         {
             radiance += throughput * world.bgcolor_;
-            
+
             for (int i = 0; i < world.lights_.size(); ++i)
             {
                 radiance += throughput * world.lights_[i]->Le(r);
             }
-            
+
             // Bail out as the ray missed geometry
             break;
         }

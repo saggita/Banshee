@@ -84,7 +84,7 @@ void Grid::BuildImpl(std::vector<Primitive*> const& prims)
     int maxextent = bounds_.maxdim();
     
     // Grid size is proportional to cubic root
-    int gridres = std::powf((float)numprims, 1.f / 3.f);
+    int gridres = (int)std::powf((float)numprims, 1.f / 3.f);
     
     // Find number of voxels per unit distance
     float voxelperunit = gridres / extents[maxextent];

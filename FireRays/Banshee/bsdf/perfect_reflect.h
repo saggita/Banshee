@@ -93,18 +93,18 @@ public:
         // PDF is infinite at that point, but deltas are going to cancel out while evaluating
         // so set it to 1.f
         pdf = 1.f;
-        
+
         // Get reflect color value
         float3 ks = GET_VALUE(ks_, ksmap_, isect.uv);
 
         // If Fresnel is used calculate Fresnel reflectance using ORIGINAL normal to
         // correctly determine reflected and transmitted parts
         float reflectance = fresnel_ ? fresnel_->Evaluate(1.f, eta_, dot(wi, isect.n)) : 1.f;
-        
+
         float ndotwi = dot(n, wi);
-        
+
         // Return reflectance value
-        return ndotwi > 0.0f ? reflectance * ks * (1.f / ndotwi) : float3(0.f, 0.f, 0.f);
+        return ndotwi > FLT_EPSILON ? reflectance * ks * (1.f / ndotwi) : float3(0.f, 0.f, 0.f);
     }
 
     // Evaluate combined BSDF value

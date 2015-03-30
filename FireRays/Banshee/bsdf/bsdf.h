@@ -74,13 +74,13 @@ public:
 
     // Evaluate combined BSDF value
     virtual float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const = 0;
-    
+
     // PDF of a given direction sampled from isect.p
     virtual float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const = 0;
-    
+
     // Get BSDF type
     int GetType() const { return type_; }
-    
+
 protected:
     // Apply normal mapping
     void MapNormal(std::string const& nmap, Primitive::Intersection& isect) const;

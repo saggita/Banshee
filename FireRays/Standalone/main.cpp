@@ -152,7 +152,7 @@ std::unique_ptr<World> BuildWorldBlender(TextureSystem const& texsys)
     Camera* camera = new PerscpectiveCamera(float3(-20.5, 5.0f, 10.f), float3(0, 5.0f, 0), float3(0, 1.f, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
     //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
-    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.3f);
+    EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "Apartment.hdr", 0.3f);
 
     rand_init();
 
@@ -162,7 +162,10 @@ std::unique_ptr<World> BuildWorldBlender(TextureSystem const& texsys)
 
     assimp.onmaterial_ = [&world, &texsys](Material* mat)->int
     {
-        world->materials_.push_back(std::unique_ptr<Material>(new SimpleMaterial(new PerfectRefract(texsys, 1.5f, float3(0.8f, 0.8f, 0.8f), "", ""))));
+        world->materials_.push_back(std::unique_ptr<Material>(/*new SimpleMaterial( new PerfectReflect(texsys, 1.5f, float3(0.8f, 0.8f, 0.7f)))));*/
+
+        new SimpleMaterial(
+                                                                             new Microfacet(texsys, 5.f, float3(0.5f, 0.5f, 0.5f), "", "", new FresnelDielectric(), new BlinnDistribution(3000.f)))));
         return (int)(world->materials_.size() - 1);
     };
 
@@ -523,7 +526,7 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
     // Clear default material
     world->materials_.clear();
 
-    world->materials_.push_back(std::unique_ptr<Material>(new Glass(texsys, 1.5f, float3(0.7, 0.7f, 0.7f))));
+    world->materials_.push_back(std::unique_ptr<Material>(new Glass(texsys, 1.5f, float3(0.7f, 0.7f, 0.7f))));
     //world->materials_.push_back(std::unique_ptr<Material>(new SimpleMaterial(
                                                                              //new Microfacet(texsys, 2.f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new BlinnDistribution(100.f)))));
     
@@ -1505,7 +1508,7 @@ int main()
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldIblTest(texsys);
+        std::unique_ptr<World> world = BuildWorldBlender(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -1538,7 +1541,7 @@ int main()
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
             new GiTracer(10, 1.f), // Tracer
-            new StratifiedSampler(32, new McRng()), // Image sampler
+            new StratifiedSampler(16, new McRng()), // Image sampler
             new StratifiedSampler(1, new McRng()), // Light sampler
             new StratifiedSampler(1, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter

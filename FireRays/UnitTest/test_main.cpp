@@ -48,6 +48,12 @@ int main(int argc, char** argv)
     
     char* spp = GetCmdOption(argv, argv + argc, "--spp");
     g_num_spp = spp ? atoi(spp) : g_num_spp;
+
+    char* width = GetCmdOption(argv, argv + argc, "--width");
+    g_imgres.x = width ? atoi(width) : g_imgres.x;
+
+    char* height = GetCmdOption(argv, argv + argc, "--height");
+    g_imgres.y = height ? atoi(height) : g_imgres.y;
     
     g_compare = CmdOptionExists(argv, argv + argc, "--compare") ? true : false;
     

@@ -88,7 +88,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
             // Sample light source
             float3 le = light.Sample(isect, lightsamples[i], lightdir, lightpdf);
             
-            assert(!has_nans(le));
+            //assert(!has_nans(le));
             
             // Continue if intensity > 0 and there is non-zero probability of sampling the point
             if (lightpdf > 0.0f && le.sqnorm() > 0.f)
@@ -117,14 +117,14 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                     // Evaluate BSDF
                     float3 bsdf = mat.Evaluate(isect, wi, wo);
                     
-                    assert(!has_nans(bsdf));
+                    //assert(!has_nans(bsdf));
                     
                     // We can't apply MIS for singular lights, so use simple estimator
-                    if (!singularlight)
+                    if (singularlight)
                     {
                         // Estimate with Monte-Carlo L(wo) = int{ Ld(wi, wo) * fabs(dot(n, wi)) * dwi }
                         radiance +=  le * bsdf * fabs(dot(isect.n, wi)) * (1.f / lightpdf);
-                        assert(!has_nans(radiance));
+                        //assert(!has_nans(radiance));
                     }
                     else
                     {
@@ -134,7 +134,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                         float weight = PowerHeuristic(1, lightpdf, 1, bsdfpdf);
                         // Estimate with Monte-Carlo L(wo) = int{ Ld(wi, wo) * fabs(dot(n, wi)) * dwi }
                         radiance +=  le * bsdf * fabs(dot(isect.n, wi)) * weight * (1.f / lightpdf);
-                        assert(!has_nans(radiance));
+                        //assert(!has_nans(radiance));
                     }
                 }
             }
@@ -147,8 +147,8 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
 
                 // Sample material
                 float3 bsdf = mat.Sample(isect, bsdfsamples[i], wo, wi, bsdfpdf, bsdftype);
-                assert(!has_nans(bsdf));
-                assert(!has_nans(bsdfpdf < 1000000.f));
+                //assert(!has_nans(bsdf));
+                //assert(!has_nans(bsdfpdf < 1000000.f));
 
                 // Normalize wi
                 wi = normalize(wi);
@@ -182,7 +182,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                     shadowray.d = wi;
 
                     // TODO: move ray epsilon into some global options object
-                    shadowray.t = float2(0.01f, 10000.f);
+                    shadowray.t = float2(0.01f, 10000000.f);
 
                     // Cast the ray into the scene
                     float t = 0.f;
@@ -205,11 +205,12 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                         // This is to give a chance for IBL to contribute
                         le = light.Le(shadowray);
                     }
+                    
                     if (le.sqnorm() > 0.f)
                     {
                         // Estimate with Monte-Carlo L(wo) = int{ Ld(wi, wo) * fabs(dot(n, wi)) * dwi }
                         radiance +=  le * bsdf * fabs(dot(isect.n, wi)) * weight * (1.f / bsdfpdf);
-                        assert(!has_nans(radiance));
+                        //assert(!has_nans(radiance));
                     }
                 }
             }

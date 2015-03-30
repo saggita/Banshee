@@ -44,7 +44,7 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
                 radiance += throughput * Di(world, *world.lights_[i], lightsampler, brdfsampler, -r.d, isect);
             }
 
-            assert(!has_nans(radiance));
+            //assert(!has_nans(radiance));
 
             // TODO: workaround for more than 1 brdf sample
             for (int s=0; s<brdfsampler.num_samples()-1; ++s)
@@ -76,7 +76,7 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
             // Update througput
             throughput *= (bsdf * (fabs(dot(isect.n, wi)) / bsdfpdf));
 
-            assert(!has_nans(throughput));
+            //assert(!has_nans(throughput));
 
             // Apply Russian roulette
             // TODO: pass RNG inside not to have this ugly dep
@@ -84,7 +84,10 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
             {
                 float rnd = rand_float();
 
-                float q = std::min(0.5f, throughput.sqnorm());
+                float luminance = 0.2126f * throughput.x + 0.7152f * throughput.y +
+                0.0722f * throughput.z;
+                
+                float q = std::min(0.5f, luminance);
 
                 if (rnd > q)
                     break;
@@ -92,7 +95,7 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
                 throughput *= (1.f / q);
             }
 
-            assert(!has_nans(radiance));
+            //assert(!has_nans(radiance));
         }
         else if (bounce == 0)
         {

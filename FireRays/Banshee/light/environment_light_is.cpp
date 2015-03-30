@@ -29,7 +29,11 @@ EnvironmentLightIs::EnvironmentLightIs(TextureSystem const& texsys,
             float2 uv((float)j/kDistWidth, (float)i/kDistHeight);
             float sintheta = sinf(PI * (float)(i + 0.5f)/kDistHeight);
 
-            img[i*kDistWidth + j] = texsys_.Sample(texture_, uv, float2(0,0)).sqnorm() * sintheta;
+            float3 v = texsys_.Sample(texture_, uv, float2(0,0));
+            
+            float luminance = 0.2126f * v.x + 0.7152f * v.y + 0.0722f * v.z;
+            
+            img[i*kDistWidth + j] = luminance * sintheta;
         }
     }
 

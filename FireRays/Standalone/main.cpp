@@ -467,8 +467,8 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
 
     // Create lights
     //PointLight* light1 = new PointLight(float3(1.f, 1.f, -1.f), float3(0.85f, 0.85f, 0.85f));
-    //EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.3f);
-    EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "Apartment.hdr", 0.3f);
+    //EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.8f);
+    EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "Apartment.hdr", 0.8f);
 
     rand_init();
 
@@ -523,9 +523,9 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
     // Clear default material
     world->materials_.clear();
 
-    //world->materials_.push_back(std::unique_ptr<Material>(new Refract(texsys, 2.3f, float3(0.9f, 0.3f, 0.0f))));
-    world->materials_.push_back(std::unique_ptr<Material>(new SimpleMaterial(
-                                                                             new Microfacet(texsys, 2.f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new BlinnDistribution(100.f)))));
+    world->materials_.push_back(std::unique_ptr<Material>(new Glass(texsys, 1.5f, float3(0.7, 0.7f, 0.7f))));
+    //world->materials_.push_back(std::unique_ptr<Material>(new SimpleMaterial(
+                                                                             //new Microfacet(texsys, 2.f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new BlinnDistribution(100.f)))));
     
     world->materials_.push_back(std::unique_ptr<Material>(new SimpleMaterial(
                                                                              new Microfacet(texsys, 5.f, float3(0.3f, 0.7f, 0.3f), "", "", new FresnelDielectric(), new BlinnDistribution(300.f)))));
@@ -1052,11 +1052,11 @@ std::unique_ptr<World> BuildWorldIblTest(TextureSystem const& texsys)
     // Create accelerator
     Bvh* bvh = new Sbvh(10.f, 8);
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(0.f, 5.f, -10.5f), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(0.f, 3.f, -10.5f), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
 
     //EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.6f);
-    EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "Apartment.hdr", 0.6f);
+    EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "Apartment.hdr", 0.8f);
 
     // Add ground plane
     float3 vertices[4] = {
@@ -1538,7 +1538,7 @@ int main()
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
             new GiTracer(10, 1.f), // Tracer
-            new RegularSampler(6), // Image sampler
+            new StratifiedSampler(32, new McRng()), // Image sampler
             new StratifiedSampler(1, new McRng()), // Light sampler
             new StratifiedSampler(1, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter

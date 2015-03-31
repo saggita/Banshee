@@ -84,9 +84,8 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
             {
                 float rnd = rand_float();
 
-                float luminance = 0.2126f * throughput.x + 0.7152f * throughput.y +
-                0.0722f * throughput.z;
-                
+                float luminance = 0.2126f * throughput.x + 0.7152f * throughput.y + 0.0722f * throughput.z;
+
                 float q = std::min(0.5f, luminance);
 
                 if (rnd > q)

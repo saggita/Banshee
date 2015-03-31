@@ -106,7 +106,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                 shadowray.d = wi;
                 
                 // TODO: move ray epsilon into some global options object
-                shadowray.t = float2(0.01f, dist-0.01f);
+                shadowray.t = float2(0.05f, dist-0.05f);
                 
                 // Check for an occlusion
                 float shadow = world.Intersect(shadowray) ? 0.f : 1.f;
@@ -182,13 +182,14 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                     shadowray.d = wi;
 
                     // TODO: move ray epsilon into some global options object
-                    shadowray.t = float2(0.01f, 10000000.f);
+                    shadowray.t = float2(0.05f, 10000000.f);
 
                     // Cast the ray into the scene
                     float t = 0.f;
                     Primitive::Intersection shadowisect;
                     float3 le(0.f, 0.f, 0.f);
                     // If the ray intersects the scene check if we have intersected this light
+                    // TODO: move that to area light class
                     if (world.Intersect(shadowray, t, shadowisect))
                     {
                         // Only sample if this is our light
@@ -197,7 +198,18 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                             Material const& lightmat = *world.materials_[shadowisect.m];
                             // Get material emission properties
                             Primitive::SampleData sampledata(shadowisect);
-                            le = lightmat.Le(sampledata, -wi);
+
+                            float3 d = sampledata.p - isect.p;
+
+                            // If the object facing the light compute emission
+                            if (dot(sampledata.n, -wi) > 0.f)
+                            {
+                                // Emissive power with squared fallof
+                                float d2inv = 1.f / d.sqnorm();
+
+                                // Return emission characteristic of the material
+                                le = lightmat.Le(sampledata, -wi) * d2inv;
+                            }
                         }
                     }
                     else

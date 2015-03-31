@@ -84,7 +84,7 @@ public:
         // Create accelerator
         Bvh* bvh = new Bvh();
         // Create camera
-        Camera* camera = new PerscpectiveCamera(float3(0.f, 2.f, -10.5f), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+        Camera* camera = new PerscpectiveCamera(float3(0.f, 2.f, -10.5f), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, (float)g_imgres.x / g_imgres.y);
         
         // Add ground plane
         float3 vertices[4] = {
@@ -373,14 +373,14 @@ TEST_F(Materials, Reflect)
     // Create renderer
     ImageRenderer imgrenderer(
                                 imgplane, // Image plane
-                                new GiTracer(4, 1.f), // Tracer
+                                new GiTracer(2, 1.f), // Tracer
                                 new RegularSampler(g_num_spp), // Image sampler
                                 new StratifiedSampler(1, new McRng()), // Light sampler
                                 new StratifiedSampler(1, new McRng()) // Brdf sampler
                                 );
     
     // Override world settings: we are testning point light
-    world_->materials_[0].reset(new SimpleMaterial(new PerfectReflect(*texsys_, 2.5f, float3(0.9f, 0.9f, 0.9f), "", "")));
+    world_->materials_[0].reset(new SimpleMaterial(new PerfectReflect(*texsys_, 2.5f, float3(0.7f, 0.7f, 0.7f), "", "")));
     
     // Start testing
     ASSERT_NO_THROW(imgrenderer.Render(*world_));
@@ -444,7 +444,7 @@ TEST_F(Materials, Glass)
                                 new StratifiedSampler(1, new McRng()), // Light sampler
                                 new StratifiedSampler(1, new McRng()) // Brdf sampler
                                 );
-    
+
     // Override world settings: we are testning point light
     world_->materials_[0].reset(new Glass(*texsys_, 2.5f, float3(0.9f, 0.9f, 0.9f), ""));
     

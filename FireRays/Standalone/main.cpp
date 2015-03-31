@@ -149,7 +149,7 @@ std::unique_ptr<World> BuildWorldBlender(TextureSystem const& texsys)
     //SimpleSet* set = new SimpleSet();
     Bvh* bvh = new Sbvh(10.f, 8, true, 10, 0.0001f);
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(-20.5, 5.0f, 10.f), float3(0, 5.0f, 0), float3(0, 1.f, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(-20.5, 15.0f, 10.f), float3(0, 5.0f, 0), float3(0, 1.f, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
     //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
     EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "Apartment.hdr", 0.3f);
@@ -162,10 +162,8 @@ std::unique_ptr<World> BuildWorldBlender(TextureSystem const& texsys)
 
     assimp.onmaterial_ = [&world, &texsys](Material* mat)->int
     {
-        world->materials_.push_back(std::unique_ptr<Material>(/*new SimpleMaterial( new PerfectReflect(texsys, 1.5f, float3(0.8f, 0.8f, 0.7f)))));*/
+        world->materials_.push_back(std::unique_ptr<Material>(new Glass(texsys, 1.5f, float3(0.75f, 0.55f, 0.6f))));
 
-        new SimpleMaterial(
-                                                                             new Microfacet(texsys, 5.f, float3(0.5f, 0.5f, 0.5f), "", "", new FresnelDielectric(), new BlinnDistribution(3000.f)))));
         return (int)(world->materials_.size() - 1);
     };
 
@@ -1022,9 +1020,9 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     // Build materials
     SimpleMaterial* sm = new SimpleMaterial(new Lambert(texsys, float3(0.7f, 0.7f, 0.7f), "", ""));
     SimpleMaterial* sm1 = new SimpleMaterial(new Lambert(texsys, float3(0.7f, 0.2f, 0.2f), "", ""));
-    SimpleMaterial* sm2 = new SimpleMaterial(new Microfacet(texsys, 2.5f, float3(0.1f, 0.8f, 0.2f), "", "", new FresnelDielectric(), new BlinnDistribution(100.f)));
-    Glass* sm3 = new Glass(texsys, 1.5f, float3(0.4f, 0.8f, 0.4f), "");
-    Emissive* emissive = new Emissive(float3(20.f, 18.f, 14.f));
+    SimpleMaterial* sm2 = new SimpleMaterial(new Microfacet(texsys, 5.5f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new BlinnDistribution(500.f)));
+    Glass* sm3 = new Glass(texsys, 2.5f, float3(0.4f, 0.8f, 0.4f), "");
+    Emissive* emissive = new Emissive(float3(40.f, 36.f, 28.f));
     world->materials_.push_back(std::unique_ptr<Material>(sm));
     world->materials_.push_back(std::unique_ptr<Material>(sm1));
     world->materials_.push_back(std::unique_ptr<Material>(emissive));
@@ -1055,7 +1053,7 @@ std::unique_ptr<World> BuildWorldIblTest(TextureSystem const& texsys)
     // Create accelerator
     Bvh* bvh = new Sbvh(10.f, 8);
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(0.f, 3.f, -10.5f), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(4.f, 5.0f, -10.5f), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
 
     //EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.6f);
@@ -1138,8 +1136,8 @@ std::unique_ptr<World> BuildWorldIblTest(TextureSystem const& texsys)
     SimpleMaterial* sm = new SimpleMaterial(new Microfacet(texsys, 2.5f, float3(0.3f, 0.4f, 0.3f), "", "", new FresnelDielectric(), new BlinnDistribution(200.f)));
     SimpleMaterial* sm1 = new SimpleMaterial(new Lambert(texsys, float3(0.7f, 0.2f, 0.2f), "", ""));
     SimpleMaterial* sm2 = new SimpleMaterial(new Microfacet(texsys, 2.5f, float3(0.1f, 0.8f, 0.2f), "", "", new FresnelDielectric(), new BlinnDistribution(100.f)));
-    SimpleMaterial* sm3 = new SimpleMaterial(new PerfectReflect(texsys, 2.5f, float3(0.8f, 0.8f, 0.8f), "", ""));
-    Glass* sm4 = new Glass(texsys, 1.5f, float3(0.8f, 0.8f, 0.8f), "");
+    SimpleMaterial* sm3 = new SimpleMaterial(new PerfectReflect(texsys, 3.5f, float3(0.8f, 0.8f, 0.8f), "", "", new FresnelDielectric()));
+    Glass* sm4 = new Glass(texsys, 2.5f, float3(0.8f, 0.8f, 0.8f), "");
     Emissive* emissive = new Emissive(float3(20.f, 18.f, 14.f));
     world->materials_.push_back(std::unique_ptr<Material>(sm));
     world->materials_.push_back(std::unique_ptr<Material>(sm1));
@@ -1149,9 +1147,8 @@ std::unique_ptr<World> BuildWorldIblTest(TextureSystem const& texsys)
     world->materials_.push_back(std::unique_ptr<Material>(sm4));
     
     MixedMaterial* mm = new MixedMaterial(3.5f);
-    mm->AddBsdf(new Microfacet(texsys, 3.5f, float3(0.1f, 0.8f, 0.1f), "", "", new FresnelDielectric(), new BlinnDistribution(100.f)));
-    mm->AddBsdf(new PerfectRefract(texsys, 3.5f, float3(0.8f, 0.8f, 0.8f), "", ""));
-    mm->AddBsdf(new Lambert(texsys, float3(0.05f, 0.05f, 0.6f), "", ""));
+    mm->AddBsdf(new Microfacet(texsys, 5.5f, float3(0.8f, 0.6f, 0.4f), "", "", new FresnelDielectric(), new BlinnDistribution(400.f)));
+    mm->AddBsdf(new PerfectRefract(texsys, 5.5f, float3(0.8f, 0.8f, 0.8f), "", ""));
     world->materials_.push_back(std::unique_ptr<Material>(mm));
 
 
@@ -1541,7 +1538,7 @@ int main()
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
             new GiTracer(10, 1.f), // Tracer
-            new StratifiedSampler(16, new McRng()), // Image sampler
+            new StratifiedSampler(32, new McRng()), // Image sampler
             new StratifiedSampler(1, new McRng()), // Light sampler
             new StratifiedSampler(1, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter

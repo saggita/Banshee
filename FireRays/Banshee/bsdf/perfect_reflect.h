@@ -104,7 +104,7 @@ public:
         float ndotwi = dot(n, wi);
 
         // Return reflectance value
-        return ndotwi > FLT_EPSILON ? reflectance * ks * (1.f / ndotwi) : float3(0.f, 0.f, 0.f);
+        return ndotwi > FLT_EPSILON ? (reflectance * ks * (1.f / ndotwi)) : float3(0.f, 0.f, 0.f);
     }
 
     // Evaluate combined BSDF value

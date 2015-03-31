@@ -70,7 +70,7 @@ public:
             float3 f = brdfs_[idx]->Sample(isect, sample, wi, wo, pdf);
             // Set type
             type = brdfs_[idx]->GetType();
-            
+
             // For specular just return the value as it has implicit delta function
             if (!(type & Bsdf::SPECULAR))
             {
@@ -81,19 +81,18 @@ public:
                     {
                         f += brdfs_[i]->Evaluate(isect, wi, wo);
                         pdf += brdfs_[i]->Pdf(isect, wi, wo);
-                        
                     }
                 }
-                
+
                 // Normalize
                 pdf /= brdfs_.size();
             }
-            
+
             return f;
         }
         else
         {
-            // Sample BRDFs
+            // Sample BTDFs
             assert(btdfs_.size());
             // Choose which one to sample
             int idx = rand_uint() % btdfs_.size();
@@ -101,7 +100,7 @@ public:
             float3 f = btdfs_[idx]->Sample(isect, sample, wi, wo, pdf);
             // Set type
             type = btdfs_[idx]->GetType();
-            
+
             // For specular just return the value as it has implicit delta function
             if (!(type & Bsdf::SPECULAR))
             {
@@ -114,11 +113,11 @@ public:
                         pdf += btdfs_[i]->Pdf(isect, wi, wo);
                     }
                 }
-                
+
                 // Normalize
                 pdf /= btdfs_.size();
             }
-            
+
             return f;
         }
         
@@ -129,21 +128,16 @@ public:
     // PDF of a given direction sampled from isect.p
     float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
     {
-        // Evaluate Fresnel and choose whether BRDFs or BTDFs should be sampled
-        float reflectance = fresnel_->Evaluate(1.f, eta_, dot(isect.n, wi));
-        
-        float rnd = rand_float();
-        
         float pdf = 0.f;
-        
-        if (btdfs_.size() == 0 || rnd < reflectance)
+
+        if (dot(isect.n, wi) > 0.f)
         {
             // Compute PDF
             for (int i=0;i<(int)brdfs_.size();++i)
             {
                 pdf += brdfs_[i]->Pdf(isect, wi, wo);
             }
-            
+
             // Normalize
             pdf /= brdfs_.size();
         }
@@ -158,21 +152,16 @@ public:
             // Normalize
             pdf /= btdfs_.size();
         }
-        
+
         return pdf;
     }
-    
+
     // Evaluate combined BSDF value
     float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
     {
-        // Evaluate Fresnel and choose whether BRDFs or BTDFs should be sampled
-        float reflectance = fresnel_->Evaluate(1.f, eta_, dot(isect.n, wi));
-        
-        float rnd = rand_float();
-        
         float3 f;
-        
-        if (btdfs_.size() == 0 || rnd < reflectance)
+
+        if (dot(isect.n, wi) > 0.f)
         {
             // Compute PDF
             for (int i=0;i<(int)brdfs_.size();++i)
@@ -182,13 +171,13 @@ public:
         }
         else
         {
-            // Compute PDF
+            // Compute BTDF
             for (int i=0;i<(int)btdfs_.size();++i)
             {
                 f += btdfs_[i]->Evaluate(isect, wi, wo);
             }
         }
-        
+
         return f;
     }
     

@@ -120,7 +120,7 @@ public:
             float3 ks = GET_VALUE(ks_, ksmap_, isect.uv);
             
             // Account for reflectance
-            return ndotwi > FLT_EPSILON ? eta*eta*(1.f - reflectance)*ks*(1.f / ndotwi) : float3(0.f, 0.f, 0.f);
+            return ndotwi > FLT_EPSILON ? (eta*eta*(1.f - reflectance)*ks*(1.f / ndotwi)) : float3(0.f, 0.f, 0.f);
         }
         else
         {

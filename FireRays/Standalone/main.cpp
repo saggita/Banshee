@@ -569,6 +569,229 @@ std::unique_ptr<World> BuildWorldDragon(TextureSystem const& texsys)
     return std::unique_ptr<World>(world);
 }
 
+std::unique_ptr<World> BuildWorldMitsuba(TextureSystem const& texsys)
+{
+    // Create world
+    World* world = new World();
+    // Create accelerator
+    //SimpleSet* set = new SimpleSet();
+    Bvh* bvh = new Sbvh(10.f, 8, true, 10, 0.001f);
+    //Bvh* bvh = new Bvh();
+    // Create camera
+    //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(1, 2, 5.5f), float3(0, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
+    //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(1,0,0), float3(0, 1, 0), float2(0.01f, 10000.f));
+
+    // Create lights
+    //PointLight* light1 = new PointLight(float3(1.f, 1.f, -1.f), float3(0.85f, 0.85f, 0.85f));
+    //EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.8f);
+    EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "Apartment.hdr", 1.2f);
+
+    rand_init();
+
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/mitsuba/mitsuba.obj");
+
+    assimp.onmaterial_ = [&world](Material* mat)->int
+    {
+        world->materials_.push_back(std::unique_ptr<Material>(mat));
+        return (int)(world->materials_.size() - 1);
+    };
+
+    std::vector<Primitive*> primitives;
+    assimp.onprimitive_ = [&primitives](Primitive* prim)
+    //assimp.onprimitive_ = [&set](Primitive* prim)
+    {
+        //set->Emplace(prim);
+        primitives.push_back(prim);
+    };
+
+    // Start assets import
+    assimp.Import();
+
+    // Add ground plane
+    float3 vertices[4] = {
+        float3(-1, 0, -1),
+        float3(-1, 0, 1),
+        float3(1, 0, 1),
+        float3(1, 0, -1)
+    };
+
+    float3 normals[4] = {
+        float3(0, 1, 0),
+        float3(0, 1, 0),
+        float3(0, 1, 0),
+        float3(0, 1, 0)
+    };
+
+    float2 uvs[4] = {
+        float2(0, 0),
+        float2(0, 1),
+        float2(1, 1),
+        float2(1, 0)
+    };
+
+    int indices[6] = {
+        0, 3, 1,
+        3, 1, 2
+    };
+
+    //world->materials_[2].reset(new Glass(texsys, 1.5f, float3(0.7f, 0.8f, 0.75f)));
+
+    world->materials_[2].reset(new SimpleMaterial(new Microfacet(texsys, 3.f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new BlinnDistribution(600.f))));
+
+    int materials[2] = {1, 1};
+
+    matrix worldmat = translation(float3(0, -0.28f, 0)) * scale(float3(5, 1, 5));
+
+    Mesh* mesh = new Mesh(&vertices[0].x, 4, sizeof(float3),
+                          &normals[0].x, 4, sizeof(float3),
+                          &uvs[0].x, 4, sizeof(float2),
+                          indices, sizeof(int),
+                          indices, sizeof(int),
+                          indices, sizeof(int),
+                          materials, sizeof(int),
+                          2, worldmat, inverse(worldmat));
+
+    //primitives.push_back(mesh);
+
+    // Build acceleration structure
+    auto starttime = std::chrono::high_resolution_clock::now();
+    bvh->Build(primitives);
+    auto endtime = std::chrono::high_resolution_clock::now();
+    auto exectime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime - starttime);
+
+    std::cout << "Acceleration structure constructed in " << exectime.count() << " ms\n";
+
+    // Attach accelerator to world
+    world->accelerator_ = std::unique_ptr<Primitive>(bvh);
+    //world->accelerator_ = std::unique_ptr<Primitive>(set);
+    // Attach camera
+    world->camera_ = std::unique_ptr<Camera>(camera);
+    // Attach point lights
+    world->lights_.push_back(std::unique_ptr<Light>(light1));
+    //world->lights_.push_back(std::unique_ptr<Light>(light2));
+    // Set background
+    world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
+
+    // Return world
+    return std::unique_ptr<World>(world);
+}
+
+std::unique_ptr<World> BuildWorldClassroom(TextureSystem const& texsys)
+{
+    // Create world
+    World* world = new World();
+    // Create accelerator
+    //SimpleSet* set = new SimpleSet();
+    Bvh* bvh = new Sbvh(10.f, 8, true, 10, 0.001f);
+    //Bvh* bvh = new Bvh();
+    // Create camera
+    //Camera* camera = new PerscpectiveCamera(float3(0, 1, 4), float3(0, 1, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(-135.f, 110.f, 95.f), float3(-200.f, 110.f, 95.f), float3(0, 1, 0), float2(0.01f, 100000.f), PI / 3, 1.f);
+    //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(1,0,0), float3(0, 1, 0), float2(0.01f, 10000.f));
+
+    // Create lights
+    //PointLight* light0 = new PointLight(float3(-300.f, 150.f, 95.f), float3(1000.85f, 1000.85f, 1000.85f));
+    //EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.8f);
+    EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "Apartment.hdr", 5.8f);
+
+    rand_init();
+
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
+    //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/Contest/classroom.obj");
+
+    assimp.onmaterial_ = [&world](Material* mat)->int
+    {
+        world->materials_.push_back(std::unique_ptr<Material>(mat));
+        return (int)(world->materials_.size() - 1);
+    };
+
+    std::vector<Primitive*> primitives;
+    assimp.onprimitive_ = [&primitives](Primitive* prim)
+    {
+        //set->Emplace(prim);
+        primitives.push_back(prim);
+    };
+
+    // Start assets import
+    assimp.Import();
+
+    // Add ground plane
+    float3 vertices[4] = {
+        float3(-1, 0, -1),
+        float3(-1, 0, 1),
+        float3(1, 0, 1),
+        float3(1, 0, -1)
+    };
+
+    float3 normals[4] = {
+        float3(0, 1, 0),
+        float3(0, 1, 0),
+        float3(0, 1, 0),
+        float3(0, 1, 0)
+    };
+
+    float2 uvs[4] = {
+        float2(0, 0),
+        float2(0, 1),
+        float2(1, 1),
+        float2(1, 0)
+    };
+
+    int indices[6] = {
+        0, 3, 1,
+        3, 1, 2
+    };
+
+    // Clear default material
+    //world->materials_.clear();
+
+    world->materials_.push_back(std::unique_ptr<Material>(new Glass(texsys, 1.5f, float3(0.7f, 0.7f, 0.7f))));
+
+    world->materials_.push_back(std::unique_ptr<Material>(new SimpleMaterial(
+                                                                             new Microfacet(texsys, 5.f, float3(0.3f, 0.7f, 0.3f), "", "", new FresnelDielectric(), new BlinnDistribution(300.f)))));
+
+    int materials[2] = {1, 1};
+
+    matrix worldmat = translation(float3(0, -0.28f, 0)) * scale(float3(5, 1, 5));
+
+    Mesh* mesh = new Mesh(&vertices[0].x, 4, sizeof(float3),
+                          &normals[0].x, 4, sizeof(float3),
+                          &uvs[0].x, 4, sizeof(float2),
+                          indices, sizeof(int),
+                          indices, sizeof(int),
+                          indices, sizeof(int),
+                          materials, sizeof(int),
+                          2, worldmat, inverse(worldmat));
+
+    //primitives.push_back(mesh);
+
+    // Build acceleration structure
+    auto starttime = std::chrono::high_resolution_clock::now();
+    bvh->Build(primitives);
+    auto endtime = std::chrono::high_resolution_clock::now();
+    auto exectime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime - starttime);
+
+    std::cout << "Acceleration structure constructed in " << exectime.count() << " ms\n";
+
+    // Attach accelerator to world
+    world->accelerator_ = std::unique_ptr<Primitive>(bvh);
+    //world->accelerator_ = std::unique_ptr<Primitive>(set);
+    // Attach camera
+    world->camera_ = std::unique_ptr<Camera>(camera);
+    // Attach point lights
+    world->lights_.push_back(std::unique_ptr<Light>(light1));
+    //world->lights_.push_back(std::unique_ptr<Light>(light0));
+    // Set background
+    world->bgcolor_ = float3(0.4f, 0.4f, 0.4f);
+
+    // Return world
+    return std::unique_ptr<World>(world);
+}
+
 //std::unique_ptr<World> BuildWorldTest(TextureSystem const& texsys)
 //{
 //    // Create world
@@ -1505,7 +1728,7 @@ int main()
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldBlender(texsys);
+        std::unique_ptr<World> world = BuildWorldMitsuba(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -1538,7 +1761,7 @@ int main()
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
             new GiTracer(10, 1.f), // Tracer
-            new StratifiedSampler(32, new McRng()), // Image sampler
+            new StratifiedSampler(8, new McRng()), // Image sampler
             new StratifiedSampler(1, new McRng()), // Light sampler
             new StratifiedSampler(1, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter

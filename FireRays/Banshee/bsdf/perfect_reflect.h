@@ -38,6 +38,9 @@
 #include "bsdf.h"
 #include "fresnel.h"
 
+#define _USE_MATH_DEFINES
+#include <math.h>
+
 ///< Specular reflection is the mirror-like reflection of light (or of other kinds of wave) from a surface, 
 ///< in which light from a single incoming direction (a ray) is reflected into a single outgoing direction. 
 ///< Such behavior is described by the law of reflection, which states that the direction of incoming light (the incident ray), 

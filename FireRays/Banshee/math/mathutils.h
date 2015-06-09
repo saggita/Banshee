@@ -48,6 +48,11 @@
 #include <vector>
 
 #define PI 3.14159265358979323846f
+
+#ifndef WIN32
+#define FLT_EPSILON 0.00000000001f
+#endif
+
 #define OFFSETOF(struc,member) (&(((struc*)0)->member))
 
 /// Initialize RNG

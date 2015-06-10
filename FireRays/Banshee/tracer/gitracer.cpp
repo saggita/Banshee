@@ -47,11 +47,12 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
             //assert(!has_nans(radiance));
 
             // TODO: workaround for more than 1 brdf sample
-            for (int s=0; s<brdfsampler.num_samples()-1; ++s)
-                brdfsampler.Sample2D();
+            std::vector<float2> samples(brdfsampler.num_samples());
+            for (int s=0; s<brdfsampler.num_samples(); ++s)
+                samples[s] = brdfsampler.Sample2D();
 
             // Sample BSDF to continue path
-            float2 bsdfsample = brdfsampler.Sample2D();
+            float2 bsdfsample = samples[rand_uint() % samples.size()];
             // BSDF type
             int bsdftype = 0;
             // BSDF PDF

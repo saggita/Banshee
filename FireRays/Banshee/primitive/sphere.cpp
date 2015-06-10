@@ -130,15 +130,14 @@ void Sphere::FillIntersectionInfo(float3 const& p, Intersection& isect) const
     // so transform position back into world space
     isect.p = transform_point(p, worldmat_);
 
-    isect.n = normalize(transform_normal(cross(dpdv, dpdu), worldmatinv_));
+    isect.n = isect.ng = normalize(transform_normal(cross(dpdv, dpdu), worldmatinv_));
 
     // Remap spehrical coords into [0,1] uv range
     isect.uv = float2(phi/(2 * PI), theta/PI);
 
     // Transform partial derivatives into world space
     isect.dpdu = normalize(transform_normal(dpdu, worldmatinv_));
-    isect.dpdv = normalize(transform_normal(dpdv, worldmatinv_));
-    //isect.n = cross(isect.dpdu, isect.dpdv); 
+    isect.dpdv = normalize(transform_normal(dpdv, worldmatinv_)); 
 
     // Material index
     isect.m  = m_;

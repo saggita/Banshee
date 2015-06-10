@@ -52,8 +52,10 @@ public:
     {
         // World space position
         float3 p;
-        // World space normal
+        // World space shading normal
         float3 n;
+        // World space geometric normal
+        float3 ng;
         // Tangent
         float3 dpdu;
         // Bitangent

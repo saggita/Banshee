@@ -65,15 +65,8 @@ public:
     // Sample material and return outgoing ray direction along with combined BSDF value
     float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
-        // Backup for normal mapping
-        Primitive::Intersection isectlocal = isect;
-        
-        // Alter normal if needed
-        // TODO: fix tangents as well
-        MAP_NORMAL(nmap_, isectlocal);
-        
-        // Revert normal based on ORIGINAL normal, not mapped one
-        float3 n = dot(wi, isect.n) >= 0.f ? isectlocal.n : -isectlocal.n;
+        // Revert normal based on geometric normal
+        float3 n = dot(wi, isect.ng) >= 0.f ? isect.n : -isect.n;
         
         // Map random sample to hemisphere getting cosine weigted distribution
         wo = map_to_hemisphere(n, sample, 1.f);
@@ -95,7 +88,7 @@ public:
     float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
     {
         // If wi and wo are on the same side of the surface return 1 / PI, otherwise 0.f
-        float sameside = dot(wi, isect.n) * dot(wo, isect.n) ;
+        float sameside = dot(wi, isect.ng) * dot(wo, isect.ng) ;
         
         if (sameside > 0.f)
         {
@@ -116,18 +109,12 @@ public:
     float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
     {
         // If wi and wo are on the same side of the surface return dot(n, wo) / PI, otherwise 0.f
-        float sameside = dot(wi, isect.n) * dot(wo, isect.n) ;
+        float sameside = dot(wi, isect.ng) * dot(wo, isect.ng) ;
         
         if (sameside > 0.f)
         {
-            // Backup for normal mapping
-            Primitive::Intersection isectlocal = isect;
             
-            // Alter normal if needed
-            // TODO: fix tangents as well
-            MAP_NORMAL(nmap_, isectlocal);
-            
-            float3 n = dot(wi, isect.n) >= 0.f ? isectlocal.n : -isectlocal.n;
+            float3 n = dot(wi, isect.ng) >= 0.f ? isect.n : -isect.n;
             
             float invpi = 1.f / PI;
             

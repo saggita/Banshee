@@ -66,6 +66,7 @@
 #include "sampler/random_sampler.h"
 #include "sampler/regular_sampler.h"
 #include "sampler/stratified_sampler.h"
+#include "sampler/multijittered_sampler.h"
 #include "rng/mcrng.h"
 #include "material/simplematerial.h"
 #include "material/emissive.h"
@@ -1147,7 +1148,7 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     // Create accelerator
     Bvh* bvh = new Sbvh(10.f, 8);
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(5.f, 5.f, -10.5), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(5.f, 5.f, -10.5), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 800.f/600.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
 
     
@@ -1276,7 +1277,7 @@ std::unique_ptr<World> BuildWorldIblTest(TextureSystem const& texsys)
     // Create accelerator
     Bvh* bvh = new Sbvh(10.f, 8);
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(4.f, 5.0f, -10.5f), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(4.f, 5.0f, -10.5f), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 800.f/600.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
 
     //EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 0.6f);
@@ -1722,13 +1723,13 @@ int main()
 
         // File name to render
         std::string filename = "result.png";
-        int2 imgres = int2(512, 512);
+        int2 imgres = int2(800, 600);
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");
 
         // Build world
         std::cout << "Constructing world...\n";
-        std::unique_ptr<World> world = BuildWorldMitsuba(texsys);
+        std::unique_ptr<World> world = BuildWorldAreaLightTest(texsys);
 
         // Create OpenImageIO based IO api
         OiioImageIo io;
@@ -1760,10 +1761,10 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
-            new GiTracer(10, 1.f), // Tracer
+            new GiTracer(5, 1.f), // Tracer
             new StratifiedSampler(8, new McRng()), // Image sampler
-            new StratifiedSampler(1, new McRng()), // Light sampler
-            new StratifiedSampler(1, new McRng()), // Brdf sampler
+            new StratifiedSampler(4, new McRng()), // Light sampler
+            new StratifiedSampler(4, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter
             );
 

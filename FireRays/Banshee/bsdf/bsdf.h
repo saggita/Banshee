@@ -81,6 +81,8 @@ public:
     // Get BSDF type
     int GetType() const { return type_; }
 
+    TextureSystem const& GetTextureSystem() const { return texturesys_; }
+
 protected:
     // Apply normal mapping
     void MapNormal(std::string const& nmap, Primitive::Intersection& isect) const;

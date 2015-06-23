@@ -70,13 +70,13 @@ public:
     virtual ~Bsdf() {}
 
     // Sample material and return outgoing ray direction along with combined BSDF value
-    virtual float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const = 0;
+    virtual float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const = 0;
 
     // Evaluate combined BSDF value
-    virtual float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const = 0;
+    virtual float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const = 0;
 
     // PDF of a given direction sampled from isect.p
-    virtual float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const = 0;
+    virtual float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const = 0;
 
     // Get BSDF type
     int GetType() const { return type_; }
@@ -99,8 +99,19 @@ inline void Bsdf::MapNormal(std::string const& nmap, Primitive::Intersection& is
     // We dont need bilinear interpolation while fetching normals
     // Use point instead
     TextureSystem::Options opts(TextureSystem::Options::kPoint);
-    float3 normal = 2.f * texturesys_.Sample(nmap, isect.uv, float2(0,0), opts) - float3(1.f, 1.f, 1.f);
-    isect.n = normalize(isect.n * normal.z + isect.dpdu * normal.x + isect.dpdv * normal.y);
+    
+    float3 n = isect.n;
+    float ndotdu = dot(n, isect.dpdu);
+    
+    float3 du = normalize(isect.dpdu -  ndotdu * n);
+    
+    float dudotdv = dot(du, isect.dpdv);
+    
+    float3 dv = normalize(isect.dpdv - ndotdu * n - dudotdv * du);
+    
+    float3 normal = normalize(2.f * texturesys_.Sample(nmap, isect.uv, float2(0,0), opts) - float3(1.f, 1.f, 1.f));
+    
+    isect.n = normalize(n * normal.z + du * normal.x - dv * normal.y);
 }
 
 

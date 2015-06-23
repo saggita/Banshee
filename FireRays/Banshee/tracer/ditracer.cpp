@@ -50,8 +50,7 @@ float3 DiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
 
 float3 DiTracer::Di(World const& world, Light const& light, Sampler const& lightsampler, Sampler const& bsdfsampler, float3 const& wo, Primitive::Intersection& isect) const
 {
-    float3 radiance = float3(0,0,0);
-    
+    float3 radiance;
     // TODO: fix that later with correct heuristic
     assert(lightsampler.num_samples() == bsdfsampler.num_samples());
     
@@ -85,10 +84,14 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
         // Start sampling
         for (int i=0; i<numsamples; ++i)
         {
-            // Sample light source
-            float3 le = light.Sample(isect, lightsamples[i], lightdir, lightpdf);
+            lightpdf = 0.f;
+            bsdfpdf = 0.f;
             
-            //assert(!has_nans(le));
+            // This is needed to support normal mapping.
+            // Original intersection needs to be kept around since bsdf might alter the normal
+            Primitive::Intersection isectlocal = isect;
+            // Sample light source
+            float3 le = light.Sample(isectlocal, lightsamples[i], lightdir, lightpdf);
             
             // Continue if intensity > 0 and there is non-zero probability of sampling the point
             if (lightpdf > 0.0f && le.sqnorm() > 0.f)
@@ -101,12 +104,12 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                 // Spawn shadow ray
                 ray shadowray;
                 // From an intersection point
-                shadowray.o = isect.p;
+                shadowray.o = isectlocal.p;
                 // Into evaluated direction
                 shadowray.d = wi;
                 
                 // TODO: move ray epsilon into some global options object
-                shadowray.t = float2(0.05f, dist-0.05f);
+                shadowray.t = float2(0.005f, dist);
                 
                 // Check for an occlusion
                 float shadow = world.Intersect(shadowray) ? 0.f : 1.f;
@@ -115,7 +118,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                 if (shadow > 0.f)
                 {
                     // Evaluate BSDF
-                    float3 bsdf = mat.Evaluate(isect, wi, wo);
+                    float3 bsdf = mat.Evaluate(isectlocal, wi, wo);
                     
                     //assert(!has_nans(bsdf));
                     
@@ -123,17 +126,17 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                     if (singularlight)
                     {
                         // Estimate with Monte-Carlo L(wo) = int{ Ld(wi, wo) * fabs(dot(n, wi)) * dwi }
-                        radiance +=  le * bsdf * fabs(dot(isect.n, wi)) * (1.f / lightpdf);
+                        radiance +=  le * bsdf * fabs(dot(isectlocal.n, wi)) * (1.f / lightpdf);
                         //assert(!has_nans(radiance));
                     }
                     else
                     {
                         // Apply MIS
-                        bsdfpdf = mat.Pdf(isect, wi, wo);
+                        bsdfpdf = mat.Pdf(isectlocal, wi, wo);
                         // Evaluate weight
                         float weight = PowerHeuristic(1, lightpdf, 1, bsdfpdf);
                         // Estimate with Monte-Carlo L(wo) = int{ Ld(wi, wo) * fabs(dot(n, wi)) * dwi }
-                        radiance +=  le * bsdf * fabs(dot(isect.n, wi)) * weight * (1.f / lightpdf);
+                        radiance +=  le * bsdf * fabs(dot(isectlocal.n, wi)) * weight * (1.f / lightpdf);
                         //assert(!has_nans(radiance));
                     }
                 }
@@ -146,7 +149,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                 float3 wi;
 
                 // Sample material
-                float3 bsdf = mat.Sample(isect, bsdfsamples[i], wo, wi, bsdfpdf, bsdftype);
+                float3 bsdf = mat.Sample(isectlocal, bsdfsamples[i], wo, wi, bsdfpdf, bsdftype);
                 //assert(!has_nans(bsdf));
                 //assert(!has_nans(bsdfpdf < 1000000.f));
 
@@ -162,7 +165,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                     if (! (bsdftype & Bsdf::SPECULAR))
                     {
                         // Evaluate light PDF
-                        lightpdf = light.Pdf(isect, wi);
+                        lightpdf = light.Pdf(isectlocal, wi);
 
                         // If light PDF is zero skip to next sample
                         if (lightpdf == 0.f)
@@ -177,7 +180,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                     // Spawn shadow ray
                     ray shadowray;
                     // From an intersection point
-                    shadowray.o = isect.p;
+                    shadowray.o = isectlocal.p;
                     // Into evaluated direction
                     shadowray.d = wi;
 
@@ -199,7 +202,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                             // Get material emission properties
                             Primitive::SampleData sampledata(shadowisect);
 
-                            float3 d = sampledata.p - isect.p;
+                            float3 d = sampledata.p - isectlocal.p;
 
                             // If the object facing the light compute emission
                             if (dot(sampledata.n, -wi) > 0.f)
@@ -221,7 +224,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                     if (le.sqnorm() > 0.f)
                     {
                         // Estimate with Monte-Carlo L(wo) = int{ Ld(wi, wo) * fabs(dot(n, wi)) * dwi }
-                        radiance +=  le * bsdf * fabs(dot(isect.n, wi)) * weight * (1.f / bsdfpdf);
+                        radiance +=  le * bsdf * fabs(dot(isectlocal.n, wi)) * weight * (1.f / bsdfpdf);
                         //assert(!has_nans(radiance));
                     }
                 }

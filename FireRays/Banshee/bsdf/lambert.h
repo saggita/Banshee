@@ -63,7 +63,7 @@ public:
     }
     
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
+    float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
         // Revert normal based on geometric normal
         float3 n = dot(wi, isect.ng) >= 0.f ? isect.n : -isect.n;
@@ -85,7 +85,7 @@ public:
     }
 
     // Evaluate combined BSDF value
-    float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
+    float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
     {
         // If wi and wo are on the same side of the surface return 1 / PI, otherwise 0.f
         float sameside = dot(wi, isect.ng) * dot(wo, isect.ng) ;
@@ -106,7 +106,7 @@ public:
     }
     
     // Return pdf for wo to be sampled for wi
-    float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
+    float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
     {
         // If wi and wo are on the same side of the surface return dot(n, wo) / PI, otherwise 0.f
         float sameside = dot(wi, isect.ng) * dot(wo, isect.ng) ;

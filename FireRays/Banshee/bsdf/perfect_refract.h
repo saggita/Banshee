@@ -52,7 +52,7 @@ public:
                    // Refractive index
                    float eta,
                    // Specular refract color
-                   float3 ks = float3(1.f, 1.f, 1.f),
+                   float3 ks = float3(0.7f, 0.7f, 0.7f),
                    // Specular refract map
                    std::string const& ksmap = "",
                    // Normal map
@@ -71,7 +71,7 @@ public:
     }
 
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
+    float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
 
         // Backup for normal mapping
@@ -132,14 +132,14 @@ public:
     }
 
     // Evaluate combined BSDF value
-    float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
+    float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
     {
         // Delta function, return 0
         return float3(0.f, 0.f, 0.f);
     }
     
     // Return pdf for wo to be sampled for wi
-    float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
+    float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
     {
         // Delta function, return 0
         return 0.f;

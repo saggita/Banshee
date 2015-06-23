@@ -10,10 +10,10 @@ float2 StratifiedSampler::Sample2D() const
 
     int idx = (sampleidx_++) % (gridsize_ * gridsize_);
 
-    if (idx == 0)
-    {
-        std::random_shuffle(permutation_.begin(), permutation_.end());
-    }
+    //if (idx == 0)
+    //{
+        //std::random_shuffle(permutation_.begin(), permutation_.end());
+    //}
 
     idx = permutation_[idx];
 

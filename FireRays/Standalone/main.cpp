@@ -66,7 +66,7 @@
 #include "sampler/random_sampler.h"
 #include "sampler/regular_sampler.h"
 #include "sampler/stratified_sampler.h"
-#include "sampler/multijittered_sampler.h"
+//#include "sampler/multijittered_sampler.h"
 #include "rng/mcrng.h"
 #include "material/simplematerial.h"
 #include "material/emissive.h"
@@ -76,6 +76,7 @@
 #include "bsdf/microfacet.h"
 #include "bsdf/perfect_reflect.h"
 #include "bsdf/perfect_refract.h"
+#include "bsdf/normal_mapping.h"
 #include "texture/oiio_texturesystem.h"
 #include "import/assimp_assetimporter.h"
 #include "util/progressreporter.h"
@@ -1148,7 +1149,7 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     // Create accelerator
     Bvh* bvh = new Sbvh(10.f, 8);
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(5.f, 5.f, -10.5), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 800.f/600.f);
+    Camera* camera = new PerscpectiveCamera(float3(5.5f, 5.f, -10.5), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
 
     
@@ -1200,7 +1201,9 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
                           2, worldmat, inverse(worldmat));
     
     worldmat = translation(float3(0, 4.f, 0));
+    
     int ematerials[2] = {2,2};
+    
     Mesh* lightmesh = new Mesh(&vertices[0].x, 4, sizeof(float3),
                           &negnormals[0].x, 4, sizeof(float3),
                           &uvs[0].x, 4, sizeof(float2),
@@ -1209,10 +1212,34 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
                           indices, sizeof(int),
                           ematerials, sizeof(int),
                           2, worldmat, inverse(worldmat));
+    
+    worldmat = translation(float3(3.f, 4.f, 0));
+    
+    Mesh* lightmesh1 = new Mesh(&vertices[0].x, 4, sizeof(float3),
+                               &negnormals[0].x, 4, sizeof(float3),
+                               &uvs[0].x, 4, sizeof(float2),
+                               indices, sizeof(int),
+                               indices, sizeof(int),
+                               indices, sizeof(int),
+                               ematerials, sizeof(int),
+                               2, worldmat, inverse(worldmat));
+    
+    worldmat = translation(float3(-3.f, 4.f, 0));
+    
+    Mesh* lightmesh2 = new Mesh(&vertices[0].x, 4, sizeof(float3),
+                                &negnormals[0].x, 4, sizeof(float3),
+                                &uvs[0].x, 4, sizeof(float2),
+                                indices, sizeof(int),
+                                indices, sizeof(int),
+                                indices, sizeof(int),
+                                ematerials, sizeof(int),
+                                2, worldmat, inverse(worldmat));
 
     std::vector<Primitive*> prims;
     prims.push_back(mesh);
     prims.push_back(lightmesh);
+    prims.push_back(lightmesh1);
+    prims.push_back(lightmesh2);
 
     worldmat = translation(float3(-2, 0, 0)) * rotation_x(PI/2);
     prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 1));
@@ -1242,11 +1269,11 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
 
     // Build materials
-    SimpleMaterial* sm = new SimpleMaterial(new Lambert(texsys, float3(0.7f, 0.7f, 0.7f), "", ""));
-    SimpleMaterial* sm1 = new SimpleMaterial(new Lambert(texsys, float3(0.7f, 0.2f, 0.2f), "", ""));
-    SimpleMaterial* sm2 = new SimpleMaterial(new Microfacet(texsys, 5.5f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new BlinnDistribution(500.f)));
+    SimpleMaterial* sm = new SimpleMaterial(new NormalMapping(new Lambert(texsys, float3(0.7f, 0.7f, 0.7f)), "cf.png"));
+    SimpleMaterial* sm1 = new SimpleMaterial(new NormalMapping(new Lambert(texsys, float3(0.7f, 0.2f, 0.2f), "", ""), "cf.png"));
+    SimpleMaterial* sm2 = new SimpleMaterial(new NormalMapping(new Microfacet(texsys, 5.5f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new BlinnDistribution(500.f)), "cf.png"));
     Glass* sm3 = new Glass(texsys, 2.5f, float3(0.4f, 0.8f, 0.4f), "");
-    Emissive* emissive = new Emissive(float3(40.f, 36.f, 28.f));
+    Emissive* emissive = new Emissive(float3(13.f, 11.f, 8.f));
     world->materials_.push_back(std::unique_ptr<Material>(sm));
     world->materials_.push_back(std::unique_ptr<Material>(sm1));
     world->materials_.push_back(std::unique_ptr<Material>(emissive));
@@ -1255,6 +1282,9 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     
     std::vector<Primitive*> meshprims;
     lightmesh->Refine(meshprims);
+    lightmesh1->Refine(meshprims);
+    lightmesh2->Refine(meshprims);
+    
 
     for (int i=0; i<meshprims.size();++i)
     {
@@ -1723,7 +1753,7 @@ int main()
 
         // File name to render
         std::string filename = "result.png";
-        int2 imgres = int2(800, 600);
+        int2 imgres = int2(512, 512);
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");
 
@@ -1761,10 +1791,10 @@ int main()
         // Create renderer w/ direct illumination trace
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
-            new GiTracer(5, 1.f), // Tracer
-            new StratifiedSampler(8, new McRng()), // Image sampler
-            new StratifiedSampler(4, new McRng()), // Light sampler
-            new StratifiedSampler(4, new McRng()), // Brdf sampler
+            new GiTracer(10, 1.f), // Tracer
+            new StratifiedSampler(4, new McRng()), // Image sampler
+            new StratifiedSampler(2, new McRng()), // Light sampler
+            new StratifiedSampler(2, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter
             );
 

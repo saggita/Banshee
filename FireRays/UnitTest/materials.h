@@ -41,7 +41,7 @@
 #include "bsdf/orennayar.h"
 #include "bsdf/perfect_reflect.h"
 #include "bsdf/perfect_refract.h"
-#include "bsdf/normalmapping.h"
+#include "bsdf/normal_mapping.h"
 
 
 #include "texture/oiio_texturesystem.h"
@@ -283,7 +283,7 @@ TEST_F(Materials, LambertNormalMapped)
     
     // Override world settings: we are testning point light
     world_->materials_[0].reset(new SimpleMaterial(
-        new NormalMapping(new Lambert(*texsys_, float3(0.7f, 0.7f, 0.7f), "", "kamen-bump.png"), "kamen-bump.png")
+        new NormalMapping(new Lambert(*texsys_, float3(0.7f, 0.7f, 0.7f), "", "cf.png"), "cf.png")
         ));
     
     // Start testing

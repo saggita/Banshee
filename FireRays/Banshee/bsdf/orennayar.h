@@ -51,7 +51,7 @@ public:
               // Texture system
               TextureSystem const& texturesys,
               // Diffuse color
-              float3 kd = float3(1.f, 1.f, 1.f),
+              float3 kd = float3(0.7f, 0.7f, 0.7f),
               // Roughness value
               float  kr = 1.f,
               // Diffuse map
@@ -71,7 +71,7 @@ public:
     }
     
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
+    float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
         // Backup for normal mapping
         Primitive::Intersection isectlocal = isect;
@@ -97,7 +97,7 @@ public:
     }
     
     // Evaluate combined BSDF value
-    float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
+    float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
     {
         // Return 0 if wo and wi are on different sides
         float sameside = dot(wi, isect.n) * dot(wo, isect.n) ;
@@ -171,7 +171,7 @@ public:
     }
     
     // Return pdf for wo to be sampled for wi
-    float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
+    float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
     {
         // If wi and wo are on the same side of the surface
         float sameside = dot(wi, isect.n) * dot(wo, isect.n);

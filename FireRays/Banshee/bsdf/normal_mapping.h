@@ -30,83 +30,69 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  (This is the Modified BSD License)
  */
-#ifndef GLASS_H
-#define GLASS_H
+#ifndef NORMALMAPPING_H
+#define NORMALMAPPING_H
 
-#include <string>
-#include <memory>
+#include "bsdf.h"
 
-#include "material.h"
-#include "../bsdf/perfect_reflect.h"
-#include "../bsdf/perfect_refract.h"
-
-///< Glass is custom material designed to represent reflective + refractive surface
+///< Decorator enclsoing real BSDF which adds normal mapping capabilities
 ///<
-class Glass : public Material
+class NormalMapping : public Bsdf
 {
 public:
     // Constructor
-    Glass(// Texture system
-          TextureSystem const& texsys,
-          // Refractive index
-          float eta,
-          // Specular color
-          float3 const& ks,
-          // Specular texture
-          std::string const& ksmap = ""
-          )
-    : brdf_(new PerfectReflect(texsys, eta, ks, ksmap, "", new FresnelDielectric()))
-    , btdf_(new PerfectRefract(texsys, eta, ks, ksmap, "", new FresnelDielectric()))
-    , fresnel_(new FresnelDielectric())
-    , eta_(eta)
+    NormalMapping(
+                  // Enclosed BSDF
+                  Bsdf* bsdf,
+                  // Normal map
+                  std::string nmap
+                  )
+    : Bsdf(bsdf->GetTextureSystem(), bsdf->GetType())
+    , bsdf_(bsdf)
+    , nmap_(nmap)
     {
     }
     
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf, int& type) const
+    float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
-        // Split sampling based on Fresnel
-        float rnd = rand_float();
+        // Alter normal if needed
+        // TODO: fix tangents as well
+        MAP_NORMAL(nmap_, isect);
         
-        float r = fresnel_->Evaluate(1.f, eta_, dot(isect.n, wi));
-        
-        // Reflective part
-        if (rnd < r)
-        {
-            type = brdf_->GetType();
-            float3 f = brdf_->Sample(isect, sample, wi, wo, pdf);
-            pdf *= r;
-            return f;
-        }
-        // Refractive part
-        else
-        {
-            type = btdf_->GetType();
-            float3 f = btdf_->Sample(isect, sample, wi, wo, pdf);
-            pdf *= (1.f - r);
-            return f;
-        }
-    }
-    
-    // PDF of a given direction sampled from isect.p
-    float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
-    {
-        return 0.f;
+        return bsdf_->Sample(isect, sample, wi, wo, pdf);
     }
     
     // Evaluate combined BSDF value
     float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
     {
-        return float3();
+        // Alter normal if needed
+        // TODO: fix tangents as well
+        MAP_NORMAL(nmap_, isect);
+        
+        return bsdf_->Evaluate(isect, wi, wo);
     }
     
-private:
-    // Refractive index
-    float eta_;
-    std::unique_ptr<Bsdf> brdf_;
-    std::unique_ptr<Bsdf> btdf_;
-    // TODO: need to save space and not spawn Fresnel objects everywhere
-    std::unique_ptr<Fresnel> fresnel_;
- };
+    // PDF of a given direction sampled from isect.p
+    float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    {
+        // Alter normal if needed
+        // TODO: fix tangents as well
+        MAP_NORMAL(nmap_, isect);
+        
+        return bsdf_->Pdf(isect, wi, wo);
+        
+    }
+    
+    // Get BSDF type
+    int GetType() const { return bsdf_->GetType(); }
+    
+protected:
+    Bsdf* bsdf_;
+    //
+    std::string nmap_;
+    
+};
 
-#endif // GLASS_H
+
+#endif // NORMALMAPPING_H

@@ -52,7 +52,7 @@ public:
 
 
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf, int& type) const
+    float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf, int& type) const
     {
         // Make sure to set PDF to 0, method is not supposed to be called 
         pdf = 0.f;
@@ -62,14 +62,14 @@ public:
     }
 
     // Evaluate combined BSDF value
-    float3 Evaluate(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const 
+    float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
     {
         // This method is not supposed to be called on emissive, but anyway
         return Le(isect, wi);
     }
     
     // PDF of a given direction sampled from isect.p
-    float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
+    float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
     {
         return 0.f;
     }

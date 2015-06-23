@@ -40,7 +40,6 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
         samples[s] = brdfsampler.Sample2D();
     }
     
-    
     // Start calculating indrect paths
     for (int s=0;s<numsamples;++s)
     {

@@ -57,7 +57,6 @@ public:
     float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
         // Alter normal if needed
-        // TODO: fix tangents as well
         MAP_NORMAL(nmap_, isect);
         
         return bsdf_->Sample(isect, sample, wi, wo, pdf);
@@ -67,7 +66,6 @@ public:
     float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
     {
         // Alter normal if needed
-        // TODO: fix tangents as well
         MAP_NORMAL(nmap_, isect);
         
         return bsdf_->Evaluate(isect, wi, wo);
@@ -76,12 +74,11 @@ public:
     // PDF of a given direction sampled from isect.p
     float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
     {
+        Primitive::Intersection isectlocal = isect;
         // Alter normal if needed
-        // TODO: fix tangents as well
-        MAP_NORMAL(nmap_, isect);
+        MAP_NORMAL(nmap_, isectlocal);
         
-        return bsdf_->Pdf(isect, wi, wo);
-        
+        return bsdf_->Pdf(isectlocal, wi, wo);
     }
     
     // Get BSDF type

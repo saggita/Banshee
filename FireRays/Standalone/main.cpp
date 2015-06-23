@@ -66,7 +66,8 @@
 #include "sampler/random_sampler.h"
 #include "sampler/regular_sampler.h"
 #include "sampler/stratified_sampler.h"
-//#include "sampler/multijittered_sampler.h"
+#include "sampler/multijittered_sampler.h"
+#include "sampler/sobol_sampler.h"
 #include "rng/mcrng.h"
 #include "material/simplematerial.h"
 #include "material/emissive.h"
@@ -1149,10 +1150,9 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     // Create accelerator
     Bvh* bvh = new Sbvh(10.f, 8);
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(5.5f, 5.f, -10.5), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(3.5f, 5.f, -10.5), float3(0.f, 0.f,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
 
-    
     // Add ground plane
     float3 vertices[4] = {
         float3(-1, 0, -1),
@@ -1269,9 +1269,9 @@ std::unique_ptr<World> BuildWorldAreaLightTest(TextureSystem const& texsys)
     world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
 
     // Build materials
-    SimpleMaterial* sm = new SimpleMaterial(new NormalMapping(new Lambert(texsys, float3(0.7f, 0.7f, 0.7f)), "cf.png"));
-    SimpleMaterial* sm1 = new SimpleMaterial(new NormalMapping(new Lambert(texsys, float3(0.7f, 0.2f, 0.2f), "", ""), "cf.png"));
-    SimpleMaterial* sm2 = new SimpleMaterial(new NormalMapping(new Microfacet(texsys, 5.5f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new BlinnDistribution(500.f)), "cf.png"));
+    SimpleMaterial* sm = new SimpleMaterial(new NormalMapping(new Lambert(texsys, float3(0.7f, 0.7f, 0.7f), "maniwall.png"), "maniwalln.png"));
+    SimpleMaterial* sm1 = new SimpleMaterial(new Lambert(texsys, float3(0.7f, 0.2f, 0.2f), "", ""));
+    SimpleMaterial* sm2 = new SimpleMaterial(new Microfacet(texsys, 5.5f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new BlinnDistribution(500.f)));
     Glass* sm3 = new Glass(texsys, 2.5f, float3(0.4f, 0.8f, 0.4f), "");
     Emissive* emissive = new Emissive(float3(13.f, 11.f, 8.f));
     world->materials_.push_back(std::unique_ptr<Material>(sm));
@@ -1388,9 +1388,9 @@ std::unique_ptr<World> BuildWorldIblTest(TextureSystem const& texsys)
     
     // Build materials
     SimpleMaterial* sm = new SimpleMaterial(new Microfacet(texsys, 2.5f, float3(0.3f, 0.4f, 0.3f), "", "", new FresnelDielectric(), new BlinnDistribution(200.f)));
-    SimpleMaterial* sm1 = new SimpleMaterial(new Lambert(texsys, float3(0.7f, 0.2f, 0.2f), "", ""));
+    SimpleMaterial* sm1 = new SimpleMaterial(new NormalMapping(new Lambert(texsys, float3(0.7f, 0.2f, 0.2f), "", ""), "carbonfiber.png"));
     SimpleMaterial* sm2 = new SimpleMaterial(new Microfacet(texsys, 2.5f, float3(0.1f, 0.8f, 0.2f), "", "", new FresnelDielectric(), new BlinnDistribution(100.f)));
-    SimpleMaterial* sm3 = new SimpleMaterial(new PerfectReflect(texsys, 3.5f, float3(0.8f, 0.8f, 0.8f), "", "", new FresnelDielectric()));
+    SimpleMaterial* sm3 = new SimpleMaterial(new NormalMapping(new PerfectReflect(texsys, 3.5f, float3(0.8f, 0.8f, 0.8f), "", "", new FresnelDielectric()), "carbonfiber.png"));
     Glass* sm4 = new Glass(texsys, 2.5f, float3(0.8f, 0.8f, 0.8f), "");
     Emissive* emissive = new Emissive(float3(20.f, 18.f, 14.f));
     world->materials_.push_back(std::unique_ptr<Material>(sm));
@@ -1744,7 +1744,7 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
 //}
 
 
-int main()
+/*int main()
 {
     try
     {
@@ -1753,7 +1753,7 @@ int main()
 
         // File name to render
         std::string filename = "result.png";
-        int2 imgres = int2(512, 512);
+        int2 imgres = int2(800, 600);
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");
 
@@ -1792,9 +1792,9 @@ int main()
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
             new GiTracer(10, 1.f), // Tracer
-            new StratifiedSampler(4, new McRng()), // Image sampler
-            new StratifiedSampler(2, new McRng()), // Light sampler
-            new StratifiedSampler(2, new McRng()), // Brdf sampler
+            new RandomSampler(4, new McRng()), // Image sampler
+            new RandomSampler(1, new McRng()), // Light sampler
+            new RandomSampler(1, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter
             );
 
@@ -1814,4 +1814,309 @@ int main()
     }
 
     return 0;
+}*/
+
+
+#ifdef __APPLE__
+#include <OpenCL/OpenCL.h>
+#include <OpenGL/OpenGL.h>
+#elif WIN32
+#define NOMINMAX
+#include <Windows.h>
+#include "GL/glew.h"
+#include "GLUT/GLUT.h"
+#else
+#include <CL/cl.h>
+#include <GL/glew.h>
+#include <GL/glut.h>
+#endif
+
+#include <thread>
+#include <mutex>
+
+#include "shader_manager.h"
+
+int g_window_width = 512;
+int g_window_height = 512;
+std::unique_ptr<ShaderManager>	g_shader_manager;
+
+std::vector<char> g_data;
+std::mutex g_data_mutex;
+
+GLuint g_vertex_buffer;
+GLuint g_index_buffer;
+GLuint g_texture;
+
+void Display()
+{
+    try
+    {
+        {
+            glDisable(GL_DEPTH_TEST);
+            glViewport(0, 0, g_window_width, g_window_height);
+
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            glBindBuffer(GL_ARRAY_BUFFER, g_vertex_buffer);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_index_buffer);
+
+            GLuint program = g_shader_manager->GetProgram("../../../Standalone/simple");
+            glUseProgram(program);
+
+            GLuint texloc = glGetUniformLocation(program, "g_Texture");
+            assert(texloc >= 0);
+
+            glUniform1i(texloc, 0);
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, g_texture);
+
+            GLuint position_attr = glGetAttribLocation(program, "inPosition");
+            GLuint texcoord_attr = glGetAttribLocation(program, "inTexcoord");
+
+            glVertexAttribPointer(position_attr, 3, GL_FLOAT, GL_FALSE, sizeof(float)*5, 0);
+            glVertexAttribPointer(texcoord_attr, 2, GL_FLOAT, GL_FALSE, sizeof(float)*5, (void*)(sizeof(float) * 3));
+            
+            glEnableVertexAttribArray(position_attr);
+            glEnableVertexAttribArray(texcoord_attr);
+
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, nullptr);
+            
+            glDisableVertexAttribArray(texcoord_attr);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+            glUseProgram(0);
+        }
+
+        glutSwapBuffers();
+    }
+    catch (std::runtime_error& e)
+    {
+        std::cout << e.what();
+        exit(-1);
+    }
+}
+
+void ResizeBuffers()
+{
+}
+
+void InitGraphics()
+{
+    g_shader_manager.reset(new ShaderManager());
+
+    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glCullFace(GL_NONE);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_TEXTURE_2D);
+
+    glGenBuffers(1, &g_vertex_buffer);
+    glGenBuffers(1, &g_index_buffer);
+
+    // create Vertex buffer
+    glBindBuffer(GL_ARRAY_BUFFER, g_vertex_buffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_index_buffer);
+
+    float quad_vdata[] =
+    {
+        -1, -1, 0.5, 0, 0,
+        1, -1, 0.5, 1, 0,
+        1,  1, 0.5, 1, 1,
+        -1,  1, 0.5, 0, 1
+    };
+
+    GLshort quad_idata[] =
+    {
+        0, 1, 3,
+        3, 1, 2
+    };
+
+    // fill data
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vdata), quad_vdata, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quad_idata), quad_idata, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    glGenTextures(1, &g_texture);
+    glBindTexture(GL_TEXTURE_2D, g_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, g_window_width, g_window_height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void Update()
+{
+    static auto prevtime = std::chrono::high_resolution_clock::now();
+    auto time = std::chrono::high_resolution_clock::now();
+    auto dt = std::chrono::duration_cast<std::chrono::duration<double> >(time - prevtime);
+    prevtime = time;
+
+    bool update = false;
+    
+
+    glActiveTexture(GL_TEXTURE0);
+    
+    glBindTexture(GL_TEXTURE_2D, g_texture);
+
+    {
+        std::unique_lock<std::mutex> lock(g_data_mutex);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, g_window_width, g_window_height, GL_RGB, GL_UNSIGNED_BYTE, &g_data[0]);
+    }
+    
+    glBindTexture(GL_TEXTURE_2D, 0);
+    
+    glutPostRedisplay();
+}
+
+void Reshape(GLint w, GLint h)
+{
+    /*g_window_width = w;
+    g_window_height = h;
+    
+    glDeleteTextures(1, &g_texture);
+    
+    glGenTextures(1, &g_texture);
+    glBindTexture(GL_TEXTURE_2D, g_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, g_window_width, g_window_height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+    
+    glBindTexture(GL_TEXTURE_2D, 0);
+    
+    ResizeBuffers();
+    
+    glutPostRedisplay();*/
+
+    // Disable window resize for now
+    glutReshapeWindow(g_window_width, g_window_height);
+}
+
+
+class BufferImagePlane : public ImagePlane
+{
+public:
+    BufferImagePlane(int2 res)
+        :  res_(res)
+        , imgbuf_(res.x * res.y)
+    {
+    }
+
+    // This method is called by the renderer prior to adding samples
+    void Prepare()
+    {
+    }
+
+    // This method is called by the renderer after adding all the samples
+    void Finalize()
+    {
+    }
+
+    // Add color contribution to the image plane
+    void AddSample(float2 const& sample, float w, float3 value)
+    {
+        float2 fimgpos = sample * res_; 
+        int2   imgpos  = int2((int)std::floorf(fimgpos.x), (int)std::floorf(fimgpos.y));
+
+        // Make sure we are in the image space as (<0.5f,<0.5f) might map outside of the image
+        imgpos.x = (int)clamp((float)imgpos.x, 0.f, (float)res_.x-1);
+        imgpos.y = (int)clamp((float)imgpos.y, 0.f, (float)res_.y-1);
+
+        imgbuf_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x] += w * value;
+    }
+
+    // This is used by the renderer to decide on the number of samples needed
+    int2 resolution() const { return res_; }
+
+    // Image resolution
+    int2 res_;
+    // Intermediate image buffer
+    std::vector<float3> imgbuf_;
+};
+
+void Render()
+{
+    OiioTextureSystem texsys("../../../Resources/Textures");
+    std::unique_ptr<World> world = BuildWorldAreaLightTest(texsys);
+
+    // Create OpenImageIO based IO api
+    OiioImageIo io;
+    // Create image plane writing to file
+
+        
+    // Create renderer w/ direct illumination trace
+    std::cout << "Kicking off rendering engine...\n";
+
+    BufferImagePlane plane(int2(g_window_width, g_window_height));
+
+    MtImageRenderer renderer(plane, // Image plane
+        new GiTracer(10, 1.f), // Tracer
+        new RandomSampler(1, new McRng()), // Image sampler
+        new RandomSampler(1, new McRng()), // Light sampler
+        new RandomSampler(1, new McRng()), // Brdf sampler
+        nullptr // Progress reporter
+        );
+
+    int numpasses = 0;
+    while (1)
+    {
+        ++numpasses;
+        renderer.Render(*world);
+
+        std::unique_lock<std::mutex> lock(g_data_mutex);
+        for (int i = 0; i < g_window_width * g_window_height; ++i)
+        {
+            g_data[3 * i] = (char)(255 * clamp(powf(plane.imgbuf_[i].x / numpasses, 1.f / 2.2f), 0.f, 1.f));
+            g_data[3 * i + 1] = (char)(255 * clamp(powf(plane.imgbuf_[i].y / numpasses, 1.f / 2.2f), 0.f, 1.f));
+            g_data[3 * i + 2] = (char)(255 * clamp(powf(plane.imgbuf_[i].z / numpasses, 1.f / 2.2f), 0.f, 1.f));
+        }
+    }
+}
+
+
+int main(int argc, char** argv)
+{
+     // GLUT Window Initialization:
+    glutInit (&argc, (char**)argv);
+    glutInitWindowSize (g_window_width, g_window_height);
+    glutInitDisplayMode (GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
+    glutCreateWindow ("App");
+    
+#ifndef __APPLE__
+    GLenum err = glewInit();
+    if (err != GLEW_OK)
+    {
+        std::cout << "GLEW initialization failed\n";
+        return -1;
+    }
+#endif
+    
+    try
+    {
+        g_data.resize(g_window_height * g_window_width * 3);
+
+        InitGraphics();
+        
+        std::thread t(Render);
+
+        t.detach();
+
+        // Register callbacks:
+        glutDisplayFunc (Display);
+        glutReshapeFunc (Reshape);
+        glutIdleFunc (Update);
+        
+        glutMainLoop ();
+    }
+    catch(std::runtime_error& err)
+    {
+        std::cout << err.what();
+        return -1;
+    }
+
 }

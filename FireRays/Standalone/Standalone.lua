@@ -13,6 +13,19 @@ project "Standalone"
     	links {"OpenImageIO"}
 		libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64"}
     end
+
+	if os.is("windows") then
+        includedirs { "../3rdParty/glew/include", "../3rdParty/freeglut/include"}
+		links {"freeglut", "glew"}
+
+		configuration {"x32"}
+			libdirs { "../3rdParty/glew/lib/x86", "../3rdParty/freeglut/lib/x86"}
+		configuration {"x64"}
+			libdirs { "../3rdParty/glew/lib/x64", "../3rdParty/freeglut/lib/x64"}
+    
+    	configuration {}
+        end
+
 	
 	if os.is("windows") then
 		configuration {"x32", "Debug"}

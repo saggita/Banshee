@@ -14,6 +14,12 @@ project "Standalone"
 		libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64"}
     end
 
+    if os.is("macosx") then
+        linkoptions{ "-framework OpenGL", "-framework GLUT" }
+        buildoptions "-std=c++11 -stdlib=libc++"
+        links {"OpenImageIO"}
+    end
+
 	if os.is("windows") then
         includedirs { "../3rdParty/glew/include", "../3rdParty/freeglut/include"}
 		links {"freeglut", "glew"}
@@ -24,7 +30,7 @@ project "Standalone"
 			libdirs { "../3rdParty/glew/lib/x64", "../3rdParty/freeglut/lib/x64"}
     
     	configuration {}
-        end
+    end
 
 	
 	if os.is("windows") then

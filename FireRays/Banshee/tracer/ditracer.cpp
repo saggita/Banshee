@@ -12,6 +12,8 @@
 #include <cassert>
 #include <iostream>
 
+#include "../math/mathutils.h"
+
 float3 DiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
 {
     Primitive::Intersection isect;
@@ -29,10 +31,13 @@ float3 DiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
         }
         else
         {
-            for (int i = 0; i < world.lights_.size(); ++i)
-            {
-                radiance += Di(world, *world.lights_[i], lightsampler, brdfsampler, -r.d, isect);
-            }
+            //for (int i = 0; i < world.lights_.size(); ++i)
+            //{
+            // TODO: Pass RNG or sampler
+            int numlights = world.lights_.size();
+            int idx = rand_uint() % numlights;
+            radiance = Di(world, *world.lights_[idx], lightsampler, brdfsampler, -r.d, isect) * numlights;
+            //}
         }
     }
     else
@@ -109,7 +114,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                 shadowray.d = wi;
                 
                 // TODO: move ray epsilon into some global options object
-                shadowray.t = float2(0.005f, dist);
+                shadowray.t = float2(0.001f, dist - 0.001f);
                 
                 // Check for an occlusion
                 float shadow = world.Intersect(shadowray) ? 0.f : 1.f;
@@ -120,14 +125,12 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                     // Evaluate BSDF
                     float3 bsdf = mat.Evaluate(isectlocal, wi, wo);
                     
-                    //assert(!has_nans(bsdf));
-                    
                     // We can't apply MIS for singular lights, so use simple estimator
                     if (singularlight)
                     {
                         // Estimate with Monte-Carlo L(wo) = int{ Ld(wi, wo) * fabs(dot(n, wi)) * dwi }
                         radiance +=  le * bsdf * fabs(dot(isectlocal.n, wi)) * (1.f / lightpdf);
-                        //assert(!has_nans(radiance));
+                        assert(!has_nans(radiance));
                     }
                     else
                     {
@@ -137,7 +140,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                         float weight = PowerHeuristic(1, lightpdf, 1, bsdfpdf);
                         // Estimate with Monte-Carlo L(wo) = int{ Ld(wi, wo) * fabs(dot(n, wi)) * dwi }
                         radiance +=  le * bsdf * fabs(dot(isectlocal.n, wi)) * weight * (1.f / lightpdf);
-                        //assert(!has_nans(radiance));
+                        assert(!has_nans(radiance));
                     }
                 }
             }
@@ -185,7 +188,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                     shadowray.d = wi;
 
                     // TODO: move ray epsilon into some global options object
-                    shadowray.t = float2(0.05f, 10000000.f);
+                    shadowray.t = float2(0.001f, 10000000.f);
 
                     // Cast the ray into the scene
                     float t = 0.f;

@@ -45,7 +45,7 @@ class GiTracer : public DiTracer
 {
 public:
     // Constructor
-    GiTracer(int maxdepth, float indirect_contrib)
+    GiTracer(int maxdepth)
         : maxdepth_(maxdepth)
     {}
 

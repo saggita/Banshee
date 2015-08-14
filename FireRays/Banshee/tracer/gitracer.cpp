@@ -68,9 +68,11 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
             }
             
             // Evaluate DI component
-            for (int i = 0; i < world.lights_.size(); ++i)
+            //for (int i = 0; i < world.lights_.size(); ++i)
             {
-                radiance += throughput * Di(world, *world.lights_[i], lightsampler, brdfsampler, -rr.d, isect);
+                int numlights = world.lights_.size();
+                int idx = rand_uint() % numlights;
+                radiance += throughput * Di(world, *world.lights_[idx], lightsampler, brdfsampler, -rr.d, isect) * numlights;
             }
             
             
@@ -129,5 +131,5 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
         }
     }
     
-    return radiance  * (1.f / numsamples);
+    return radiance * (1.f / numsamples);
 }

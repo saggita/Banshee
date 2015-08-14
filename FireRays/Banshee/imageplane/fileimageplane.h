@@ -61,7 +61,7 @@ public:
     void Finalize();
 
     // Add color contribution to the image plane
-    void AddSample(float2 const& sample, float w, float3 value);
+    void AddSample(int2 const& sample, float w, float3 value);
 
     // This is used by the renderer to decide on the number of samples needed
     int2 resolution() const { return res_; }

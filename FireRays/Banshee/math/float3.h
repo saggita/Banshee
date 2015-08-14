@@ -40,7 +40,7 @@
 class float3
 {
 public:
-    float3(float xx = 0.f, float yy = 0.f, float zz = 0.f) : x(xx), y(yy), z(zz) {}
+    float3(float xx = 0.f, float yy = 0.f, float zz = 0.f, float ww = 0.f) : x(xx), y(yy), z(zz), w(ww) {}
 
     float& operator [](int i)       { return *(&x + i); }
     float  operator [](int i) const { return *(&x + i); }
@@ -55,7 +55,7 @@ public:
     float3& operator *= (float c) { x*=c; y*=c; z*= c; return *this;}
     float3& operator /= (float c) { float cinv = 1.f/c; x*=cinv; y*=cinv; z*=cinv; return *this;}
 
-    float x, y, z;
+    float x, y, z, w;
 };
 
 

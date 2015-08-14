@@ -15,7 +15,7 @@ float2 StratifiedSampler::Sample2D() const
         //std::random_shuffle(permutation_.begin(), permutation_.end());
     //}
 
-    idx = permutation_[idx];
+    //idx = permutation_[idx];
 
     int2 subsampleidx = int2 (idx % gridsize_, idx / gridsize_);
 

@@ -53,7 +53,7 @@ public:
     virtual void Finalize(){}
 
     // Add weighted color contribution to the image plane
-    virtual void AddSample(float2 const& sample, float w, float3 value) = 0;
+    virtual void AddSample(int2 const& pos, float w, float3 value) = 0;
 
     // This is used by the renderer to decide on the number of samples needed
     virtual int2 resolution() const = 0;

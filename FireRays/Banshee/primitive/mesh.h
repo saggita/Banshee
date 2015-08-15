@@ -64,7 +64,7 @@ public:
     // Intersection check test
     bool Intersect(ray& r) const { return false; }
     // World space bounding box
-    bbox Bounds() const;
+    bbox const& Bounds() const;
     // Intersectable flag: determines whether the primitive is
     // capable of direct intersection evaluation
     // By default it returns true
@@ -73,6 +73,10 @@ public:
     // supposed to break it into parts (which might or might not be intersectable themselves)
     // Note that memory of the parts is owned by the primitive 
     void Refine (std::vector<Primitive*>& prims);
+    // Get vertex array
+    float3 const* GetVertexPointer() const { return &vertices_[0]; }
+    // Get number of vertices
+    size_t GetNumVertices() const { return vertices_.size(); }
 
 private:
     void CalcBounds();

@@ -99,12 +99,9 @@ bool Sphere::Intersect(ray& r) const
     }
 }
 
-bbox Sphere::Bounds() const
+bbox const& Sphere::Bounds() const
 {
-    // Transform object space bbox into world space
-    float3 pmin(-radius_, -radius_, -radius_);
-    float3 pmax( radius_,  radius_,  radius_);
-    return bbox(transform_point(pmin, worldmat_), transform_point(pmax, worldmat_));
+    return bounds_;
 }
 
 void Sphere::FillIntersectionInfo(float3 const& p, Intersection& isect) const

@@ -10,7 +10,7 @@ bool World::Intersect(ray& r) const
     return accelerator_->Intersect(r);
 }
 
-bbox World::Bounds() const
+bbox const& World::Bounds() const
 {
     return accelerator_->Bounds();
 }

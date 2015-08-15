@@ -90,16 +90,14 @@ public:
     
     // Constructor
     Primitive() : arealight_(nullptr){}
-
     // Destructor
     virtual ~Primitive(){}
-
     // Intersection test
     virtual bool Intersect(ray& r, float& t, Intersection& isect) const = 0;
     // Intersection check test
     virtual bool Intersect(ray& r) const = 0;
     // World space bounding box
-    virtual bbox Bounds() const = 0;
+    virtual bbox const& Bounds() const = 0;
     // Intersectable flag: determines whether the primitive is
     // capable of direct intersection evaluation
     // By default it returns true
@@ -130,8 +128,6 @@ public:
     // Overrides are expected to provide more preciese bounds.
     // true indicates that the bounds was split, otherwise the plane misses it
     virtual bool SplitBounds(int axis, float border, bbox& leftbounds, bbox& rightbounds) const;
-    
-    
     // Primitive might be linked to some AreaLight object if it has emissive material
     AreaLight* arealight_;
 };

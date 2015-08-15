@@ -14,10 +14,12 @@ static int kDistHeight = 256;
 
 EnvironmentLightIs::EnvironmentLightIs(TextureSystem const& texsys,
                    std::string const& texture,
-                   float scale)
+                   float scale,
+                   float gamma)
 : texsys_(texsys)
 , texture_(texture)
 , scale_(scale)
+, invgamma_(1.f / gamma)
 {
     // Prepare values for distribution generation
     std::vector<float> img(kDistWidth*kDistHeight);
@@ -56,9 +58,15 @@ float3 EnvironmentLightIs::Sample(Primitive::Intersection const& isect, float2 c
 
     // Convert PDF to spherical mapping
     pdf = (sintheta == 0.f) ? 0.f : (dpdf / (2.f * PI * PI * sintheta));
+    
+    // Fetch the value
+    float3 val = texsys_.Sample(texture_, uv, float2(0,0));
+    
+    // Apply gamma correction
+    val = float3(pow(val.x, invgamma_), pow(val.y, invgamma_), pow(val.z, invgamma_));
 
     // Fetch radiance value and scale it
-    return scale_ * texsys_.Sample(texture_, uv, float2(0,0));
+    return scale_ * val;
 }
 
 
@@ -70,9 +78,15 @@ float3 EnvironmentLightIs::Le(ray const& r) const
 
     // Compose the textcoord to fetch
     float2 uv(phi / (2*PI), theta / PI);
+    
+    // Fetch the value
+    float3 val = texsys_.Sample(texture_, uv, float2(0,0));
+    
+    // Apply gamma correction
+    val = float3(pow(val.x, invgamma_), pow(val.y, invgamma_), pow(val.z, invgamma_));
 
     // Fetch radiance value and scale it
-    return scale_ * texsys_.Sample(texture_, uv, float2(0,0));
+    return scale_ * val;
 }
 
 // PDF of a given direction sampled from isect.p

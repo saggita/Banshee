@@ -94,7 +94,7 @@ Mesh::Mesh(float const* vertices, int vnum, int vstride,
     CalcBounds();
 }
 
-bbox Mesh::Bounds() const
+bbox const& Mesh::Bounds() const
 {
     return bounds_;
 }

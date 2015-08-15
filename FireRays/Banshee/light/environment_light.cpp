@@ -27,8 +27,14 @@ float3 EnvironmentLight::Sample(Primitive::Intersection const& isect, float2 con
     // Make it long
     d *= 10000000.f;
 
+    // Fetch the value
+    float3 val = texsys_.Sample(texture_, uv, float2(0,0));
+    
+    // Apply gamma correction
+    val = float3(pow(val.x, invgamma_), pow(val.y, invgamma_), pow(val.z, invgamma_));
+    
     // Fetch radiance value and scale it
-    return scale_ * texsys_.Sample(texture_, uv, float2(0,0));
+    return scale_ * val;
 }
 
 
@@ -41,8 +47,14 @@ float3 EnvironmentLight::Le(ray const& r) const
     // Compose the textcoord to fetch
     float2 uv(phi / (2*PI), theta / PI);
 
+    // Fetch the value
+    float3 val = texsys_.Sample(texture_, uv, float2(0,0));
+    
+    // Apply gamma correction
+    val = float3(pow(val.x, invgamma_), pow(val.y, invgamma_), pow(val.z, invgamma_));
+    
     // Fetch radiance value and scale it
-    return scale_ * texsys_.Sample(texture_, uv, float2(0,0));
+    return scale_ * val;
 }
 
 // PDF of a given direction sampled from isect.p

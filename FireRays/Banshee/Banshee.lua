@@ -3,14 +3,14 @@ project "Banshee"
     location "../Banshee"
     links {"assimp"}
     files { "../Banshee/**.h", "../Banshee/**.cpp", "../Banshee/**.cl", "../Banshee/**.fsh", "../Banshee/**.vsh" } 
-    includedirs{"../3rdParty/assimp/include", "../3rdParty/oiio/include"} 
+    includedirs{"../3rdParty/assimp/include", "../3rdParty/oiio/include", "../3rdParty/embree/include"} 
     
     buildoptions "-std=c++11 -stdlib=libc++"
 
     
     if os.is("macosx") then
     	links {"OpenImageIO"}
-		libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64"}
+		libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64", "../3rdParty/embree/lib"}
     end
 	
 	if os.is("windows") then

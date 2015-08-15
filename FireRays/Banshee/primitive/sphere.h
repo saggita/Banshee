@@ -52,6 +52,10 @@ public:
     , radius_(r)
     , m_(m)
     {
+        // Transform object space bbox into world space
+        float3 pmin(-radius_, -radius_, -radius_);
+        float3 pmax( radius_,  radius_,  radius_);
+        bounds_ = bbox(transform_point(pmin, worldmat_), transform_point(pmax, worldmat_));
     }
 
     // Intersection override
@@ -59,7 +63,7 @@ public:
     // Intersection check override
     bool Intersect(ray& r) const;
     // Bounding box override
-    bbox Bounds() const;
+    bbox const& Bounds() const;
 
     // Calculate a sample point on the surface of a sphere
     void Sample(float2 const& sample, SampleData& sampledata, float& pdf) const;
@@ -74,6 +78,7 @@ private:
 
     float  radius_;
     int m_;
+    bbox bounds_;
 };
 
 

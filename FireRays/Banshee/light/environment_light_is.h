@@ -51,8 +51,9 @@ class EnvironmentLightIs: public Light
 {
 public:
     EnvironmentLightIs(TextureSystem const& texsys,
-                     std::string const& texture,
-                       float scale = 1.f);
+                       std::string const& texture,
+                       float scale = 1.f,
+                       float gamma = 2.2f);
     
     // Sample method generates a direction to the light(d), calculates pdf in that direction (pdf)
     // and returns radiance emitted(return value) into the direction specified by isect
@@ -79,6 +80,8 @@ private:
     std::string texture_;
     // Radiance scale
     float scale_;
+    // Gamma
+    float invgamma_;
     // Distribution for radiance
     std::unique_ptr<Distribution2D> radiancedist_;
 };

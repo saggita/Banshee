@@ -63,10 +63,12 @@ public:
 
     // Intersection override
     bool Intersect(ray& r, float& t, Intersection& isect) const;
+    
     // Intersection check override
     bool Intersect(ray& r) const;
+    
     // Bounding box override
-    bbox Bounds() const { return bounds_; }
+    bbox const& Bounds() const { return bounds_; }
 
     // Calculate sample point on the surface of a triangle
     void Sample(float2 const& sample, SampleData& sampledata, float& pdf) const;

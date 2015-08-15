@@ -64,7 +64,7 @@ public:
     // Intersection check test
     bool Intersect(ray& r) const;
     // World space bounding box
-    bbox Bounds() const;
+    bbox const& Bounds() const;
 
 public:
     // Lights

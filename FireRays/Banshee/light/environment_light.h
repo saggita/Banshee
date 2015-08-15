@@ -47,10 +47,12 @@ class EnvironmentLight: public Light
 public:
     EnvironmentLight(TextureSystem const& texsys,
                      std::string const& texture,
-                     float scale = 1.f)
+                     float scale = 1.f,
+                     float gamma = 2.2f)
                      : texsys_(texsys)
                      , texture_(texture)
                      , scale_(scale)
+                     , invgamma_(1.f / gamma)
     {
     }
 
@@ -79,6 +81,8 @@ private:
     std::string texture_;
     // Radiance scale
     float scale_;
+    // Gamma
+    float invgamma_;
 };
 
 #endif // ENVIRONMENT_LIGHT_H

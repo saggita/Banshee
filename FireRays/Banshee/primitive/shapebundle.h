@@ -31,56 +31,41 @@
     (This is the Modified BSD License)
 */
 
-#ifndef MESH_H
-#define MESH_H
+#ifndef SHAPE_BUNDLE
+#define SHAPE_BUNDLE
 
 #include <vector>
-#include <memory>
+#include <cstddef>
 
-#include "../math/float3.h"
-#include "../math/float2.h"
-#include "shapebundle.h"
+#include "../math/ray.h"
+#include "../math/bbox.h"
+#include "../math/matrix.h"
 
-///< Transformable primitive implementation which represents
-///< triangle mesh. Vertices, normals and uvs are indixed separately
-///< using their own index buffers each.
+class AreaLight;
+
+///< ShapeBundle is a container of individual intersectable objects which doesn't make
+///< sense to devote a separate class to (like a triangle mesh)
 ///<
-class Mesh : public ShapeBundle
+class ShapeBundle
 {
 public:
-    /**
-     Data types
-     */
-    // Mesh faces
-    // Keeps indices for all components
-    // and material index
-    struct Face
-    {
-        int vi0, vi1, vi2;
-        int ni0, ni1, ni2;
-        int ti0, ti1, ti2;
-        int m;
-    };
     
-    /**
-     Mesh methods
-     */
+    // Hit information
+    // returned by intersection routines
+    struct Hit;
+
+    // Sample information
+    // returned by sampling routines
+    struct Sample;
+    
     // Constructor
-    Mesh(float const* vertices, int vnum, int vstride,
-         float const* normals, int nnum, int nstride,
-         float const* uvs, int unum, int ustride,
-         int const* vidx, int vistride,
-         int const* nidx, int nistride,
-         int const* uidx, int uistride,
-         int const* materials, int mstride,
-         int nfaces);
+    ShapeBundle();
     
-    /** 
-     ShapeBundle overrides
-     */
+    // Destructor
+    virtual ~ShapeBundle() = 0;
     
     // Number of shapes in the bundle
-    std::size_t GetNumShapes() const { return faces_.size(); }
+    virtual std::size_t GetNumShapes() const = 0;
     
     // Test shape number idx against the ray
     // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
@@ -89,31 +74,31 @@ public:
     //           hit.t updated accordingly, other data in hit updated accordingly
     //           false if no hits found, hit is unchanged in this case
     //
-    bool IntersectShape(std::size_t idx, ray const& r, Hit& hit) const;
+    virtual bool IntersectShape(std::size_t idx, ray const& r, Hit& hit) const = 0;
     
     // Test shape number idx against the ray
     // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
     // CONTRACT: true is returned if r intersects shape idx, false otherwise
     //
-    bool IntersectShape(std::size_t idx, ray const& r) const;
+    virtual bool IntersectShape(std::size_t idx, ray const& r) const = 0;
     
     // Get shape number idx world bounding box
     // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
     // CONTRACT: Bounding box returned
     //
-    bbox GetShapeWorldBounds(std::size_t idx) const;
+    virtual bbox GetShapeWorldBounds(std::size_t idx) const = 0;
     
     // Get shape number idx object bounding box
     // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
     // CONTRACT: Bounding box returned
     //
-    bbox GetShapeObjectBounds(std::size_t idx) const;
+    virtual bbox GetShapeObjectBounds(std::size_t idx) const = 0;
     
     // Get shape number idx surface area
     // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
     // CONTRACT: Surface area returned
     //
-    float GetShapeSurfaceArea(std::size_t idx) const;
+    virtual float GetShapeSurfaceArea(std::size_t idx) const = 0;
     
     // Sample point on idx shape
     // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
@@ -141,29 +126,148 @@ public:
     //
     virtual float GetPdf(std::size_t idx, float3 const& p, float3 const& w) const;
     
-protected:
-    //
-    bool IntersectFace(Face const& face, ray const& ro, float tmax, float& t, float& a, float& b) const;
-    //
-    void FillHit(Face const& face, float t, float a, float b, Hit& hit) const;
-    //
-    void FillSample(Face const& face, float a, float b, Sample& sample) const;
-
+    // Get world space bounding box of the whole bundle
+    virtual bbox GetWorldBounds() const;
+    
+    // Get world space bounding box of the whole bundle
+    virtual bbox GetObjectBounds() const;
+    
+    // If the object is area light return area light interface for it.
+    virtual AreaLight const* GetAreaLight() const;
+    
+    // Set transform on a bundle
+    void SetTransform(matrix const& m, matrix const& minv);
+    
+    // Get transform
+    void GetTransform(matrix& m, matrix& minv) const;
+    
 private:
+    // ShapeBundle might be linked to some AreaLight object if it has emissive material
+    AreaLight* arealight_;
+    // ShapeBundle can have a transform
+    matrix worlmat_;
+    matrix worldmatinv_;
     
-    
-    /// Disallow to copy meshes, too heavy
-    Mesh(Mesh const& o);
-    Mesh& operator = (Mesh const& o);
-
-    /// Vertices
-    std::vector<float3> vertices_;
-    /// Normals
-    std::vector<float3> normals_;
-    /// UVs
-    std::vector<float2> uvs_;
-    /// Triangles
-    std::vector<Face> faces_;
+    friend class AreaLight;
 };
 
-#endif // MESH_H
+
+// Hit information
+struct ShapeBundle::Hit
+{
+    // Parametric distance
+    float t;
+    // World space position
+    float3 p;
+    // World space shading normal
+    float3 n;
+    // World space geometric normal
+    float3 ng;
+    // Tangent
+    float3 dpdu;
+    // Bitangent
+    float3 dpdv;
+    // UV parametrization
+    float2 uv;
+    // Material index
+    int m;
+    // Primitive
+    ShapeBundle const* bundle;
+};
+
+// Sample information
+struct ShapeBundle::Sample
+{
+    // Sample pdf
+    float pdf;
+    // World space position
+    float3 p;
+    // World space normal
+    float3 n;
+    // UV parametrization
+    float2 uv;
+    // Material index
+    int m;
+    
+    Sample()
+    : pdf(0.f)
+    , m(-1)
+    {
+    }
+    
+    Sample(Hit const& hit)
+    : pdf(0.f)
+    , p(hit.p)
+    , n(hit.n)
+    , uv(hit.uv)
+    , m(hit.m)
+    {
+    }
+};
+
+inline ShapeBundle::ShapeBundle()
+: arealight_(nullptr)
+{
+}
+
+inline ShapeBundle::~ShapeBundle()
+{
+}
+
+inline AreaLight const* ShapeBundle::GetAreaLight() const
+{
+    return arealight_;
+}
+
+inline bbox ShapeBundle::GetWorldBounds() const
+{
+    bbox res;
+    for(size_t i = 0; i < GetNumShapes(); ++i)
+    {
+        res.grow(GetShapeWorldBounds(i));
+    }
+    
+    return res;
+}
+
+inline bbox ShapeBundle::GetObjectBounds() const
+{
+    bbox res;
+    for(size_t i = 0; i < GetNumShapes(); ++i)
+    {
+        res.grow(GetShapeObjectBounds(i));
+    }
+    
+    return res;
+}
+
+inline void ShapeBundle::GetSample(std::size_t idx, float2 const& uv, Sample& sample) const
+{
+    sample.pdf = 0.f;
+    return;
+}
+
+inline void ShapeBundle::GetSample(std::size_t idx, float3 const& p, float2 const& uv, Sample& sample) const
+{
+    sample.pdf = 0.f;
+    return;
+}
+
+inline float ShapeBundle::GetPdf(std::size_t idx, float3 const& p, float3 const& w) const
+{
+    return 0.f;
+}
+
+inline void ShapeBundle::SetTransform(matrix const& m, matrix const& minv)
+{
+    worlmat_ = m;
+    worldmatinv_ = minv;
+}
+
+inline void ShapeBundle::GetTransform(matrix& m, matrix& minv) const
+{
+    m = worlmat_;
+    minv = worldmatinv_;
+}
+
+#endif // SHAPE_BUNDLE

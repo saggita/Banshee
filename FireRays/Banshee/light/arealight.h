@@ -33,7 +33,7 @@
 #ifndef AREALIGHT_H
 #define AREALIGHT_H
 
-class Primitive;
+class ShapeBundle;
 class Material;
 
 #include "light.h"
@@ -47,31 +47,31 @@ public:
     // The callers responsibility to pass only samplable primitives(i.e. area > 0) in there and only emissive materials.
     // Area light rely on primitives ability to provide sample points on its surface.
     //
-    AreaLight(Primitive& primitive, Material const& material);
+    AreaLight(ShapeBundle& bundle, Material const& material);
 
     // Sample method generates a direction to the light(d), calculates pdf in that direction (pdf)
     // and returns radiance emitted(return value) into the direction specified by isect
     // Note that no shadow testing occurs here, the method knows nothing about world's geometry
     // and it is renderers responsibility to account for visibility term
-    float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3& d, float& pdf) const;
+    float3 GetSample(ShapeBundle::Hit const& hit, float2 const& sample, float3& d, float& pdf) const;
 
     // This method is supposed to be called by the renderer when the ray misses the geometry.
     // It allows implementing IBL, etc.
-    float3 Le(ray const& r) const
+    float3 GetLe(ray const& r) const
     {
         // Nothing should be emitted here for area light
         return float3(0, 0, 0);
     }
     
     // PDF of a given direction sampled from isect.p
-    float Pdf(Primitive::Intersection const& isect, float3 const& w) const;
+    float GetPdf(ShapeBundle::Hit const& hit, float3 const& w) const;
     
     // Check if the light is singular (represented by delta function or not)
-    bool singular() const { return false; }
+    bool Singular() const { return false; }
     
 private:
     // Primitive declaring the shape of the light
-    Primitive& primitive_;
+    ShapeBundle& bundle_;
     // Material
     Material const& material_;
 };

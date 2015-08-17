@@ -4,33 +4,26 @@
 #include <cassert>
 #include <stdexcept>
 
-#include "../primitive/primitive.h"
+#include "../primitive/shapebundle.h"
 #include "../material/material.h"
 
-AreaLight::AreaLight(Primitive& primitive, Material const& material)
-    : primitive_(primitive)
+AreaLight::AreaLight(ShapeBundle& bundle, Material const& material)
+    : bundle_(bundle)
     , material_(material)
 {
-    // TODO: dont like this code. Design issue?
-    if(primitive_.surface_area() <= 0.f)
-    {
-        throw std::runtime_error("AreaLight: The primitive passed cannot be used as area light");
-    }
-
     if (!material_.emissive())
     {
         throw std::runtime_error("AreaLight: The material passed is not an emissive one");
     }
     
     // Set this area light for the primitive
-    primitive_.arealight_ = this;
+    bundle_.arealight_ = this;
 }
 
-
-float3 AreaLight::Sample(Primitive::Intersection const& isect, float2 const& sample, float3& d, float& pdf) const
+float3 AreaLight::GetSample(ShapeBundle::Hit const& hit, float2 const& sample, float3& d, float& pdf) const
 {
     // Get the sample point in world space
-    Primitive::SampleData sampledata;
+    ShapeBundle::Sample sampledata;
     primitive_.Sample(sample, sampledata, pdf);
 
     // Set direction to the light
@@ -53,7 +46,7 @@ float3 AreaLight::Sample(Primitive::Intersection const& isect, float2 const& sam
     }
 }
 
-float AreaLight::Pdf(Primitive::Intersection const& isect, float3 const& w) const
+float AreaLight::GetPdf(Primitive::Intersection const& isect, float3 const& w) const
 {
     return primitive_.Pdf(isect.p, w);
 }

@@ -151,7 +151,7 @@ void Sphere::Sample(float2 const& sample, SampleData& sampledata, float& pdf) co
 
     float sinthetha = sinf(theta);
     float costhetha = cosf(theta);
-    float sinphi= sinf(phi);
+    float sinphi = sinf(phi);
     float cosphi = cosf(phi);
 
     // Calculate sample data

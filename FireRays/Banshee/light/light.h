@@ -33,7 +33,7 @@
 #ifndef LIGHT_H
 #define LIGHT_H
 
-#include "../primitive/primitive.h"
+#include "../primitive/shapebundle.h"
 #include "../math/float3.h"
 
 ///< Light serves as an interface to all light types
@@ -49,14 +49,14 @@ public:
     // Note that no shadow testing occurs here, the method knows nothing about world's geometry
     // and it is renderers responsibility to account for visibility term
     // [PARTIALLY DONE] TODO: account for different sampling modes here, need to pass sampler/sample?
-    virtual float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3& d, float& pdf) const = 0;
+    virtual float3 Sample(ShapeBundle::Intersection const& isect, float2 const& sample, float3& d, float& pdf) const = 0;
     
     // This method is supposed to be called by the renderer when the ray misses the geometry.
     // It allows implementing IBL, etc.
     virtual float3 Le(ray const& r) const = 0;
     
     // PDF of a given direction sampled from isect.p
-    virtual float Pdf(Primitive::Intersection const& isect, float3 const& w) const = 0;
+    virtual float Pdf(ShapeBundle::Intersection const& isect, float3 const& w) const = 0;
     
     // Check if the light is singular (represented by delta function or not)
     virtual bool singular() const { return true; }

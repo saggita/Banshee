@@ -1,6 +1,6 @@
 #include "embree.h"
 
-#include <embree2/rtcore.h>
+/*#include <embree2/rtcore.h>
 
 Embree::Embree()
 {
@@ -28,4 +28,4 @@ bool Embree::Intersect(ray& r, float& t, Intersection& isect) const
 bool Embree::Intersect(ray& r) const
 {
     
-}
+}*/

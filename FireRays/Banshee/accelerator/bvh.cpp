@@ -13,51 +13,44 @@ static bool is_nan(float v)
     return v != v;
 }
 
-void Bvh::Build(std::vector<Primitive*> const& prims)
+void Bvh::Build(std::vector<std::unique_ptr<ShapeBundle>> const& bundles)
 {
-    // Store all the primitives in storage array
-    primstorage_.resize(prims.size());
+    //
+    assert(bundles.size());
     
-    // Reserve some space
-    prims_.reserve(prims.size());
+    // We need to know total number of shapes in all bundles
+    // as well as ranges of shape indices for bundles
+    bundlestartidx_.resize(bundles.size());
+    bundles_.resize(bundles.size());
     
-    // Now refine primitives
-    for (int i=0; i<prims.size(); ++i)
+    for(size_t i = 0; i < bundles_.size(); ++i)
     {
-        // For root prim we need to manage memory
-        primstorage_[i] = std::unique_ptr<Primitive>(prims[i]);
-        
-        // Refine the primitve if it is not intersectable
-        if (prims[i]->intersectable())
+        bundles_[i] = bundles[i].get();
+        bundlestartidx_[i] = bundles_[i]->GetNumShapes();
+    }
+    
+    // Scan bundlestartidx to get shape ranges and total number
+    size_t sum = 0;
+    for(size_t i = 0; i < bundlestartidx_.size(); ++i)
+    {
+        int v = bundlestartidx_[i];
+        bundlestartidx_[i] = sum;
+        sum += v;
+    }
+    
+    // Allocate bounds
+    bounds_.resize(sum);
+    
+    // Collect bounds
+    for(size_t i = 0; i < bundles_.size(); ++i)
+    {
+        for (size_t j = 0; j < bundles_[i]->GetNumShapes(); ++j)
         {
-            prims_.push_back(prims[i]);
-        }
-        else
-        {
-            prims[i]->Refine(prims_);
+            bounds_[bundlestartidx_[i] + j] = bundles_[i]->GetShapeWorldBounds(j);
         }
     }
     
-    // Reserve space for bounds
-    bounds_.resize(prims_.size());
-    
-    // Calculate bounds
-    for (int i=0; i<prims_.size(); ++i)
-    {
-        bounds_[i] = prims_[i]->Bounds();
-        bound_.grow(bounds_[i]);
-    }
-    
-    // Enlarge bounding box a bit
-    bound_.grow(bound_.pmin + 1.05f * bound_.extents());
-    bound_.grow(bound_.pmin - 0.05f * bound_.extents());
-    
-    BuildImpl(&bounds_[0], (int)bounds_.size());
-}
-
-bbox const& Bvh::Bounds() const
-{
-    return bound_;
+    BuildImpl(&bounds_[0], sum);
 }
 
 
@@ -210,7 +203,7 @@ void Bvh::BuildNode(SplitRequest const& req, bbox const* bounds, float3 const* c
         // Left request
         SplitRequest leftrequest = { req.startidx, splitidx - req.startidx, &node->lc, leftbounds, leftcentroid_bounds, req.level + 1 };
         // Right request
-        SplitRequest rightrequest = { splitidx, req.numprims - (splitidx - req.startidx), &node->rc, rightbounds, rightcentroid_bounds, req.level + 1 };
+        SplitRequest rightrequest = { static_cast<size_t>(splitidx), req.numprims - (splitidx - req.startidx), &node->rc, rightbounds, rightcentroid_bounds, req.level + 1 };
         
 #ifdef USE_TBB
         // Put those to stack
@@ -361,7 +354,7 @@ Bvh::SahSplit Bvh::FindSahSplit(SplitRequest const& req, bbox const* bounds, flo
     return split;
 }
 
-void Bvh::BuildImpl(bbox const* bounds, int numbounds)
+void Bvh::BuildImpl(bbox const* bounds, size_t numbounds)
 {
     // Structure describing split request
     InitNodeAllocator(2 * numbounds - 1);
@@ -373,14 +366,16 @@ void Bvh::BuildImpl(bbox const* bounds, int numbounds)
     
     // Calc bbox
     bbox centroid_bounds;
+    bbox total_bounds;
     for (size_t i = 0; i < numbounds; ++i)
     {
         float3 c = bounds[i].center();
         centroid_bounds.grow(c);
         centroids[i] = c;
+        total_bounds.grow(bounds[i]);
     }
     
-    SplitRequest init = { 0, numbounds, nullptr, bound_, centroid_bounds, 0 };
+    SplitRequest init = { 0, numbounds, nullptr, total_bounds, centroid_bounds, 0 };
     
 #ifdef USE_BUILD_STACK
     std::stack<SplitRequest> stack;
@@ -501,7 +496,7 @@ void Bvh::BuildImpl(bbox const* bounds, int numbounds)
 }
 
 
-bool Bvh::Intersect(ray& r, float& t, Intersection& isect) const
+bool Bvh::Intersect(ray const& r, ShapeBundle::Hit& hit) const
 {
     // Check if we have been initialized
     assert(root_);
@@ -519,9 +514,7 @@ bool Bvh::Intersect(ray& r, float& t, Intersection& isect) const
     // Current node
     Node* node = root_;
     // Hit flag
-    bool hit = false;
-    // Hit parametric distance
-    float tt = r.t.y;
+    bool bhit = false;
     // Start processing nodes
     // Changing the code to use more flow control
     // and skip push\pop when possible
@@ -530,19 +523,24 @@ bool Bvh::Intersect(ray& r, float& t, Intersection& isect) const
     {
         if (node->type == kLeaf)
         {
+            size_t bundleidx = -1;
+            size_t shapeidx = -1;
+            
             for (int i = node->startidx; i < node->startidx + node->numprims; ++i)
             {
-                if (prims_[primids_[i]]->Intersect(r, tt, isect))
+                bundleidx = GetShapeBundleIdx(primids_[i]);
+                shapeidx = GetShapeIndexInBundle(bundleidx, primids_[i]);
+                
+                if (bundles_[bundleidx]->IntersectShape(shapeidx, r, hit))
                 {
-                    hit = true;
-                    r.t.y = tt;
+                    bhit = true;
                 }
             }
         }
         else
         {
-            bool addleft =  intersects(r, invrd, node->lc->bounds, dirneg);
-            bool addright = intersects(r, invrd, node->rc->bounds, dirneg);
+            bool addleft =  intersects(r, invrd, node->lc->bounds, dirneg, hit.t);
+            bool addright = intersects(r, invrd, node->rc->bounds, dirneg, hit.t);
             
             if (addleft)
             {
@@ -571,10 +569,10 @@ bool Bvh::Intersect(ray& r, float& t, Intersection& isect) const
         }
     }
     
-    return hit;
+    return bhit;
 }
 
-bool Bvh::Intersect(ray& r) const
+bool Bvh::Intersect(ray const& r) const
 {
     // Check if we have been initialized
     assert(root_);
@@ -599,9 +597,15 @@ bool Bvh::Intersect(ray& r) const
     {
         if (node->type == kLeaf)
         {
+            size_t bundleidx = -1;
+            size_t shapeidx = -1;
+            
             for (int i = node->startidx; i < node->startidx + node->numprims; ++i)
             {
-                if (prims_[primids_[i]]->Intersect(r))
+                bundleidx = GetShapeBundleIdx(primids_[i]);
+                shapeidx = GetShapeIndexInBundle(bundleidx, primids_[i]);
+                
+                if (bundles_[bundleidx]->IntersectShape(shapeidx, r))
                 {
                     return true;
                 }
@@ -609,8 +613,8 @@ bool Bvh::Intersect(ray& r) const
         }
         else
         {
-            bool addleft =  intersects(r, invrd, node->lc->bounds, dirneg);
-            bool addright = intersects(r, invrd, node->rc->bounds, dirneg);
+            bool addleft =  intersects(r, invrd, node->lc->bounds, dirneg, r.t.y);
+            bool addright = intersects(r, invrd, node->rc->bounds, dirneg, r.t.y);
             
             if (addleft)
             {
@@ -640,6 +644,20 @@ bool Bvh::Intersect(ray& r) const
     }
     
     return false;
+}
+
+size_t Bvh::GetShapeBundleIdx(size_t shapeidx) const
+{
+    // We need to find a shape bundle corresponding to current shape index
+    auto iter = std::upper_bound(bundlestartidx_.cbegin(), bundlestartidx_.cend(), shapeidx);
+    
+    // Find the index of the shape bundle
+    return std::distance(bundlestartidx_.cbegin(), iter) - 1;
+}
+
+size_t Bvh::GetShapeIndexInBundle(size_t bundleidx, size_t globalshapeidx) const
+{
+    return globalshapeidx - bundlestartidx_[bundleidx];
 }
 
 

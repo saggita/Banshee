@@ -33,7 +33,7 @@
 #ifndef EMBREE_H
 #define EMBREE_H
 
-#include "../primitive/primitive.h"
+/*#include "../primitive/primitive.h"
 
 ///< The class represents Embree-based intersection accelerator
 ///<
@@ -62,7 +62,7 @@ private:
     
     // Bounding box
     bbox bound_;
-};
+};*/
 
 
 #endif // EMBREE_H

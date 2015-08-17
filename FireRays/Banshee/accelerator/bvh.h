@@ -37,7 +37,7 @@
 #include <vector>
 #include <atomic>
 
-
+#include "intersectable.h"
 #include "../math/bbox.h"
 
 #ifdef USE_TBB
@@ -46,12 +46,12 @@
 #include <tbb/mutex.h>
 #endif
 
-#include "../primitive/primitive.h"
+#include "../primitive/shapebundle.h"
 
 ///< The class represents bounding volume hierarachy
 ///< intersection accelerator
 ///<
-class Bvh : public Primitive
+class Bvh : public Intersectable
 {
 public:
     Bvh(bool usesah = false)
@@ -61,30 +61,38 @@ public:
     }
     
     ~Bvh();
-    // World space bounding box
-    bbox const& Bounds() const;
     // Build function: pass bounding boxes and
-    void Build(std::vector<Primitive*> const& prims);
+    void Build(std::vector<std::unique_ptr<ShapeBundle>> const& bundles);
+    
+    /**
+     Intersectable overrides
+     */
     // Intersection test
-    bool Intersect(ray& r, float& t, Intersection& isect) const;
+    bool Intersect(ray const& r, ShapeBundle::Hit& hit) const;
     // Intersection check test
-    bool Intersect(ray& r) const;
+    bool Intersect(ray const& r) const;
+    
+
     
 protected:
     // Build function
-    virtual void BuildImpl(bbox const* bounds, int numbounds);
+    virtual void BuildImpl(bbox const* bounds, size_t numbounds);
     // BVH node
     struct Node;
     // Node allocation
     virtual Node* AllocateNode();
     virtual void  InitNodeAllocator(size_t maxnum);
     
+    size_t GetShapeBundleIdx(size_t shapeidx) const;
+    size_t GetShapeIndexInBundle(size_t bundleidx, size_t globalshapeidx) const;
+    
+    
     struct SplitRequest
     {
         // Starting index of a request
-        int startidx;
+        size_t startidx;
         // Number of primitives
-        int numprims;
+        size_t numprims;
         // Root node
         Node** ptr;
         // Bounding box
@@ -117,11 +125,11 @@ protected:
     // Identifiers of leaf primitives
     std::vector<int> primids_;
     // Here all the primitives including refined ones
-    std::vector<Primitive*> prims_;
+    std::vector<ShapeBundle*> bundles_;
     // Here are all the bounds
     std::vector<bbox> bounds_;
-    // Here are the primitives to keep track of
-    std::vector<std::unique_ptr<Primitive> > primstorage_;
+    //
+    std::vector<int> bundlestartidx_;
     
 #ifdef USE_TBB
     tbb::atomic<int> nodecnt_;
@@ -131,8 +139,6 @@ protected:
     // Node allocator counter, atomic for thread safety
     std::atomic<int> nodecnt_;
 #endif
-    // Bounding box containing all primitives
-    bbox bound_;
     // Root node
     Node* root_;
     // SAH flag

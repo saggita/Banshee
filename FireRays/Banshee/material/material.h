@@ -36,7 +36,7 @@
 #include <string>
 
 #include "../texture/texturesystem.h"
-#include "../primitive/primitive.h"
+#include "../primitive/shapebundle.h"
 
 
 ///< Material is an interface for the renderer to call
@@ -53,18 +53,18 @@ public:
     virtual ~Material() {}
 
     // Sample material and return outgoing ray direction along with combined BSDF value and sampled BSDF type
-    virtual float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf, int& type) const = 0;
+    virtual float3 Sample(ShapeBundle::Hit& hit, float2 const& sample, float3 const& wi, float3& wo, float& pdf, int& type) const = 0;
 
     // Evaluate combined BSDF value
-    virtual float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const = 0;
+    virtual float3 Evaluate(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const = 0;
     
     // PDF of a given direction sampled from isect.p
-    virtual float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const = 0;
+    virtual float GetPdf(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const = 0;
 
     // Indicate whether the materials has emission component and will be used for direct light evaluation
-    virtual bool emissive() const { return false; }
+    virtual bool IsEmissive() const { return false; }
 
     // Emission component of the material
-    virtual float3 Le(Primitive::SampleData const& sampledata, float3 const& wo) const { return float3(0,0,0); }
+    virtual float3 GetLe(ShapeBundle::Sample const& sampledata, float3 const& wo) const { return float3(0,0,0); }
 };
 #endif // MATERIAL_H

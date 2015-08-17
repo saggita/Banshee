@@ -107,7 +107,7 @@ public:
     //           note that PDF might be 0 in which case data is not filled in.
     // IMPORTANT: PDF returned by the method with regards to surface area.
     //
-    virtual void GetSample(std::size_t idx, float2 const& uv, Sample& sample) const;
+    virtual void GetSampleOnShape(std::size_t idx, float2 const& uv, Sample& sample) const;
     
     // Sample point on idx shape from point p
     // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
@@ -117,14 +117,14 @@ public:
     // IMPORTANT: PDF returned by the method with regards to solid angle subtended by shape
     //           at the point p.
     //
-    virtual void GetSample(std::size_t idx, float3 const& p, float2 const& uv, Sample& sample) const;
+    virtual void GetSampleOnShape(std::size_t idx, float3 const& p, float2 const& uv, Sample& sample) const;
     
     // Get PDF value of a particular direction from a point p
     // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
     // CONTRACT: The method retuns PDF of w direction with respect solid angle subtended by shape
     //           at the point p.
     //
-    virtual float GetPdf(std::size_t idx, float3 const& p, float3 const& w) const;
+    virtual float GetPdfOnShape(std::size_t idx, float3 const& p, float3 const& w) const;
     
     // Get world space bounding box of the whole bundle
     virtual bbox GetWorldBounds() const;
@@ -241,19 +241,19 @@ inline bbox ShapeBundle::GetObjectBounds() const
     return res;
 }
 
-inline void ShapeBundle::GetSample(std::size_t idx, float2 const& uv, Sample& sample) const
+inline void ShapeBundle::GetSampleOnShape(std::size_t idx, float2 const& uv, Sample& sample) const
 {
     sample.pdf = 0.f;
     return;
 }
 
-inline void ShapeBundle::GetSample(std::size_t idx, float3 const& p, float2 const& uv, Sample& sample) const
+inline void ShapeBundle::GetSampleOnShape(std::size_t idx, float3 const& p, float2 const& uv, Sample& sample) const
 {
     sample.pdf = 0.f;
     return;
 }
 
-inline float ShapeBundle::GetPdf(std::size_t idx, float3 const& p, float3 const& w) const
+inline float ShapeBundle::GetPdfOnShape(std::size_t idx, float3 const& p, float3 const& w) const
 {
     return 0.f;
 }

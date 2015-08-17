@@ -144,7 +144,7 @@ inline bool contains(bbox const& box1, bbox const& box2)
     return box1.contains(box2.pmin) && box1.contains(box2.pmax);
 }
 
-inline bool intersects(ray& r, float3 const& invrd, bbox const& box)
+inline bool intersects(ray const& r, float3 const& invrd, bbox const& box)
 {
     float2 tt = r.t;
     
@@ -163,7 +163,7 @@ inline bool intersects(ray& r, float3 const& invrd, bbox const& box)
 }
 
 // Fast bbox test: PBRT book
-inline bool intersects(ray& r, float3 const& invrd, bbox const& box, int dirneg[3]) 
+inline bool intersects(ray const& r, float3 const& invrd, bbox const& box, int dirneg[3], float maxt)
 {
     // Check for ray intersection against $x$ and $y$ slabs
     float tmin =  (box[  dirneg[0]].x - r.o.x) * invrd.x;
@@ -184,11 +184,11 @@ inline bool intersects(ray& r, float3 const& invrd, bbox const& box, int dirneg[
         tmin = tzmin;
     if (tzmax < tmax)
         tmax = tzmax;
-    return (tmin < r.t.y) && (tmax > r.t.x);
+    return (tmin < maxt) && (tmax > r.t.x);
 }
 
 // Fast bbox test: PBRT book
-inline bool intersects(ray& r, float3 const& invrd, bbox const& box, int dirneg[3], float2& range)
+inline bool intersects(ray const& r, float3 const& invrd, bbox const& box, int dirneg[3], float2& range)
 {
     // Check for ray intersection against $x$ and $y$ slabs
     float tmin =  (box[  dirneg[0]].x - r.o.x) * invrd.x;

@@ -47,7 +47,7 @@ public:
     // The callers responsibility to pass only samplable primitives(i.e. area > 0) in there and only emissive materials.
     // Area light rely on primitives ability to provide sample points on its surface.
     //
-    AreaLight(ShapeBundle& bundle, Material const& material);
+    AreaLight(size_t shapeidx, ShapeBundle& bundle, Material const& material);
 
     // Sample method generates a direction to the light(d), calculates pdf in that direction (pdf)
     // and returns radiance emitted(return value) into the direction specified by isect
@@ -70,6 +70,8 @@ public:
     bool Singular() const { return false; }
     
 private:
+    // Index within the bundle
+    size_t shapeidx_;
     // Primitive declaring the shape of the light
     ShapeBundle& bundle_;
     // Material

@@ -71,37 +71,37 @@ public:
     }
 
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
+    float3 Sample(ShapeBundle::Hit& hit, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
 
         // Backup for normal mapping
-        Primitive::Intersection isectlocal = isect;
+        ShapeBundle::Hit hitlocal = hit;
         
         // Alter normal if needed
         // TODO: fix tangents as well
-        MAP_NORMAL(nmap_, isectlocal);
+        MAP_NORMAL(nmap_, hitlocal);
         
         // Revert normal based on ORIGINAL normal, not mapped one
         float3 n;
         float eta;
-        float ndotwi = dot(wi, isectlocal.n);
+        float ndotwi = dot(wi, hitlocal.n);
         
         // Revert normal and eta if needed
         if (ndotwi >= 0.f)
         {
-            n = isect.n;
+            n = hit.n;
             eta = eta_;
         }
         else
         {
-            n = -isect.n;
+            n = -hit.n;
             eta = 1 / eta_;
             ndotwi = -ndotwi;
         }
 
-        // Use original isect.n here to make sure IOR ordering is correct
+        // Use original hit.n here to make sure IOR ordering is correct
         // as we could have reverted normal and eta
-        float reflectance = fresnel_ ? fresnel_->Evaluate(1.f, eta_, dot(wi, isect.n)) : 0.f;
+        float reflectance = fresnel_ ? fresnel_->Evaluate(1.f, eta_, dot(wi, hit.n)) : 0.f;
 
         // If not TIR return transmitance BSDF
         if (reflectance < 1.f)
@@ -117,7 +117,7 @@ public:
             pdf = 1.f;
             
             // Get refract color value
-            float3 ks = GET_VALUE(ks_, ksmap_, isect.uv);
+            float3 ks = GET_VALUE(ks_, ksmap_, hit.uv);
             
             // Account for reflectance
             return ndotwi > FLT_EPSILON ? (eta*eta*(1.f - reflectance)*ks*(1.f / ndotwi)) : float3(0.f, 0.f, 0.f);
@@ -132,14 +132,14 @@ public:
     }
 
     // Evaluate combined BSDF value
-    float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    float3 Evaluate(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const
     {
         // Delta function, return 0
         return float3(0.f, 0.f, 0.f);
     }
     
     // Return pdf for wo to be sampled for wi
-    float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    float GetPdf(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const
     {
         // Delta function, return 0
         return 0.f;

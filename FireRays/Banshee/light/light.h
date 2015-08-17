@@ -49,17 +49,17 @@ public:
     // Note that no shadow testing occurs here, the method knows nothing about world's geometry
     // and it is renderers responsibility to account for visibility term
     // [PARTIALLY DONE] TODO: account for different sampling modes here, need to pass sampler/sample?
-    virtual float3 Sample(ShapeBundle::Intersection const& isect, float2 const& sample, float3& d, float& pdf) const = 0;
+    virtual float3 GetSample(ShapeBundle::Hit const& hit, float2 const& sample, float3& d, float& pdf) const = 0;
     
     // This method is supposed to be called by the renderer when the ray misses the geometry.
     // It allows implementing IBL, etc.
-    virtual float3 Le(ray const& r) const = 0;
+    virtual float3 GetLe(ray const& r) const = 0;
     
     // PDF of a given direction sampled from isect.p
-    virtual float Pdf(ShapeBundle::Intersection const& isect, float3 const& w) const = 0;
+    virtual float GetPdf(ShapeBundle::Hit const& hit, float3 const& w) const = 0;
     
     // Check if the light is singular (represented by delta function or not)
-    virtual bool singular() const { return true; }
+    virtual bool Singular() const { return true; }
 };
 
 #endif // LIGHT_H

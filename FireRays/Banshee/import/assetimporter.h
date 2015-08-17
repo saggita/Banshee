@@ -35,7 +35,7 @@
 
 #include <functional>
 
-class Primitive;
+class ShapeBundle;
 class Light;
 class Camera;
 class Material;
@@ -63,7 +63,7 @@ public:
     virtual void Import() = 0;
 
     // New primitive callback
-    std::function<void (Primitive*)> onprimitive_;
+    std::function<void (ShapeBundle*)> onprimitive_;
     // New light callback
     std::function<void (Light*)> onlight_;
     // New camera callback

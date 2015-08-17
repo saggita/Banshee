@@ -42,7 +42,7 @@ EnvironmentLightIs::EnvironmentLightIs(TextureSystem const& texsys,
     radiancedist_.reset(new Distribution2D(kDistWidth, kDistHeight, &img[0]));
 }
 
-float3 EnvironmentLightIs::Sample(Primitive::Intersection const& isect, float2 const& sample, float3& d, float& pdf) const
+float3 EnvironmentLightIs::GetSample(ShapeBundle::Hit const& hit, float2 const& sample, float3& d, float& pdf) const
 {
     // Sample according to radiance distribution
     float dpdf = 0.f;
@@ -70,7 +70,7 @@ float3 EnvironmentLightIs::Sample(Primitive::Intersection const& isect, float2 c
 }
 
 
-float3 EnvironmentLightIs::Le(ray const& r) const
+float3 EnvironmentLightIs::GetLe(ray const& r) const
 {
     // Convert world d coordinates to spherical representation
     float rr, phi, theta;
@@ -90,7 +90,7 @@ float3 EnvironmentLightIs::Le(ray const& r) const
 }
 
 // PDF of a given direction sampled from isect.p
-float EnvironmentLightIs::Pdf(Primitive::Intersection const& isect, float3 const& w) const
+float EnvironmentLightIs::GetPdf(ShapeBundle::Hit const& hit, float3 const& w) const
 {
     // Convert world d coordinates to spherical representation
     float rr, phi, theta;

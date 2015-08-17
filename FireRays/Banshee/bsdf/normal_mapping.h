@@ -54,7 +54,7 @@ public:
     }
     
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
+    float3 Sample(ShapeBundle::Hit& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
         // Alter normal if needed
         MAP_NORMAL(nmap_, isect);
@@ -63,7 +63,7 @@ public:
     }
     
     // Evaluate combined BSDF value
-    float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    float3 Evaluate(ShapeBundle::Hit& isect, float3 const& wi, float3 const& wo) const
     {
         // Alter normal if needed
         MAP_NORMAL(nmap_, isect);
@@ -72,13 +72,13 @@ public:
     }
     
     // PDF of a given direction sampled from isect.p
-    float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    float GetPdf(ShapeBundle::Hit& isect, float3 const& wi, float3 const& wo) const
     {
-        Primitive::Intersection isectlocal = isect;
+        ShapeBundle::Hit isectlocal = isect;
         // Alter normal if needed
         MAP_NORMAL(nmap_, isectlocal);
         
-        return bsdf_->Pdf(isectlocal, wi, wo);
+        return bsdf_->GetPdf(isectlocal, wi, wo);
     }
     
     // Get BSDF type

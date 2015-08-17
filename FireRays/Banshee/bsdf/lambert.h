@@ -63,10 +63,10 @@ public:
     }
     
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
+    float3 Sample(ShapeBundle::Hit& hit, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
         // Revert normal based on geometric normal
-        float3 n = dot(wi, isect.ng) >= 0.f ? isect.n : -isect.n;
+        float3 n = dot(wi, hit.ng) >= 0.f ? hit.n : -hit.n;
         
         // Map random sample to hemisphere getting cosine weigted distribution
         wo = map_to_hemisphere(n, sample, 1.f);
@@ -78,24 +78,24 @@ public:
         pdf = dot(n, wo) * invpi;
         
         // Diffuse albedo
-        float3 kd = GET_VALUE(kd_, kdmap_, isect.uv);
+        float3 kd = GET_VALUE(kd_, kdmap_, hit.uv);
        
         // Return constant diffuse albedo
         return invpi * kd;
     }
 
     // Evaluate combined BSDF value
-    float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    float3 Evaluate(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const
     {
         // If wi and wo are on the same side of the surface return 1 / PI, otherwise 0.f
-        float sameside = dot(wi, isect.ng) * dot(wo, isect.ng) ;
+        float sameside = dot(wi, hit.ng) * dot(wo, hit.ng) ;
         
         if (sameside > 0.f)
         {
             float invpi = 1.f / PI;
             
             // Diffuse albedo
-            float3 kd = GET_VALUE(kd_, kdmap_, isect.uv);
+            float3 kd = GET_VALUE(kd_, kdmap_, hit.uv);
             
             return invpi * kd;
         }
@@ -106,15 +106,15 @@ public:
     }
     
     // Return pdf for wo to be sampled for wi
-    float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    float GetPdf(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const
     {
         // If wi and wo are on the same side of the surface return dot(n, wo) / PI, otherwise 0.f
-        float sameside = dot(wi, isect.ng) * dot(wo, isect.ng) ;
+        float sameside = dot(wi, hit.ng) * dot(wo, hit.ng) ;
         
         if (sameside > 0.f)
         {
             
-            float3 n = dot(wi, isect.ng) >= 0.f ? isect.n : -isect.n;
+            float3 n = dot(wi, hit.ng) >= 0.f ? hit.n : -hit.n;
             
             float invpi = 1.f / PI;
             

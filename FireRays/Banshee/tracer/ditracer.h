@@ -35,7 +35,7 @@
 #define DITRACER_H
 
 #include "tracer.h"
-#include "../primitive/primitive.h"
+#include "../primitive/shapebundle.h"
 
 class Light;
 class Sampler;
@@ -50,11 +50,11 @@ public:
     DiTracer(){}
 
     // Estimate a radiance coming from r due to direct illumination
-    float3 Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const;
+    float3 GetLi(ray const& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const;
 
 protected:
     // Estimate direct illimination component due to light contribution reflected along wo
-    virtual float3 Di(World const& world, Light const& light, Sampler const& lightsampler, Sampler const& bsdfsampler, float3 const& wo, Primitive::Intersection& isect) const;
+    virtual float3 GetDi(World const& world, Light const& light, Sampler const& lightsampler, Sampler const& bsdfsampler, float3 const& wo, ShapeBundle::Hit& hit) const;
 };
 
 #endif // DITRACER_H

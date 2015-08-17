@@ -51,9 +51,9 @@ public:
     // w - microfacet orientation (normal), n - surface normal
     virtual float D(float3 const& w, float3 const& n) const = 0;
     // Sample the direction accordingly to this distribution
-    virtual void Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const = 0;
+    virtual void Sample(ShapeBundle::Hit const& hit, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const = 0;
     // PDF of the given direction
-    virtual float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const = 0;
+    virtual float GetPdf(ShapeBundle::Hit const& hit, float3 const& wi, float3 const& wo) const = 0;
 };
 
 ///< Blinn distribution of microfacets based on Gaussian distribution : D(wh) ~ (dot(wh, n)^e)
@@ -76,7 +76,7 @@ public:
     }
     
     // Sample the distribution
-    void Sample(Primitive::Intersection const& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
+    void Sample(ShapeBundle::Hit const& hit, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
         // Sample halfway vector first, then reflect wi around that
         float costheta = std::powf(sample.x, 1.f / (e_ + 1.f));
@@ -87,22 +87,22 @@ public:
         float sinphi = std::sinf(2.f*PI*sample.y);
         
         // Calculate wh
-        float3 wh = normalize(isect.dpdu * sintheta * cosphi + isect.dpdv * sintheta * sinphi + isect.n * costheta);
+        float3 wh = normalize(hit.dpdu * sintheta * cosphi + hit.dpdv * sintheta * sinphi + hit.n * costheta);
         
         // Reflect wi around wh
         wo = -wi + 2.f*dot(wi, wh) * wh;
         
         // Calc pdf
-        pdf = Pdf(isect, wi, wo);
+        pdf = GetPdf(hit, wi, wo);
     }
     
     // PDF of the given direction
-    float Pdf(Primitive::Intersection const& isect, float3 const& wi, float3 const& wo) const
+    float GetPdf(ShapeBundle::Hit const& hit, float3 const& wi, float3 const& wo) const
     {
         // We need to convert pdf(wh)->pdf(wo)
         float3 wh = normalize(wi + wo);
         // costheta
-        float ndotwh = dot(isect.n, wh);
+        float ndotwh = dot(hit.n, wh);
         // See Humphreys and Pharr for derivation
         return ((e_ + 1.f) * std::powf(ndotwh, e_)) / (2.f * PI * 4.f * dot (wo,wh));
     }
@@ -150,46 +150,46 @@ public:
     }
     
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
+    float3 Sample(ShapeBundle::Hit& hit, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
-        Primitive::Intersection isectlocal = isect;
+        ShapeBundle::Hit hitlocal = hit;
         
         // Alter normal if needed
         // TODO: fix tangents as well
-        MAP_NORMAL(nmap_, isectlocal);
+        MAP_NORMAL(nmap_, hitlocal);
         
         // Revert normal if needed
-        if (dot(isect.n, wi) < 0.f)
+        if (dot(hit.n, wi) < 0.f)
         {
-            isectlocal.n = -isectlocal.n;
-            isectlocal.dpdu = -isectlocal.dpdu;
-            isectlocal.dpdv = -isectlocal.dpdv;
+            hitlocal.n = -hitlocal.n;
+            hitlocal.dpdu = -hitlocal.dpdu;
+            hitlocal.dpdv = -hitlocal.dpdv;
         }
         
         // Sample distribution
-        md_->Sample(isectlocal, sample, wi, wo, pdf);
+        md_->Sample(hitlocal, sample, wi, wo, pdf);
         
         // Evaluate
-        return Evaluate(isect, wi, wo);
+        return Evaluate(hit, wi, wo);
     }
     
     // Evaluate combined BSDF value
-    float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    float3 Evaluate(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const
     {
         // Return 0 if wo and wi are on different sides
-        float sameside = dot(wi, isect.n) * dot(wo, isect.n);
+        float sameside = dot(wi, hit.n) * dot(wo, hit.n);
         
         if (sameside < 0.f)
             return float3(0, 0, 0);
         
-        Primitive::Intersection isectlocal = isect;
+        ShapeBundle::Hit hitlocal = hit;
         
         // Alter normal if needed
         // TODO: fix tangents as well
-        MAP_NORMAL(nmap_, isectlocal);
+        MAP_NORMAL(nmap_, hitlocal);
         
         // Revert normal if needed
-        float3 n = dot(isect.n, wi) < 0.f ? -isectlocal.n : isectlocal.n;
+        float3 n = dot(hit.n, wi) < 0.f ? -hitlocal.n : hitlocal.n;
         
         // Incident and reflected zenith angles
         float cos_theta_o = dot(n, wo);
@@ -204,7 +204,7 @@ public:
         // Calc Fresnel for wh faced microfacets
         float fresnel = fresnel_->Evaluate(1.f, eta_, dot(wi, wh));
         
-        float3 ks = GET_VALUE(ks_, ksmap_, isect.uv);
+        float3 ks = GET_VALUE(ks_, ksmap_, hit.uv);
         
         // F(wi,wo) = D(wh)*Fresnel(wh, n)*G(wi, wo, n)/(4 * cos_theta_i * cos_theta_o)
         return ks * (md_->D(wh, n) * G(wi, wo, wh, n) * fresnel / (4.f * cos_theta_i * cos_theta_o));
@@ -222,23 +222,23 @@ public:
     }
     
     // Return pdf for wo to be sampled for wi
-    float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    float GetPdf(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const
     {
         // Return 0 if wo and wi are on different sides
-        float sameside = dot(wi, isect.n) * dot(wo, isect.n);
+        float sameside = dot(wi, hit.n) * dot(wo, hit.n);
         if (sameside < 0.f)
             return 0.f;
         
-        Primitive::Intersection isectlocal = isect;
+        ShapeBundle::Hit hitlocal = hit;
         
-        if (dot(isectlocal.n, wi) < 0)
+        if (dot(hitlocal.n, wi) < 0)
         {
-            isectlocal.n = -isectlocal.n;
-            isectlocal.dpdu = -isectlocal.dpdu;
-            isectlocal.dpdv = -isectlocal.dpdv;
+            hitlocal.n = -hitlocal.n;
+            hitlocal.dpdu = -hitlocal.dpdu;
+            hitlocal.dpdv = -hitlocal.dpdv;
         }
         
-        return md_->Pdf(isectlocal, wi, wo);
+        return md_->GetPdf(hitlocal, wi, wo);
     }
     
 private:

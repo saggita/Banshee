@@ -78,17 +78,17 @@ public:
     }
     
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
+    float3 Sample(ShapeBundle::Hit& hit, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
         // Backup for normal mapping
-        Primitive::Intersection isectlocal = isect;
+        ShapeBundle::Hit hitlocal = hit;
         
         // Alter normal if needed
         // TODO: fix tangents as well
-        MAP_NORMAL(nmap_, isectlocal);
+        MAP_NORMAL(nmap_, hitlocal);
         
         // Revert normal based on ORIGINAL normal, not mapped one
-        float3 n = dot(wi, isect.n) >= 0.f ? isectlocal.n : -isectlocal.n;
+        float3 n = dot(wi, hit.n) >= 0.f ? hitlocal.n : -hitlocal.n;
         
         // Mirror reflect wi
         wo = normalize(2.f * dot(n, wi) * n - wi);
@@ -98,11 +98,11 @@ public:
         pdf = 1.f;
 
         // Get reflect color value
-        float3 ks = GET_VALUE(ks_, ksmap_, isect.uv);
+        float3 ks = GET_VALUE(ks_, ksmap_, hit.uv);
 
         // If Fresnel is used calculate Fresnel reflectance using ORIGINAL normal to
         // correctly determine reflected and transmitted parts
-        float reflectance = fresnel_ ? fresnel_->Evaluate(1.f, eta_, dot(wi, isect.n)) : 1.f;
+        float reflectance = fresnel_ ? fresnel_->Evaluate(1.f, eta_, dot(wi, hit.n)) : 1.f;
 
         float ndotwi = dot(n, wi);
 
@@ -111,14 +111,14 @@ public:
     }
 
     // Evaluate combined BSDF value
-    float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    float3 Evaluate(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const
     {
         // Delta function, so 0.f
         return float3(0.f, 0.f, 0.f);
     }
     
     // Return pdf for wo to be sampled for wi
-    float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    float GetPdf(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const
     {
         // Delta function, so 0.f
         return 0.f;

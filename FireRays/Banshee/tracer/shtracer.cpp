@@ -17,7 +17,7 @@ ShTracer::ShTracer(int lmax, float3* const shcoeffs)
     }
 }
 
-float3 ShTracer::E(float3 const& n) const
+float3 ShTracer::GetE(float3 const& n) const
 {
     std::vector<float3> convolvedcoeffs(NumShTerms(lmax_));
     std::vector<float>  ylm(NumShTerms(lmax_));
@@ -36,15 +36,14 @@ float3 ShTracer::E(float3 const& n) const
 }
 
 
-float3 ShTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
+float3 ShTracer::GetLi(ray const& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
 {
-    Primitive::Intersection isect;
-    float t = r.t.y;
+    ShapeBundle::Hit hit;
     float3 radiance;
     
-    if (world.Intersect(r, t, isect))
+    if (world.Intersect(r, hit))
     {
-        radiance = E(dot(-r.d, isect.n) > 0 ? isect.n : -isect.n);
+        radiance = GetE(dot(-r.d, hit.n) > 0 ? hit.n : -hit.n);
     }
     else
     {
@@ -52,7 +51,7 @@ float3 ShTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
         
         for (int i = 0; i < world.lights_.size(); ++i)
         {
-            radiance += world.lights_[i]->Le(r);
+            radiance += world.lights_[i]->GetLe(r);
         }
     }
     

@@ -119,6 +119,7 @@ void Mesh::FillSample(Face const& face, float a, float b, Sample& sample) const
     sample.uv = (1.f - a - b) * t1 + a * t2 + b * t3;
     sample.m = face.m;
     sample.pdf = 1.f / (sqrtf(fabs(cross(p3 - p1, p3 - p2).sqnorm())) * 0.5f);
+    assert(!isinf(sample.pdf));
 }
 
 
@@ -184,7 +185,7 @@ Mesh::Mesh(float const* vertices, int vnum, int vstride,
     uistride = (uistride == 0) ? sizeof(int) : uistride;
 
     /// Construct triangles
-    faces_.resize(nfaces * 3);
+    faces_.resize(nfaces);
     for (int i = 0; i < nfaces; ++i)
     {
         faces_[i].vi0 = *((int const*)((char*)vidx + 3 * i * vistride));
@@ -319,7 +320,7 @@ float Mesh::GetShapeSurfaceArea(std::size_t idx) const
     return sqrtf(fabs(cross(p3 - p1, p3 - p2).sqnorm())) * 0.5f;
 }
 
-void Mesh::GetSample(std::size_t idx, float2 const& uv, Sample& sample) const
+void Mesh::GetSampleOnShape(std::size_t idx, float2 const& uv, Sample& sample) const
 {
     assert(idx >= 0 && idx < GetNumShapes());
     
@@ -334,11 +335,11 @@ void Mesh::GetSample(std::size_t idx, float2 const& uv, Sample& sample) const
     FillSample(face, a, b, sample);
 }
 
-void Mesh::GetSample(std::size_t idx, float3 const& p, float2 const& uv, Sample& sample) const
+void Mesh::GetSampleOnShape(std::size_t idx, float3 const& p, float2 const& uv, Sample& sample) const
 {
     assert(idx >= 0 && idx < GetNumShapes());
     
-    GetSample(idx, uv, sample);
+    GetSampleOnShape(idx, uv, sample);
     
     if (sample.pdf > 0.f)
     {
@@ -350,7 +351,7 @@ void Mesh::GetSample(std::size_t idx, float3 const& p, float2 const& uv, Sample&
     }
 }
 
-float Mesh::GetPdf(std::size_t idx, float3 const& p, float3 const& w) const
+float Mesh::GetPdfOnShape(std::size_t idx, float3 const& p, float3 const& w) const
 {
     assert(idx >= 0 && idx < GetNumShapes());
     
@@ -366,6 +367,8 @@ float Mesh::GetPdf(std::size_t idx, float3 const& p, float3 const& w) const
         // Construct direction
         float3 d = p - hit.p;
         
+        float v = d.sqnorm() / (dot(normalize(d), hit.n) * GetShapeSurfaceArea(idx));
+        assert(!isinf(v));
         // Convert surface area PDF to solid angle PDF
         return d.sqnorm() / (dot(normalize(d), hit.n) * GetShapeSurfaceArea(idx));
     }

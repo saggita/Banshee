@@ -134,14 +134,11 @@ void AssimpAssetImporter::Import()
             onprimitive_(mymesh);
         }
 
-        if (onlight_ && idx2mat[mat]->emissive())
+        if (onlight_ && idx2mat[mat]->IsEmissive())
         {
-            std::vector<Primitive*> prims;
-            mymesh->Refine(prims);
-
-            for (int i = 0; i < (int)prims.size(); ++i)
+            for (size_t i = 0; i < mymesh->GetNumShapes(); ++i)
             {
-                AreaLight* light = new AreaLight(*prims[i], *idx2mat[mat]);
+                AreaLight* light = new AreaLight(i, *mymesh, *idx2mat[mat]);
                 onlight_(light);
             }
         }

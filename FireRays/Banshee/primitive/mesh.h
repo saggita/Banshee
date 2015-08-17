@@ -122,7 +122,7 @@ public:
     //           note that PDF might be 0 in which case data is not filled in.
     // IMPORTANT: PDF returned by the method with regards to surface area.
     //
-    virtual void GetSample(std::size_t idx, float2 const& uv, Sample& sample) const;
+    virtual void GetSampleOnShape(std::size_t idx, float2 const& uv, Sample& sample) const;
     
     // Sample point on idx shape from point p
     // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
@@ -132,26 +132,27 @@ public:
     // IMPORTANT: PDF returned by the method with regards to solid angle subtended by shape
     //           at the point p.
     //
-    virtual void GetSample(std::size_t idx, float3 const& p, float2 const& uv, Sample& sample) const;
+    virtual void GetSampleOnShape(std::size_t idx, float3 const& p, float2 const& uv, Sample& sample) const;
     
     // Get PDF value of a particular direction from a point p
     // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
     // CONTRACT: The method retuns PDF of w direction with respect solid angle subtended by shape
     //           at the point p.
     //
-    virtual float GetPdf(std::size_t idx, float3 const& p, float3 const& w) const;
+    virtual float GetPdfOnShape(std::size_t idx, float3 const& p, float3 const& w) const;
     
 protected:
-    //
+    // Test face against a given ray returning barycentric coords of a hit
+    // and ray hit distance
     bool IntersectFace(Face const& face, ray const& ro, float tmax, float& t, float& a, float& b) const;
-    //
+    // Fill hit information (normal. uv, etc)
+    // REQUIRED: IntersectFace(face, ro, t, a, b) == true
     void FillHit(Face const& face, float t, float a, float b, Hit& hit) const;
-    //
+    // Fill sample information
     void FillSample(Face const& face, float a, float b, Sample& sample) const;
 
 private:
-    
-    
+
     /// Disallow to copy meshes, too heavy
     Mesh(Mesh const& o);
     Mesh& operator = (Mesh const& o);

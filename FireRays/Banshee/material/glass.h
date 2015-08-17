@@ -63,18 +63,18 @@ public:
     }
     
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf, int& type) const
+    float3 Sample(ShapeBundle::Hit& hit, float2 const& sample, float3 const& wi, float3& wo, float& pdf, int& type) const
     {
         // Split sampling based on Fresnel
         float rnd = rand_float();
         
-        float r = fresnel_->Evaluate(1.f, eta_, dot(isect.n, wi));
+        float r = fresnel_->Evaluate(1.f, eta_, dot(hit.n, wi));
         
         // Reflective part
         if (rnd < r)
         {
             type = brdf_->GetType();
-            float3 f = brdf_->Sample(isect, sample, wi, wo, pdf);
+            float3 f = brdf_->Sample(hit, sample, wi, wo, pdf);
             pdf *= r;
             return f;
         }
@@ -82,20 +82,20 @@ public:
         else
         {
             type = btdf_->GetType();
-            float3 f = btdf_->Sample(isect, sample, wi, wo, pdf);
+            float3 f = btdf_->Sample(hit, sample, wi, wo, pdf);
             pdf *= (1.f - r);
             return f;
         }
     }
     
     // PDF of a given direction sampled from isect.p
-    float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    float GetPdf(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const
     {
         return 0.f;
     }
     
     // Evaluate combined BSDF value
-    float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    float3 Evaluate(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const
     {
         return float3();
     }

@@ -35,7 +35,7 @@
 #define AOTRACER_H
 
 #include "tracer.h"
-#include "../primitive/primitive.h"
+#include "../primitive/shapebundle.h"
 
 class Sampler;
 
@@ -52,7 +52,7 @@ public:
     }
 
     // Estimate a radiance coming from r
-    float3 Li(ray& r, World const& world, Sampler const& lightsampler) const;
+    float3 GetLi(ray const& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const;
 
 private:
     // Occlusion radius

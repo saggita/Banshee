@@ -15,33 +15,34 @@ float3 AoTracer::GetLi(ray const& r, World const& world, Sampler const& lightsam
     if (world.Intersect(r, hit))
     {
         // Number of times we need to sample occlusion
-        //int numsamples = lightsampler.num_samples();
-        //float3 occlusion;
-
-        //for (int i=0; i<numsamples; ++i)
-        //{
+        int numsamples = lightsampler.num_samples();
+        
+        float3 occlusion = float3();
+        for (int i=0; i<numsamples; ++i)
+        {
             // Get the sample
-            //float2 sample = lightsampler.Sample2D();
+            float2 sample = lightsampler.Sample2D();
 
-            //ray r;
+            ray r;
             // Map to hemisphere with empirically choosen cosine factor
-            // TODO: move that into global settings
             // Prepare AO ray
-            //r.d = map_to_hemisphere(hit.n, sample, 1.f);
-            //r.o = hit.p;
-            //r.t = float2(0.00002f, radius_);
+            r.d = map_to_hemisphere(hit.n, sample, 1.f);
+            r.o = hit.p;
+            r.t = float2(0.00002f, radius_);
 
             // Check an intersection
-            //if (world.Intersect(r))
-            //{
-                //occlusion += float3(1.f, 1.f, 1.f);
-            //}
-        //}
+            if (world.Intersect(r))
+            {
+                occlusion += float3(1.f, 1.f, 1.f);
+            }
+        }
+        
         // Normalize occlusion factor
-        //occlusion *= (1.f/numsamples);
+        occlusion *= (1.f / numsamples);
         // Note that we need to return visibility, not occlusion
-        //visibility = float3(1.f, 1.f, 1.f) - occlusion;
-        return 0.5f * hit.n + float3(0.5f, 0.5f, 0.5f);
+        visibility = float3(1.f, 1.f, 1.f) - occlusion;
+        //
+        return visibility;
     }
     
     return float3();

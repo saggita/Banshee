@@ -7,6 +7,9 @@
 #include "../bsdf/bsdf.h"
 #include "../math/mathutils.h"
 
+#define MINPDF 0.05f
+#define MAXRADIANCE 10.f
+
 float3 GiTracer::GetLi(ray const& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
 {
     // Accumulated radiance
@@ -65,11 +68,19 @@ float3 GiTracer::GetLi(ray const& r, World const& world, Sampler const& lightsam
             }
             
             // Evaluate DI component
-            //for (int i = 0; i < world.lights_.size(); ++i)
+            //
+            if (bounce != 0)
             {
                 int numlights = world.lights_.size();
                 int idx = rand_uint() % numlights;
                 radiance += throughput * GetDi(world, *world.lights_[idx], lightsampler, brdfsampler, -rr.d, hit) * numlights;
+            }
+            else
+            {
+                for (int i = 0; i < world.lights_.size(); ++i)
+                {
+                    radiance += throughput * GetDi(world, *world.lights_[i], lightsampler, brdfsampler, -rr.d, hit);
+                }
             }
             
             
@@ -86,7 +97,7 @@ float3 GiTracer::GetLi(ray const& r, World const& world, Sampler const& lightsam
             float3 bsdf = mat.Sample(hit, bsdfsample, -rr.d, wi, bsdfpdf, bsdftype);
             
             // Bail out if zero BSDF sampled
-            if (bsdf.sqnorm() == 0.f || bsdfpdf == 0.f)
+            if (bsdf.sqnorm() == 0.f || bsdfpdf < MINPDF)
             {
                 break;
             }
@@ -125,5 +136,5 @@ float3 GiTracer::GetLi(ray const& r, World const& world, Sampler const& lightsam
         }
     }
     
-    return radiance * (1.f / numsamples);
+    return clamp(radiance * (1.f / numsamples), float3(0.f, 0.f, 0.f), float3(MAXRADIANCE, MAXRADIANCE, MAXRADIANCE));
 }

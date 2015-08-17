@@ -163,7 +163,7 @@ inline bool intersects(ray const& r, float3 const& invrd, bbox const& box)
 }
 
 // Fast bbox test: PBRT book
-inline bool intersects(ray const& r, float3 const& invrd, bbox const& box, int dirneg[3], float maxt)
+inline bool intersects(ray const& r, float3 const& invrd, bbox const& box, int dirneg[3], float maxt)
 {
     // Check for ray intersection against $x$ and $y$ slabs
     float tmin =  (box[  dirneg[0]].x - r.o.x) * invrd.x;

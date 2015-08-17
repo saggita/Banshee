@@ -14,6 +14,8 @@
 
 #include "../math/mathutils.h"
 
+#define MINPDF 0.05f
+
 float3 DiTracer::GetLi(ray const& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
 {
     ShapeBundle::Hit hit;
@@ -98,7 +100,7 @@ float3 DiTracer::GetDi(World const& world, Light const& light, Sampler const& li
             float3 le = light.GetSample(hitlocal, lightsamples[i], lightdir, lightpdf);
             
             // Continue if intensity > 0 and there is non-zero probability of sampling the point
-            if (lightpdf > 0.0f && le.sqnorm() > 0.f)
+            if (lightpdf > MINPDF && le.sqnorm() > 0.f)
             {
                 // Normalize direction to light
                 float3 wi = normalize(lightdir);
@@ -159,7 +161,7 @@ float3 DiTracer::GetDi(World const& world, Light const& light, Sampler const& li
                 wi = normalize(wi);
                 
                 // If something would be reflected
-                if (bsdf.sqnorm() > 0.f && bsdfpdf > 0.f)
+                if (bsdf.sqnorm() > 0.f && bsdfpdf > MINPDF)
                 {
                     float weight = 1.f;
                 
@@ -170,7 +172,7 @@ float3 DiTracer::GetDi(World const& world, Light const& light, Sampler const& li
                         lightpdf = light.GetPdf(hitlocal, wi);
 
                         // If light PDF is zero skip to next sample
-                        if (lightpdf == 0.f)
+                        if (lightpdf < MINPDF)
                         {
                             continue;
                         }
@@ -190,7 +192,6 @@ float3 DiTracer::GetDi(World const& world, Light const& light, Sampler const& li
                     shadowray.t = float2(0.001f, 10000000.f);
 
                     // Cast the ray into the scene
-                    float t = 0.f;
                     ShapeBundle::Hit shadowhit;
                     float3 le(0.f, 0.f, 0.f);
                     // If the ray intersects the scene check if we have intersected this light

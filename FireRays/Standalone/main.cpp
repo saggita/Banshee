@@ -1254,17 +1254,24 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
     // Create world
     World* world = new World();
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(-2, 1.0, -1.1f), float3(0,0.3,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new PerscpectiveCamera(float3(-2, 1.3, -1.1f), float3(0,0.6,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1920.f / 1200.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
-    //EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "1.hdr", 1.2f, 1.f);
+    //EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "default.png", 1.2f, 1.f);
     DirectionalLight* light2 = new DirectionalLight(float3(-0.5f, -1.f, 0.75f), float3(4,4,4));
 
     
     AssimpAssetImporter assimp(texsys, "../../../Resources/dragon/dragonplane.obj");
     
+    
     assimp.onmaterial_ = [&world, &texsys](Material* mat)->int
     {
-        world->materials_.push_back(std::unique_ptr<Material>(new SimpleMaterial(new Lambert(texsys, float3(0.6f, 0.6f, 0.6f)))));
+        MixedMaterial* mixmat = new MixedMaterial(2.5f);
+        mixmat->AddBsdf(new Lambert(texsys, float3(0.6f, 0.6f, 0.6f)));
+        mixmat->AddBsdf(new Microfacet(texsys, 2.5f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new BlinnDistribution(150.f)));
+
+        
+        world->materials_.push_back(std::unique_ptr<Material>(mixmat
+                                                              ));
         return (int)(world->materials_.size() - 1);
     };
     
@@ -1282,7 +1289,7 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
     // Attach camera
     world->camera_ = std::unique_ptr<Camera>(camera);
     // Set background
-    world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
+    world->bgcolor_ = float3(0.9f, 0.9f, 0.9f);
     // Add light
     //world->lights_.push_back(std::unique_ptr<Light>(light1));
     world->lights_.push_back(std::unique_ptr<Light>(light2));
@@ -1290,7 +1297,11 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
     
     // Build materials
     //SimpleMaterial* sm = new SimpleMaterial(new PerfectRefract(texsys, 1.4f, float3(0.7f, 0.7f, 0.7f), "", ""));
-    world->materials_.push_back(std::unique_ptr<Material>(new SimpleMaterial(new Lambert(texsys, float3(0.6f, 0.6f, 0.6f)))));
+    //world->materials_.clear();
+    //world->materials_[1].reset(
+                                                          //new SimpleMaterial(new Lambert(texsys, float3(0.6f, 0.6f, 0.6f)))
+                                                          //new Glass(texsys, 1.55f, float3(0.9f, 0.9f, 0.9f))
+                                                          //);
     
     // Return world
     return std::unique_ptr<World>(world);
@@ -1613,8 +1624,8 @@ int main_1()
 
 #include "shader_manager.h"
 
-int g_window_width = 600;
-int g_window_height = 600;
+int g_window_width = 1920;
+int g_window_height = 1200;
 std::unique_ptr<ShaderManager>	g_shader_manager;
 
 std::vector<char> g_data;

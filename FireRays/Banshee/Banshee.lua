@@ -10,6 +10,7 @@ project "Banshee"
     
     if os.is("macosx") then
     	links {"OpenImageIO"}
+        links {"Embree2"}
 		libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64", "../3rdParty/embree/lib"}
     end
 	

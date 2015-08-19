@@ -32,13 +32,13 @@ float3 DiTracer::GetLi(ray const& r, World const& world, Sampler const& lightsam
         }
         else
         {
-            //for (int i = 0; i < world.lights_.size(); ++i)
-            //{
-            // TODO: Pass RNG or sampler
-            int numlights = world.lights_.size();
-            int idx = rand_uint() % numlights;
-            radiance = GetDi(world, *world.lights_[idx], lightsampler, brdfsampler, -r.d, hit) * numlights;
-            //}
+            for (int i = 0; i < world.lights_.size(); ++i)
+            {
+                // TODO: Pass RNG or sampler
+                //int numlights = world.lights_.size();
+                //int idx = rand_uint() % numlights;
+                radiance += GetDi(world, *world.lights_[i], lightsampler, brdfsampler, -r.d, hit);
+            }
         }
     }
     else

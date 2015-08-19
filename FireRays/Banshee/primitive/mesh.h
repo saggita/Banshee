@@ -75,6 +75,19 @@ public:
          int const* materials, int mstride,
          int nfaces);
     
+    // Fill hit information (normal. uv, etc)
+    // REQUIRED: IntersectFace(face, ro, t, a, b) == true
+    void FillHit(size_t idx, float t, float a, float b, Hit& hit) const;
+    
+    //
+    float3 const* GetVertices() const;
+    //
+    size_t GetNumVertices() const;
+    //
+    Face const* GetFaces() const;
+    //
+    size_t GetNumFaces() const;
+    
     /** 
      ShapeBundle overrides
      */

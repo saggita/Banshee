@@ -8,7 +8,7 @@
 #include "../math/mathutils.h"
 
 #define MINPDF 0.05f
-#define MAXRADIANCE 10.f
+#define MAXRADIANCE 4.f
 
 float3 GiTracer::GetLi(ray const& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
 {

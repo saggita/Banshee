@@ -33,36 +33,37 @@
 #ifndef EMBREE_H
 #define EMBREE_H
 
-/*#include "../primitive/primitive.h"
+#include "intersectable.h"
 
-///< The class represents Embree-based intersection accelerator
 ///<
-class Embree : public Primitive
+class Embree : public Intersectable
 {
 public:
     Embree();
     ~Embree();
     
-    // World space bounding box
-    bbox const& Bounds() const { return bound_; }
     // Build function: pass bounding boxes and
-    void Build(std::vector<Primitive*> const& prims);
+    void Build(std::vector<std::unique_ptr<ShapeBundle>> const& bundles);
+    
+    /**
+     Intersectable overrides
+     */
     // Intersection test
-    bool Intersect(ray& r, float& t, Intersection& isect) const;
+    bool Intersect(ray const& r, ShapeBundle::Hit& hit) const;
     // Intersection check test
-    bool Intersect(ray& r) const;
+    bool Intersect(ray const& r) const;
+    
     
 protected:
-   
     
     
 private:
     Embree(Embree const&);
     Embree& operator = (Embree const&);
     
-    // Bounding box
-    bbox bound_;
-};*/
+    struct EmbreeData;
+    std::unique_ptr<EmbreeData> embreedata_;
+};
 
 
 #endif // EMBREE_H

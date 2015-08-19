@@ -367,8 +367,6 @@ float Mesh::GetPdfOnShape(std::size_t idx, float3 const& p, float3 const& w) con
         // Construct direction
         float3 d = p - hit.p;
         
-        float v = d.sqnorm() / (dot(normalize(d), hit.n) * GetShapeSurfaceArea(idx));
-        assert(!isinf(v));
         // Convert surface area PDF to solid angle PDF
         return d.sqnorm() / (dot(normalize(d), hit.n) * GetShapeSurfaceArea(idx));
     }
@@ -377,6 +375,41 @@ float Mesh::GetPdfOnShape(std::size_t idx, float3 const& p, float3 const& w) con
         // If the ray doesn't intersect the object set PDF to 0
         return 0.f;
     }
+}
+
+void Mesh::FillHit(size_t idx, float t, float a, float b, Hit& hit) const
+{
+    assert(idx >= 0 && idx < GetNumShapes());
+    
+    // Get the face
+    Face const& face(faces_[idx]);
+    
+    // Fill sample info
+    FillHit(face, t, a, b, hit);
+}
+
+//
+float3 const* Mesh::GetVertices() const
+{
+    return &vertices_[0];
+}
+
+//
+size_t Mesh::GetNumVertices() const
+{
+    return vertices_.size();
+}
+
+//
+Mesh::Face const* Mesh::GetFaces() const
+{
+    return &faces_[0];
+}
+
+//
+size_t Mesh::GetNumFaces() const
+{
+    return faces_.size();
 }
 
 

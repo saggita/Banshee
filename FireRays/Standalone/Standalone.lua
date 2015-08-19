@@ -5,8 +5,9 @@ project "Standalone"
     files { "**.cpp", "**.h" }
     includedirs{"../3rdParty/assimp/include", "../3rdParty/oiio/include"} 
     
-    if not os.is("windows") then
-    	buildoptions "-std=c++11 -stdlib=libc++"
+    if os.is("linux") then
+	links {"glut", "GLEW", "GL", "pthread", "OpenImageIO"} 
+    	buildoptions "-std=c++11"
     end
 
     if os.is("macosx") or os.is("linux") then
@@ -20,7 +21,7 @@ project "Standalone"
         links {"OpenImageIO"}
     end
 
-	if os.is("windows") then
+    if os.is("windows") then
         includedirs { "../3rdParty/glew/include", "../3rdParty/freeglut/include"}
 		links {"freeglut", "glew"}
 

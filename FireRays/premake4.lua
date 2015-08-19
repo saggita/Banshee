@@ -8,7 +8,7 @@ solution "Banshee"
 	language "C++"
 	flags { "NoMinimalRebuild", "EnableSSE", "EnableSSE2" }
     -- find and add path to Opencl headers
-	dofile ("./OpenCLSearch.lua" )
+    --	dofile ("./OpenCLSearch.lua" )
     -- define common includes
     includedirs { ".","./3rdParty/include" }
 

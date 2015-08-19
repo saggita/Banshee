@@ -5,7 +5,7 @@
 #include <cassert>
 
 #include "Importer.hpp"
-#include "Mesh.h"
+#include "mesh.h"
 #include "postprocess.h"
 #include "scene.h"
 

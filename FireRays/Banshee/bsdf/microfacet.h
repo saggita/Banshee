@@ -72,19 +72,19 @@ public:
     float D(float3 const& w, float3 const& n) const
     {
         float ndotw = fabs(dot(n, w));
-        return (1.f / (2*PI)) * (e_ + 2) * powf(ndotw, e_);
+        return (1.f / (2*PI)) * (e_ + 2) * pow(ndotw, e_);
     }
     
     // Sample the distribution
     void Sample(ShapeBundle::Hit const& hit, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
         // Sample halfway vector first, then reflect wi around that
-        float costheta = std::powf(sample.x, 1.f / (e_ + 1.f));
+        float costheta = std::pow(sample.x, 1.f / (e_ + 1.f));
         float sintheta = std::sqrt(1.f - costheta * costheta);
         
         // phi = 2*PI*ksi2
-        float cosphi = std::cosf(2.f*PI*sample.y);
-        float sinphi = std::sinf(2.f*PI*sample.y);
+        float cosphi = std::cos(2.f*PI*sample.y);
+        float sinphi = std::sin(2.f*PI*sample.y);
         
         // Calculate wh
         float3 wh = normalize(hit.dpdu * sintheta * cosphi + hit.dpdv * sintheta * sinphi + hit.n * costheta);
@@ -104,7 +104,7 @@ public:
         // costheta
         float ndotwh = dot(hit.n, wh);
         // See Humphreys and Pharr for derivation
-        return ((e_ + 1.f) * std::powf(ndotwh, e_)) / (2.f * PI * 4.f * dot (wo,wh));
+        return ((e_ + 1.f) * std::pow(ndotwh, e_)) / (2.f * PI * 4.f * dot (wo,wh));
     }
     
     // Exponent

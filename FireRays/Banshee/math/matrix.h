@@ -36,6 +36,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <cstring>
 
 #include "float3.h"
 
@@ -265,7 +266,7 @@ inline matrix inverse(matrix const& m)
     }
 
     matrix result;
-    memcpy(&result.m[0][0], minv, 4*4*sizeof(float));
+    std::memcpy(&result.m[0][0], minv, 4*4*sizeof(float));
     return result;
 }
 

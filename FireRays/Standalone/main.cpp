@@ -1254,9 +1254,9 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
     // Create world
     World* world = new World();
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(-2, 1.3, -1.1f), float3(0,0.6,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1920.f / 1200.f);
+    Camera* camera = new PerscpectiveCamera(float3(-2, 0.75, -1.1f), float3(0,0.6,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1920.f / 1200.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
-    //EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "default.png", 1.2f, 1.f);
+    EnvironmentLight* light1 = new EnvironmentLight(texsys, "1.hdr", 1.2f, 1.f);
     DirectionalLight* light2 = new DirectionalLight(float3(-0.5f, -1.f, 0.75f), float3(4,4,4));
 
     
@@ -1265,13 +1265,13 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
     
     assimp.onmaterial_ = [&world, &texsys](Material* mat)->int
     {
-        MixedMaterial* mixmat = new MixedMaterial(2.5f);
-        mixmat->AddBsdf(new Lambert(texsys, float3(0.6f, 0.6f, 0.6f)));
-        mixmat->AddBsdf(new Microfacet(texsys, 2.5f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new BlinnDistribution(150.f)));
+        //MixedMaterial* mixmat = new MixedMaterial(2.5f);
+        //mixmat->AddBsdf(new Lambert(texsys, float3(0.6f, 0.6f, 0.6f)));
+        //mixmat->AddBsdf(new Microfacet(texsys, 2.5f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new BlinnDistribution(150.f)));
 
         
-        world->materials_.push_back(std::unique_ptr<Material>(mixmat
-                                                              ));
+        world->materials_.push_back(std::unique_ptr<Material>(new SimpleMaterial(new Lambert(texsys, float3(0.6f, 0.6f, 0.6f))
+                                                              )));
         return (int)(world->materials_.size() - 1);
     };
     
@@ -1289,19 +1289,19 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
     // Attach camera
     world->camera_ = std::unique_ptr<Camera>(camera);
     // Set background
-    world->bgcolor_ = float3(0.9f, 0.9f, 0.9f);
+    world->bgcolor_ = float3(0.f, 0.f, 0.f);
     // Add light
-    //world->lights_.push_back(std::unique_ptr<Light>(light1));
+    world->lights_.push_back(std::unique_ptr<Light>(light1));
     world->lights_.push_back(std::unique_ptr<Light>(light2));
     
     
     // Build materials
     //SimpleMaterial* sm = new SimpleMaterial(new PerfectRefract(texsys, 1.4f, float3(0.7f, 0.7f, 0.7f), "", ""));
     //world->materials_.clear();
-    //world->materials_[1].reset(
-                                                          //new SimpleMaterial(new Lambert(texsys, float3(0.6f, 0.6f, 0.6f)))
-                                                          //new Glass(texsys, 1.55f, float3(0.9f, 0.9f, 0.9f))
-                                                          //);
+    world->materials_[2].reset(
+                                                          //new SimpleMaterial(new Lambert(texsys, float3(0.6f, 0.2f, 0.6f)))
+                                                          new Glass(texsys, 1.55f, float3(0.9f, 0.9f, 0.9f))
+                                                          );
     
     // Return world
     return std::unique_ptr<World>(world);
@@ -1614,7 +1614,6 @@ int main_1()
 #include "GL/glew.h"
 #include "GLUT/GLUT.h"
 #else
-#include <CL/cl.h>
 #include <GL/glew.h>
 #include <GL/glut.h>
 #endif
@@ -1624,8 +1623,8 @@ int main_1()
 
 #include "shader_manager.h"
 
-int g_window_width = 1920;
-int g_window_height = 1200;
+int g_window_width = 1200;
+int g_window_height = 800;
 std::unique_ptr<ShaderManager>	g_shader_manager;
 
 std::vector<char> g_data;

@@ -1,5 +1,11 @@
 #include "oiioimageio.h"
+
+#ifndef __linux__
 #include "OpenImageIO/imageio.h"
+#else
+#include <OpenImageIO/imageio.h>
+#endif
+
 
 OIIO_NAMESPACE_USING
 

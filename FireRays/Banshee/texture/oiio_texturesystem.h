@@ -3,8 +3,13 @@
 
 #include "texturesystem.h"
 
+#ifndef __linux__
 #include "OpenImageIO/imageio.h"
 #include "OpenImageIO/texture.h"
+#else
+#include <OpenImageIO/imageio.h>
+#include <OpenImageIO/texture.h>
+#endif
 
 ///< Texture system based on OpenImageIO library
 ///<

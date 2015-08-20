@@ -28,7 +28,7 @@ project "Banshee"
 			libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64" }
     else
 		links {"OpenImageIO"}
-    	links {"Embree2"}
+    	links {"embree"}
     	buildoptions "-std=c++11"
     	libdirs {"../3rdParty/embree/lib"}
     	buildoptions "-std=c++11"

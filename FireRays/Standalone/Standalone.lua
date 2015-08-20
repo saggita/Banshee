@@ -6,13 +6,14 @@ project "Standalone"
     includedirs{"../3rdParty/assimp/include", "../3rdParty/oiio/include"} 
     
     if os.is("linux") then
-	links {"glut", "GLEW", "GL", "pthread", "OpenImageIO"} 
+	links {"glut", "GLEW", "GL", "pthread", "OpenImageIO", "embree"} 
     	buildoptions "-std=c++11"
     end
 
     if os.is("macosx") or os.is("linux") then
     	links {"OpenImageIO"}
 		libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64"}
+    	libdirs {"../3rdParty/embree/lib"}
     end
 
     if os.is("macosx") then

@@ -1254,7 +1254,7 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
     // Create world
     World* world = new World();
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(-2, 0.75, -1.1f), float3(0,0.6,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1920.f / 1200.f);
+    Camera* camera = new PerscpectiveCamera(float3(-2, 0.75, -1.1f), float3(0,0.6,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1920.f / 1080.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     EnvironmentLight* light1 = new EnvironmentLight(texsys, "1.hdr", 1.2f, 1.f);
     DirectionalLight* light2 = new DirectionalLight(float3(-0.5f, -1.f, 0.75f), float3(4,4,4));
@@ -1299,9 +1299,9 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
     //SimpleMaterial* sm = new SimpleMaterial(new PerfectRefract(texsys, 1.4f, float3(0.7f, 0.7f, 0.7f), "", ""));
     //world->materials_.clear();
     world->materials_[2].reset(
-                                                          //new SimpleMaterial(new Lambert(texsys, float3(0.6f, 0.2f, 0.6f)))
-                                                          new Glass(texsys, 1.55f, float3(0.9f, 0.9f, 0.9f))
-                                                          );
+                                                          new SimpleMaterial(new Microfacet(texsys, 20.5f, float3(0.6f, 0.6f, 0.6f), "", "", new FresnelDielectric(), new BlinnDistribution(150.f ))
+                                 //                         new Glass(texsys, 1.55f, float3(0.9f, 0.9f, 0.9f))
+                                                          ));
     
     // Return world
     return std::unique_ptr<World>(world);
@@ -1623,11 +1623,11 @@ int main_1()
 
 #include "shader_manager.h"
 
-int g_window_width = 1200;
-int g_window_height = 800;
+int g_window_width = 1920 / 2;
+int g_window_height = 1080 / 2;
 std::unique_ptr<ShaderManager>	g_shader_manager;
 
-std::vector<char> g_data;
+std::vector<unsigned char> g_data;
 std::mutex g_data_mutex;
 
 GLuint g_vertex_buffer;
@@ -1791,8 +1791,21 @@ public:
     BufferImagePlane(int2 res)
         :  res_(res)
         , imgbuf_(res.x * res.y)
+        , imgbuf2_(res.x * res.y)
+        , imgbufr_(res.x * res.y)
+        , indices_(res.x * res.y)
+	, numindices_(res.x * res.y)
     {
         std::fill(imgbuf_.begin(), imgbuf_.end(), float3(0.f, 0.f, 0.f, 0.f));
+        std::fill(imgbuf2_.begin(), imgbuf2_.end(), float3(0.f, 0.f, 0.f, 0.f));
+        std::fill(imgbufr_.begin(), imgbufr_.end(), float3(0.f, 0.f, 0.f, 0.f));
+    
+	for (int x = 0; x < res_.x; ++x)
+		for (int y = 0; y < res_.y; ++y)
+	{
+		indices_[res_.x * (res_.y - 1 - y) + x] = int2(x,y);
+	}
+
     }
 
     // This method is called by the renderer prior to adding samples
@@ -1804,6 +1817,23 @@ public:
     // This method is called by the renderer after adding all the samples
     void Finalize()
     {
+	numindices_ = 0;
+	for (int x = 0; x < res_.x; ++x)
+		for (int y = 0; y < res_.y; ++y)
+	{
+		int idx = res_.x * (res_.y - 1 - y) + x;
+		float3 v = imgbuf_[idx];
+		float3 v2 = imgbuf2_[idx];
+		float invw = 1.f / v.w;
+
+		imgbufr_[idx] = ((v2 * invw) - (v * invw) * (v * invw))*((v2 * invw) - (v * invw) * (v * invw));
+		imgbufr_[idx].w = 1.f;	
+		
+		if (imgbufr_[idx].sqnorm() > 0.05f)
+		{
+			indices_[numindices_++] = int2(x, y);
+		}
+	}
     }
 
     // Add color contribution to the image plane
@@ -1815,8 +1845,10 @@ public:
         imgpos.x = (int)clamp((float)pos.x, 0.f, (float)res_.x-1);
         imgpos.y = (int)clamp((float)pos.y, 0.f, (float)res_.y-1);
 
-        imgbuf_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x] += w * value;
+        imgbuf_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x] += value;
         imgbuf_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x].w += 1.f;
+        imgbuf2_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x] += (value*value);
+        imgbuf2_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x].w += 1.f;
     }
 
     // This is used by the renderer to decide on the number of samples needed
@@ -1826,6 +1858,10 @@ public:
     int2 res_;
     // Intermediate image buffer
     std::vector<float3> imgbuf_;
+    std::vector<float3> imgbuf2_;
+    std::vector<float3> imgbufr_;
+    std::vector<int2> indices_;
+    int numindices_;
 };
 
 void Render()
@@ -1842,12 +1878,14 @@ void Render()
     
     BufferImagePlane plane(int2(g_window_width, g_window_height));
 
-    MtImageRenderer renderer(plane, // Image plane
+    AdaptiveRenderer renderer(plane, // Image plane
         new GiTracer(10), // Tracer
         new RandomSampler(2, new McRng()), // Image sampler
         new StratifiedSampler(2, new McRng()), // Light sampler
         new StratifiedSampler(2, new McRng()), // Brdf sampler
-        nullptr // Progress reporter
+        &plane.indices_[0],
+	plane.numindices_,
+	nullptr // Progress reporter
         );
 
     int numpasses = 0;
@@ -1860,13 +1898,21 @@ void Render()
             std::unique_lock<std::mutex> lock(g_data_mutex);
             for (int i = 0; i < g_window_width * g_window_height; ++i)
             {
-                g_data[3 * i] = (char)(255 * clamp(powf(plane.imgbuf_[i].x / plane.imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
-                g_data[3 * i + 1] = (char)(255 * clamp(powf(plane.imgbuf_[i].y / plane.imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
-                g_data[3 * i + 2] = (char)(255 * clamp(powf(plane.imgbuf_[i].z / plane.imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
+                g_data[3 * i] = (unsigned  char)(255 * clamp(powf(plane.imgbuf_[i].x / plane.imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
+                g_data[3 * i + 1] = (unsigned char)(255 * clamp(powf(plane.imgbuf_[i].y / plane.imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
+                g_data[3 * i + 2] = (unsigned char)(255 * clamp(powf(plane.imgbuf_[i].z / plane.imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
+                //g_data[3 * i] = (unsigned  char)(255 * clamp(plane.imgbufr_[i].x / plane.imgbufr_[i].w, 0.f, 1.f));
+                //g_data[3 * i + 1] = (unsigned char)(255 * clamp(plane.imgbufr_[i].y / plane.imgbufr_[i].w, 0.f, 1.f));
+                //g_data[3 * i + 2] = (unsigned char)(255 * clamp(plane.imgbufr_[i].z /  plane.imgbufr_[i].w, 0.f, 1.f));
             }
         }
         
-        std::cout << "Pass " << numpasses << " finished\n";
+
+	if (numpasses >= 4)
+		renderer.SetIndexCount(plane.numindices_);
+
+        std::cout << "Pass " << numpasses << " finished\n";   	
+        std::cout << "Pixels remaining " << plane.numindices_ << "\n";
     }
 }
 
@@ -1876,7 +1922,7 @@ int main(int argc, char** argv)
      // GLUT Window Initialization:
     glutInit (&argc, (char**)argv);
     glutInitWindowSize (g_window_width, g_window_height);
-    glutInitDisplayMode (GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
+    glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
     glutCreateWindow ("App");
     
 #ifndef __APPLE__

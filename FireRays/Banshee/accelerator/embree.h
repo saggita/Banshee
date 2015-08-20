@@ -34,6 +34,7 @@
 #define EMBREE_H
 
 #include "intersectable.h"
+#include <memory>
 
 ///<
 class Embree : public Intersectable

@@ -1,5 +1,6 @@
 #include "embree.h"
 #include "../primitive/mesh.h"
+#include "../math/mathutils.h"
 
 #include <map>
 
@@ -48,12 +49,16 @@ void Embree::Build(std::vector<std::unique_ptr<ShapeBundle>> const& bundles)
         
         Vertex* vertices = (Vertex*) rtcMapBuffer(embreedata_->scene, geomid, RTC_VERTEX_BUFFER);
 
+        matrix m, minv;
+        mesh->GetTransform(m, minv);
+        
         auto vertexdata = mesh->GetVertices();
         for (size_t j = 0; j < mesh->GetNumVertices(); ++j)
         {
-            vertices[j].x = vertexdata[j].x;
-            vertices[j].y = vertexdata[j].y;
-            vertices[j].z = vertexdata[j].z;
+            float3 v = transform_point(vertexdata[j], m);
+            vertices[j].x = v.x;//vertexdata[j].x;
+            vertices[j].y = v.y;//vertexdata[j].y;
+            vertices[j].z = v.z;//vertexdata[j].z;
             vertices[j].a = 1.f;
         }
         

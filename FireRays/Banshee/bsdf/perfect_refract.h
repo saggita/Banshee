@@ -73,18 +73,10 @@ public:
     // Sample material and return outgoing ray direction along with combined BSDF value
     float3 Sample(ShapeBundle::Hit& hit, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
-
-        // Backup for normal mapping
-        ShapeBundle::Hit hitlocal = hit;
-        
-        // Alter normal if needed
-        // TODO: fix tangents as well
-        MAP_NORMAL(nmap_, hitlocal);
-        
         // Revert normal based on ORIGINAL normal, not mapped one
         float3 n;
         float eta;
-        float ndotwi = dot(wi, hitlocal.n);
+        float ndotwi = dot(wi, hit.n);
         
         // Revert normal and eta if needed
         if (ndotwi >= 0.f)

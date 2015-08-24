@@ -35,82 +35,9 @@
 
 #include "../math/mathutils.h"
 
-
 #include "bsdf.h"
 #include "fresnel.h"
-
-
-///< Interface for microfacet distribution for Microfacet BRDF
-///< Returns the probability that microfacet has orientation w.
-///<
-class MicrofacetDistribution
-{
-public:
-    // Destructor
-    virtual ~MicrofacetDistribution(){}
-    // w - microfacet orientation (normal), n - surface normal
-    virtual float D(float3 const& w, float3 const& n) const = 0;
-    // Sample the direction accordingly to this distribution
-    virtual void Sample(ShapeBundle::Hit const& hit, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const = 0;
-    // PDF of the given direction
-    virtual float GetPdf(ShapeBundle::Hit const& hit, float3 const& wi, float3 const& wo) const = 0;
-};
-
-///< Blinn distribution of microfacets based on Gaussian distribution : D(wh) ~ (dot(wh, n)^e)
-///< D(wh) = (e + 2) / (2*PI) * dot(wh,n)^e
-///<
-class BlinnDistribution: public MicrofacetDistribution
-{
-public:
-    // Constructor
-    BlinnDistribution(float e)
-    : e_(e)
-    {
-    }
-    
-    // Distribution fucntiom
-    float D(float3 const& w, float3 const& n) const
-    {
-        float ndotw = fabs(dot(n, w));
-        return (1.f / (2*PI)) * (e_ + 2) * pow(ndotw, e_);
-    }
-    
-    // Sample the distribution
-    void Sample(ShapeBundle::Hit const& hit, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
-    {
-        // Sample halfway vector first, then reflect wi around that
-        float costheta = std::pow(sample.x, 1.f / (e_ + 1.f));
-        float sintheta = std::sqrt(1.f - costheta * costheta);
-        
-        // phi = 2*PI*ksi2
-        float cosphi = std::cos(2.f*PI*sample.y);
-        float sinphi = std::sin(2.f*PI*sample.y);
-        
-        // Calculate wh
-        float3 wh = normalize(hit.dpdu * sintheta * cosphi + hit.dpdv * sintheta * sinphi + hit.n * costheta);
-        
-        // Reflect wi around wh
-        wo = -wi + 2.f*dot(wi, wh) * wh;
-        
-        // Calc pdf
-        pdf = GetPdf(hit, wi, wo);
-    }
-    
-    // PDF of the given direction
-    float GetPdf(ShapeBundle::Hit const& hit, float3 const& wi, float3 const& wo) const
-    {
-        // We need to convert pdf(wh)->pdf(wo)
-        float3 wh = normalize(wi + wo);
-        // costheta
-        float ndotwh = dot(hit.n, wh);
-        // See Humphreys and Pharr for derivation
-        return ((e_ + 1.f) * std::pow(ndotwh, e_)) / (2.f * PI * 4.f * dot (wo,wh));
-    }
-    
-    // Exponent
-    float e_;
-};
-
+#include "microfacet_distribution.h"
 
 ///< Torrance-Sparrow microfacet model. A physically based specular BRDF is based on microfacet theory,
 ///< which describe a surface is composed of many micro-facets and each micro-facet will only reflect light
@@ -154,9 +81,9 @@ public:
     {
         ShapeBundle::Hit hitlocal = hit;
         
-        // Alter normal if needed
-        // TODO: fix tangents as well
-        MAP_NORMAL(nmap_, hitlocal);
+        float3 n = hit.n;
+        float3 dpdu = hit.dpdu;
+        float3 dpdv = hit.dpdv;
         
         // Revert normal if needed
         if (dot(hit.n, wi) < 0.f)
@@ -184,10 +111,6 @@ public:
         
         ShapeBundle::Hit hitlocal = hit;
         
-        // Alter normal if needed
-        // TODO: fix tangents as well
-        MAP_NORMAL(nmap_, hitlocal);
-        
         // Revert normal if needed
         float3 n = dot(hit.n, wi) < 0.f ? -hitlocal.n : hitlocal.n;
         
@@ -207,18 +130,7 @@ public:
         float3 ks = GET_VALUE(ks_, ksmap_, hit.uv);
         
         // F(wi,wo) = D(wh)*Fresnel(wh, n)*G(wi, wo, n)/(4 * cos_theta_i * cos_theta_o)
-        return ks * (md_->D(wh, n) * G(wi, wo, wh, n) * fresnel / (4.f * cos_theta_i * cos_theta_o));
-    }
-    
-    // Geometric factor accounting for microfacet shadowing, masking and interreflections
-    float G(float3 const& wi, float3 const& wo, float3 const& wh, float3 const& n ) const
-    {
-        float ndotwh = fabs(dot(n, wh));
-        float ndotwo = fabs(dot(n, wo));
-        float ndotwi = fabs(dot(n, wi));
-        float wodotwh = fabs(dot(wo, wh));
-        
-        return std::min(1.f, std::min(2.f * ndotwh * ndotwo / wodotwh, 2.f * ndotwh * ndotwi / wodotwh));
+        return ks * (md_->D(wh, n) * md_->G(wi, wo, wh, n) * fresnel / (4.f * cos_theta_i * cos_theta_o));
     }
     
     // Return pdf for wo to be sampled for wi

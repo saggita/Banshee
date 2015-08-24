@@ -78,19 +78,75 @@
 #include "math/shproject.h"
 
 
+class FirstPersonCamera : public PerscpectiveCamera
+{
+public:
+    
+    // Pass camera position, camera aim, camera up vector, depth limits, vertical field of view
+    // and image plane aspect ratio
+    FirstPersonCamera(float3 const& eye, float3 const& at, float3 const& up,
+                       float2 const& zcap, float fovy, float aspect)
+    : PerscpectiveCamera(eye, at, up, zcap, fovy, aspect)
+    {
+    }
+    
+    // Rotate camera around world Z axis
+    void Rotate(float angle)
+    {
+        Rotate(float3(0,1,0), angle);
+    }
+    
+    void Rotate(float3 v, float angle)
+    {
+        /// matrix should have basis vectors in rows
+        /// to be used for quaternion construction
+        /// would be good to add several options
+        /// to quaternion class
+        matrix cam_matrix = matrix(
+                                   up_.x, up_.y, up_.z, 0,
+                                   right_.x, right_.y, right_.z, 0,
+                                   forward_.x, forward_.y, forward_.z, 0,
+                                   0,   0,   0, 1);
+        
+        quaternion q = normalize(quaternion(cam_matrix));
+        
+        q = q * rotation_quaternion(v, -angle);
+        
+        q.to_matrix(cam_matrix);
+        
+        up_ = normalize(float3(cam_matrix.m00, cam_matrix.m01, cam_matrix.m02));
+        right_ = normalize(float3(cam_matrix.m10, cam_matrix.m11, cam_matrix.m12));
+        forward_ = normalize(float3(cam_matrix.m20, cam_matrix.m21, cam_matrix.m22));
+    }
+    
+    // Tilt camera
+    void Tilt(float angle)
+    {
+        Rotate(right_, angle);
+    }
+    
+    // Move along camera Z direction
+    void MoveForward(float distance)
+    {
+        p_ += distance * forward_;
+    }
+    
+    
+};
+
 
 std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
 {
     // Create world
     World* world = new World();
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(0.0f, 1.0f, 3.5f), float3(0.0f, 1.0f, 0), float3(0, 1.f, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    Camera* camera = new FirstPersonCamera(float3(0.0f, 1.0f, 3.5f), float3(0.0f, 1.0f, 0), float3(0, 1.f, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
     //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
 
     rand_init();
 
-    AssimpAssetImporter assimp(texsys, "../../../Resources/CornellBox/orig.objm");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
     //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
     //AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.obj");
 
@@ -1254,10 +1310,10 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
     // Create world
     World* world = new World();
     // Create camera
-    Camera* camera = new PerscpectiveCamera(float3(-2, 0.75, -1.1f), float3(0,0.6,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1920.f / 1080.f);
+    Camera* camera = new FirstPersonCamera(float3(-2, 0.75, -1.1f), float3(0,0.6,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
-    EnvironmentLight* light1 = new EnvironmentLight(texsys, "1.hdr", 1.2f, 1.f);
-    DirectionalLight* light2 = new DirectionalLight(float3(-0.5f, -1.f, 0.75f), float3(4,4,4));
+    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Harbor_3_Free_Ref.hdr", 1.2f, 1.f);
+    DirectionalLight* light2 = new DirectionalLight(float3(-0.5f, -1.f, 0.75f), float3(1,1,1));
 
     
     AssimpAssetImporter assimp(texsys, "../../../Resources/dragon/dragonplane.obj");
@@ -1270,8 +1326,13 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
         //mixmat->AddBsdf(new Microfacet(texsys, 2.5f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new BlinnDistribution(150.f)));
 
         
-        world->materials_.push_back(std::unique_ptr<Material>(new SimpleMaterial(new Lambert(texsys, float3(0.6f, 0.6f, 0.6f))
-                                                              )));
+        world->materials_.push_back(std::unique_ptr<Material>(
+                                                              new SimpleMaterial(
+                                                                                 //new Lambert(texsys, float3(0.6f, 0.6f, 0.6f))
+                                                                                 new Microfacet(texsys, 20.5f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new GgxDistribution(0.2f))
+                                                                                 )
+                                                              
+                                                              ));
         return (int)(world->materials_.size() - 1);
     };
     
@@ -1298,10 +1359,73 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
     // Build materials
     //SimpleMaterial* sm = new SimpleMaterial(new PerfectRefract(texsys, 1.4f, float3(0.7f, 0.7f, 0.7f), "", ""));
     //world->materials_.clear();
-    world->materials_[2].reset(
-                                                          new SimpleMaterial(new Microfacet(texsys, 20.5f, float3(0.6f, 0.6f, 0.6f), "", "", new FresnelDielectric(), new BlinnDistribution(150.f ))
+    //world->materials_[2].reset(
+      //                                                    new SimpleMaterial(new Microfacet(texsys, 20.5f, float3(0.6f, 0.6f, 0.6f), "", "", new FresnelDielectric(), new BlinnDistribution(150.f ))
                                  //                         new Glass(texsys, 1.55f, float3(0.9f, 0.9f, 0.9f))
-                                                          ));
+        //                                                  ));
+    
+    // Return world
+    return std::unique_ptr<World>(world);
+}
+
+std::unique_ptr<World> BuildWorldSanMiguel(TextureSystem const& texsys)
+{
+    // Create world
+    World* world = new World();
+    // Create camera
+    Camera* camera = new FirstPersonCamera(float3(-2, 0.75, -1.1f), float3(0,0.6,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Harbor_3_Free_Ref.hdr", 1.2f, 1.f);
+    DirectionalLight* light2 = new DirectionalLight(float3(-0.5f, -1.f, 0.75f), float3(1,1,1));
+    
+    
+    AssimpAssetImporter assimp(texsys, "../../../Resources/san-miguel/san-miguel.obj");
+    
+    
+    assimp.onmaterial_ = [&world, &texsys](Material* mat)->int
+    {
+        //MixedMaterial* mixmat = new MixedMaterial(2.5f);
+        //mixmat->AddBsdf(new Lambert(texsys, float3(0.6f, 0.6f, 0.6f)));
+        //mixmat->AddBsdf(new Microfacet(texsys, 2.5f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new BlinnDistribution(150.f)));
+        
+        
+        world->materials_.push_back(std::unique_ptr<Material>(
+                                                              new SimpleMaterial(
+                                                                                 new Lambert(texsys, float3(0.6f, 0.6f, 0.6f))
+                                                                                 //new Microfacet(texsys, 20.5f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new GgxDistribution(0.2f))
+                                                                                 )
+                                                              
+                                                              ));
+        return (int)(world->materials_.size() - 1);
+    };
+    
+    assimp.onprimitive_ = [&world](ShapeBundle* prim)
+    {
+        world->shapebundles_.push_back(std::unique_ptr<ShapeBundle>(prim));
+    };
+    
+    
+    // Start assets import
+    assimp.Import();
+    
+    world->Commit();
+    
+    // Attach camera
+    world->camera_ = std::unique_ptr<Camera>(camera);
+    // Set background
+    world->bgcolor_ = float3(0.f, 0.f, 0.f);
+    // Add light
+    world->lights_.push_back(std::unique_ptr<Light>(light1));
+    world->lights_.push_back(std::unique_ptr<Light>(light2));
+    
+    
+    // Build materials
+    //SimpleMaterial* sm = new SimpleMaterial(new PerfectRefract(texsys, 1.4f, float3(0.7f, 0.7f, 0.7f), "", ""));
+    //world->materials_.clear();
+    //world->materials_[2].reset(
+    //                                                    new SimpleMaterial(new Microfacet(texsys, 20.5f, float3(0.6f, 0.6f, 0.6f), "", "", new FresnelDielectric(), new BlinnDistribution(150.f ))
+    //                         new Glass(texsys, 1.55f, float3(0.9f, 0.9f, 0.9f))
+    //                                                  ));
     
     // Return world
     return std::unique_ptr<World>(world);
@@ -1618,21 +1742,189 @@ int main_1()
 #include <GL/glut.h>
 #endif
 
-#include <thread>
-#include <mutex>
 
 #include "shader_manager.h"
 
-int g_window_width = 1920 / 2;
-int g_window_height = 1080 / 2;
+int g_window_width = 256;
+int g_window_height = 256;
 std::unique_ptr<ShaderManager>	g_shader_manager;
 
 std::vector<unsigned char> g_data;
-std::mutex g_data_mutex;
-
 GLuint g_vertex_buffer;
 GLuint g_index_buffer;
 GLuint g_texture;
+
+class BufferImagePlane;
+std::unique_ptr<MtImageRenderer> g_renderer;
+std::unique_ptr<BufferImagePlane> g_imgplane;
+std::unique_ptr<TextureSystem> g_texsys;
+FirstPersonCamera* g_camera;
+
+static bool     g_is_left_pressed = false;
+static bool     g_is_right_pressed = false;
+static bool     g_is_fwd_pressed = false;
+static bool     g_is_back_pressed = false;
+static bool     g_is_mouse_tracking = false;
+static float2   g_mouse_pos = float2(0, 0);
+static float2   g_mouse_delta = float2(0, 0);
+
+std::unique_ptr<World> g_world;
+
+class BufferImagePlane : public ImagePlane
+{
+public:
+    BufferImagePlane(int2 res)
+    :  res_(res)
+    , imgbuf_(res.x * res.y)
+    //        , imgbuf2_(res.x * res.y)
+    //        , imgbufr_(res.x * res.y)
+    //        , indices_(res.x * res.y)
+    //	, numindices_(res.x * res.y)
+    {
+        std::fill(imgbuf_.begin(), imgbuf_.end(), float3(0.f, 0.f, 0.f, 0.f));
+        //        std::fill(imgbuf2_.begin(), imgbuf2_.end(), float3(0.f, 0.f, 0.f, 0.f));
+        //        std::fill(imgbufr_.begin(), imgbufr_.end(), float3(0.f, 0.f, 0.f, 0.f));
+        //
+        //	for (int x = 0; x < res_.x; ++x)
+        //		for (int y = 0; y < res_.y; ++y)
+        //	{
+        //		indices_[res_.x * (res_.y - 1 - y) + x] = int2(x,y);
+        //	}
+        
+    }
+    
+    void Clear()
+    {
+        std::fill(imgbuf_.begin(), imgbuf_.end(), float3(0.f, 0.f, 0.f, 0.f));
+    }
+    
+    // This method is called by the renderer prior to adding samples
+    void Prepare()
+    {
+    }
+    
+    
+    // This method is called by the renderer after adding all the samples
+    void Finalize()
+    {
+        //	numindices_ = 0;
+        //	for (int x = 0; x < res_.x; ++x)
+        //		for (int y = 0; y < res_.y; ++y)
+        //	{
+        //		int idx = res_.x * (res_.y - 1 - y) + x;
+        //		float3 v = imgbuf_[idx];
+        //		float3 v2 = imgbuf2_[idx];
+        //		float invw = 1.f / v.w;
+        //
+        //		imgbufr_[idx] = ((v2 * invw) - (v * invw) * (v * invw))*((v2 * invw) - (v * invw) * (v * invw));
+        //		imgbufr_[idx].w = 1.f;
+        //
+        //		if (imgbufr_[idx].sqnorm() > 0.05f)
+        //		{
+        //			indices_[numindices_++] = int2(x, y);
+        //		}
+        //	}
+    }
+    
+    // Add color contribution to the image plane
+    void AddSample(int2 const& pos, float w, float3 value)
+    {
+        int2   imgpos;
+        
+        // Make sure we are in the image space as (<0.5f,<0.5f) might map outside of the image
+        imgpos.x = (int)clamp((float)pos.x, 0.f, (float)res_.x-1);
+        imgpos.y = (int)clamp((float)pos.y, 0.f, (float)res_.y-1);
+        
+        imgbuf_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x] += value;
+        imgbuf_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x].w += 1.f;
+        //        imgbuf2_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x] += (value*value);
+        //        imgbuf2_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x].w += 1.f;
+    }
+    
+    // This is used by the renderer to decide on the number of samples needed
+    int2 resolution() const { return res_; }
+    
+    // Image resolution
+    int2 res_;
+    // Intermediate image buffer
+    std::vector<float3> imgbuf_;
+    //    std::vector<float3> imgbuf2_;
+    //    std::vector<float3> imgbufr_;
+    //    std::vector<int2> indices_;
+    //    int numindices_;
+};
+
+void OnMouseMove(int x, int y)
+{
+    if (g_is_mouse_tracking)
+    {
+        g_mouse_delta = float2((float)x, (float)y) - g_mouse_pos;
+        g_mouse_pos = float2((float)x, (float)y);
+    }
+}
+
+void OnMouseButton(int btn, int state, int x, int y)
+{
+    if (btn == GLUT_LEFT_BUTTON)
+    {
+        if (state == GLUT_DOWN)
+        {
+            g_is_mouse_tracking = true;
+            g_mouse_pos = float2((float)x, (float)y);
+            g_mouse_delta = float2(0, 0);
+        }
+        else if (state == GLUT_UP && g_is_mouse_tracking)
+        {
+            g_is_mouse_tracking = true;
+            g_mouse_delta = float2(0, 0);
+        }
+    }
+}
+
+void OnKey(int key, int x, int y)
+{
+    switch (key)
+    {
+        case GLUT_KEY_UP:
+            g_is_fwd_pressed = true;
+            break;
+        case GLUT_KEY_DOWN:
+            g_is_back_pressed = true;
+            break;
+        case GLUT_KEY_LEFT:
+            g_is_left_pressed = true;
+            break;
+        case GLUT_KEY_RIGHT:
+            g_is_right_pressed = true;
+        case GLUT_KEY_F1:
+            g_mouse_delta = float2(0, 0);
+            break;
+        default:
+            break;
+    }
+}
+
+void OnKeyUp(int key, int x, int y)
+{
+    switch (key)
+    {
+        case GLUT_KEY_UP:
+            g_is_fwd_pressed = false;
+            break;
+        case GLUT_KEY_DOWN:
+            g_is_back_pressed = false;
+            break;
+        case GLUT_KEY_LEFT:
+            g_is_left_pressed = false;
+            break;
+        case GLUT_KEY_RIGHT:
+            g_is_right_pressed = false;
+            break;
+        default:
+            break;
+    }
+}
+
 
 void Display()
 {
@@ -1734,6 +2026,28 @@ void InitGraphics()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, g_window_width, g_window_height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 
     glBindTexture(GL_TEXTURE_2D, 0);
+    
+    g_texsys.reset(new OiioTextureSystem("../../../Resources/Textures"));
+    g_world = std::move(BuildWorldSanMiguel(*g_texsys));
+    g_camera = (FirstPersonCamera*)g_world->camera_.get();
+    
+    // Create image plane writing to file
+    
+    // Create renderer w/ direct illumination trace
+    std::cout << "Kicking off rendering engine...\n";
+    
+    g_imgplane.reset(new BufferImagePlane(int2(g_window_width, g_window_height)));
+    
+    g_renderer.reset(new
+                     MtImageRenderer(*g_imgplane, // Image plane
+                                     new GiTracer(10), // Tracer
+                                     new RandomSampler(1, new McRng()), // Image sampler
+                                     new StratifiedSampler(1, new McRng()), // Light sampler
+                                     new StratifiedSampler(1, new McRng()), // Brdf sampler
+                                     //&plane.indices_[0],
+                                     //plane.numindices_,
+                                     nullptr // Progress reporter
+                                     ));
 }
 
 void Update()
@@ -1745,15 +2059,61 @@ void Update()
 
     bool update = false;
     
-
+    float camrotx = 0.f;
+    float camroty = 0.f;
+    
+    const float kMouseSensitivity = 0.001125f;
+    float2 delta = g_mouse_delta * float2(kMouseSensitivity, kMouseSensitivity);
+    camrotx = -delta.y;
+    camroty = -delta.x;
+    
+    if (std::abs(camroty) > 0.001f)
+    {
+        g_camera->Rotate(camroty);
+        update = true;
+    }
+    
+    if (std::abs(camrotx) > 0.001f)
+    {
+        g_camera->Tilt(camrotx);
+        update = true;
+    }
+    
+    const float kMovementSpeed = 1.25f;
+    if (g_is_fwd_pressed)
+    {
+        g_camera->MoveForward((float)dt.count() * kMovementSpeed);
+        update = true;
+    }
+    
+    if (g_is_back_pressed)
+    {
+        g_camera->MoveForward(-(float)dt.count() * kMovementSpeed);
+        update = true;
+    }
+    
+    if (update)
+    {
+        g_imgplane->Clear();
+        
+    }
+    else
+    {
+        g_renderer->Render(*g_world);
+        
+        for (int i = 0; i < g_window_width * g_window_height; ++i)
+        {
+            g_data[3 * i] = (unsigned  char)(255 * clamp(powf(g_imgplane->imgbuf_[i].x / g_imgplane->imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
+            g_data[3 * i + 1] = (unsigned char)(255 * clamp(powf(g_imgplane->imgbuf_[i].y / g_imgplane->imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
+            g_data[3 * i + 2] = (unsigned char)(255 * clamp(powf(g_imgplane->imgbuf_[i].z / g_imgplane->imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
+        }
+    }
+   
     glActiveTexture(GL_TEXTURE0);
     
     glBindTexture(GL_TEXTURE_2D, g_texture);
 
-    {
-        std::unique_lock<std::mutex> lock(g_data_mutex);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, g_window_width, g_window_height, GL_RGB, GL_UNSIGNED_BYTE, &g_data[0]);
-    }
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, g_window_width, g_window_height, GL_RGB, GL_UNSIGNED_BYTE, &g_data[0]);
     
     glBindTexture(GL_TEXTURE_2D, 0);
     
@@ -1784,139 +2144,6 @@ void Reshape(GLint w, GLint h)
     glutReshapeWindow(g_window_width, g_window_height);
 }
 
-
-class BufferImagePlane : public ImagePlane
-{
-public:
-    BufferImagePlane(int2 res)
-        :  res_(res)
-        , imgbuf_(res.x * res.y)
-        , imgbuf2_(res.x * res.y)
-        , imgbufr_(res.x * res.y)
-        , indices_(res.x * res.y)
-	, numindices_(res.x * res.y)
-    {
-        std::fill(imgbuf_.begin(), imgbuf_.end(), float3(0.f, 0.f, 0.f, 0.f));
-        std::fill(imgbuf2_.begin(), imgbuf2_.end(), float3(0.f, 0.f, 0.f, 0.f));
-        std::fill(imgbufr_.begin(), imgbufr_.end(), float3(0.f, 0.f, 0.f, 0.f));
-    
-	for (int x = 0; x < res_.x; ++x)
-		for (int y = 0; y < res_.y; ++y)
-	{
-		indices_[res_.x * (res_.y - 1 - y) + x] = int2(x,y);
-	}
-
-    }
-
-    // This method is called by the renderer prior to adding samples
-    void Prepare()
-    {
-    }
-    
-
-    // This method is called by the renderer after adding all the samples
-    void Finalize()
-    {
-	numindices_ = 0;
-	for (int x = 0; x < res_.x; ++x)
-		for (int y = 0; y < res_.y; ++y)
-	{
-		int idx = res_.x * (res_.y - 1 - y) + x;
-		float3 v = imgbuf_[idx];
-		float3 v2 = imgbuf2_[idx];
-		float invw = 1.f / v.w;
-
-		imgbufr_[idx] = ((v2 * invw) - (v * invw) * (v * invw))*((v2 * invw) - (v * invw) * (v * invw));
-		imgbufr_[idx].w = 1.f;	
-		
-		if (imgbufr_[idx].sqnorm() > 0.05f)
-		{
-			indices_[numindices_++] = int2(x, y);
-		}
-	}
-    }
-
-    // Add color contribution to the image plane
-    void AddSample(int2 const& pos, float w, float3 value)
-    {
-        int2   imgpos;
-
-        // Make sure we are in the image space as (<0.5f,<0.5f) might map outside of the image
-        imgpos.x = (int)clamp((float)pos.x, 0.f, (float)res_.x-1);
-        imgpos.y = (int)clamp((float)pos.y, 0.f, (float)res_.y-1);
-
-        imgbuf_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x] += value;
-        imgbuf_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x].w += 1.f;
-        imgbuf2_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x] += (value*value);
-        imgbuf2_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x].w += 1.f;
-    }
-
-    // This is used by the renderer to decide on the number of samples needed
-    int2 resolution() const { return res_; }
-
-    // Image resolution
-    int2 res_;
-    // Intermediate image buffer
-    std::vector<float3> imgbuf_;
-    std::vector<float3> imgbuf2_;
-    std::vector<float3> imgbufr_;
-    std::vector<int2> indices_;
-    int numindices_;
-};
-
-void Render()
-{
-    OiioTextureSystem texsys("../../../Resources/Textures");
-    std::unique_ptr<World> world = BuildWorldIblTest1(texsys);
-
-    // Create OpenImageIO based IO api
-    OiioImageIo io;
-    // Create image plane writing to file
-
-    // Create renderer w/ direct illumination trace
-    std::cout << "Kicking off rendering engine...\n";
-    
-    BufferImagePlane plane(int2(g_window_width, g_window_height));
-
-    AdaptiveRenderer renderer(plane, // Image plane
-        new GiTracer(10), // Tracer
-        new RandomSampler(2, new McRng()), // Image sampler
-        new StratifiedSampler(2, new McRng()), // Light sampler
-        new StratifiedSampler(2, new McRng()), // Brdf sampler
-        &plane.indices_[0],
-	plane.numindices_,
-	nullptr // Progress reporter
-        );
-
-    int numpasses = 0;
-    while (1)
-    {
-        ++numpasses;
-        renderer.Render(*world);
-
-        {
-            std::unique_lock<std::mutex> lock(g_data_mutex);
-            for (int i = 0; i < g_window_width * g_window_height; ++i)
-            {
-                g_data[3 * i] = (unsigned  char)(255 * clamp(powf(plane.imgbuf_[i].x / plane.imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
-                g_data[3 * i + 1] = (unsigned char)(255 * clamp(powf(plane.imgbuf_[i].y / plane.imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
-                g_data[3 * i + 2] = (unsigned char)(255 * clamp(powf(plane.imgbuf_[i].z / plane.imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
-                //g_data[3 * i] = (unsigned  char)(255 * clamp(plane.imgbufr_[i].x / plane.imgbufr_[i].w, 0.f, 1.f));
-                //g_data[3 * i + 1] = (unsigned char)(255 * clamp(plane.imgbufr_[i].y / plane.imgbufr_[i].w, 0.f, 1.f));
-                //g_data[3 * i + 2] = (unsigned char)(255 * clamp(plane.imgbufr_[i].z /  plane.imgbufr_[i].w, 0.f, 1.f));
-            }
-        }
-        
-
-	if (numpasses >= 4)
-		renderer.SetIndexCount(plane.numindices_);
-
-        std::cout << "Pass " << numpasses << " finished\n";   	
-        std::cout << "Pixels remaining " << plane.numindices_ << "\n";
-    }
-}
-
-
 int main(int argc, char** argv)
 {
      // GLUT Window Initialization:
@@ -1939,14 +2166,15 @@ int main(int argc, char** argv)
         g_data.resize(g_window_height * g_window_width * 3);
 
         InitGraphics();
-        
-        std::thread t(Render);
-
-        t.detach();
 
         // Register callbacks:
         glutDisplayFunc (Display);
         glutReshapeFunc (Reshape);
+        
+        glutSpecialFunc(OnKey);
+        glutSpecialUpFunc(OnKeyUp);
+        glutMouseFunc(OnMouseButton);
+        glutMotionFunc(OnMouseMove);
         glutIdleFunc (Update);
         
         glutMainLoop ();

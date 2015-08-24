@@ -53,7 +53,7 @@ public:
     ///< sample is a value in [0,1] square describing where to sample the image plane
     void GenerateRay(float2 const& sample, ray& r) const;
 
-private:
+protected:
     // Camera coordinate frame
     float3 forward_;
     float3 right_;

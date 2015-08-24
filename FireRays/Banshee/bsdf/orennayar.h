@@ -73,15 +73,8 @@ public:
     // Sample material and return outgoing ray direction along with combined BSDF value
     float3 Sample(ShapeBundle::Hit& hit, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
-        // Backup for normal mapping
-        ShapeBundle::Hit hitlocal = hit;
-        
-        // Alter normal if needed
-        // TODO: fix tangents as well
-        MAP_NORMAL(nmap_, hitlocal);
-        
         // Revert normal based on ORIGINAL normal, not mapped one
-        float3 n = dot(wi, hit.n) >= 0.f ? hitlocal.n : -hitlocal.n;
+        float3 n = dot(wi, hit.n) >= 0.f ? hit.n : -hit.n;
         
         // Map random sample to hemisphere getting cosine weigted distribution
         wo = map_to_hemisphere(n, sample, 1.f);
@@ -104,16 +97,9 @@ public:
         if (sameside < 0.f)
             return float3(0, 0, 0);
         
-        // Backup for normal mapping
-        ShapeBundle::Hit hitlocal = hit;
-        
-        // Alter normal if needed
-        // TODO: fix tangents as well
-        MAP_NORMAL(nmap_, hitlocal);
-        
-        float3 n = hitlocal.n;
-        float3 s = hitlocal.dpdu;
-        float3 t = hitlocal.dpdv;
+        float3 n = hit.n;
+        float3 s = hit.dpdu;
+        float3 t = hit.dpdv;
         
         // Revert normal based on ORIGINAL normal, not mapped one
         if (dot(wi, hit.n) < 0.f)
@@ -124,7 +110,7 @@ public:
         }
         
         // Get roughness value
-        float kr = GET_VALUE(kr_, krmap_, hitlocal.uv).x;
+        float kr = GET_VALUE(kr_, krmap_, hit.uv).x;
         float invpi = 1.f / PI;
         float r2 = kr*kr;
         

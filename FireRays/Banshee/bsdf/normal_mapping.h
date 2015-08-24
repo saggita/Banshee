@@ -58,7 +58,7 @@ public:
     {
         // Alter normal if needed
         MAP_NORMAL(nmap_, isect);
-        
+        //
         return bsdf_->Sample(isect, sample, wi, wo, pdf);
     }
     
@@ -67,7 +67,7 @@ public:
     {
         // Alter normal if needed
         MAP_NORMAL(nmap_, isect);
-        
+        //
         return bsdf_->Evaluate(isect, wi, wo);
     }
     
@@ -77,7 +77,7 @@ public:
         ShapeBundle::Hit isectlocal = isect;
         // Alter normal if needed
         MAP_NORMAL(nmap_, isectlocal);
-        
+        //
         return bsdf_->GetPdf(isectlocal, wi, wo);
     }
     

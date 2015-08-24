@@ -16,16 +16,16 @@ project "Banshee"
 		links{"Embree"} 
 		configuration {"x32", "Debug"}
 			links {"OpenImageIOD"}
-			libdirs {"../3rdParty/assimp/lib/x86", "../3rdParty/oiio/lib/x86" }
+			libdirs {"../3rdParty/assimp/lib/x86", "../3rdParty/oiio/lib/x86", "../3rdParty/embree/lib"}
 		configuration {"x64", "Debug"}
 			links {"OpenImageIOD"}
-			libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64" }
+			libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64", "../3rdParty/embree/lib"}
 		configuration {"x32", "Release"}
 			links {"OpenImageIO"}
-			libdirs {"../3rdParty/assimp/lib/x86", "../3rdParty/oiio/lib/x86" }
+			libdirs {"../3rdParty/assimp/lib/x86", "../3rdParty/oiio/lib/x86", "../3rdParty/embree/lib"}
 		configuration {"x64", "Release"}
 			links {"OpenImageIO"}
-			libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64" }
+			libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64", "../3rdParty/embree/lib"}
     else
 		links {"OpenImageIO"}
     	links {"embree"}

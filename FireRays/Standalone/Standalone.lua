@@ -23,8 +23,8 @@ project "Standalone"
     end
 
     if os.is("windows") then
-        includedirs { "../3rdParty/glew/include", "../3rdParty/freeglut/include"}
-		links {"freeglut", "glew"}
+        includedirs { "../3rdParty/glew/include", "../3rdParty/freeglut/include", "../3rdParty/embree/include"}
+		links {"freeglut", "glew", "embree"}
 
 		configuration {"x32"}
 			libdirs { "../3rdParty/glew/lib/x86", "../3rdParty/freeglut/lib/x86"}
@@ -38,16 +38,16 @@ project "Standalone"
 	if os.is("windows") then
 		configuration {"x32", "Debug"}
 			links {"OpenImageIOD"}
-			libdirs {"../3rdParty/assimp/lib/x86", "../3rdParty/oiio/lib/x86" }
+			libdirs {"../3rdParty/assimp/lib/x86", "../3rdParty/oiio/lib/x86", "../3rdParty/embree/lib" }
 		configuration {"x64", "Debug"}
 			links {"OpenImageIOD"}
-			libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64" }
+			libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64", "../3rdParty/embree/lib" }
 		configuration {"x32", "Release"}
 			links {"OpenImageIO"}
-			libdirs {"../3rdParty/assimp/lib/x86", "../3rdParty/oiio/lib/x86" }
+			libdirs {"../3rdParty/assimp/lib/x86", "../3rdParty/oiio/lib/x86", "../3rdParty/embree/lib" }
 		configuration {"x64", "Release"}
 			links {"OpenImageIO"}
-			libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64" }
+			libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64", "../3rdParty/embree/lib" }
     end
 
     if _ACTION == "vs2012" then

@@ -36,7 +36,7 @@
 
 #include "../primitive/shapebundle.h"
 
-struct ray;
+class ray;
 
 class Intersectable
 {

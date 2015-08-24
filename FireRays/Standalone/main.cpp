@@ -1312,11 +1312,11 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
     // Create camera
     Camera* camera = new FirstPersonCamera(float3(-2, 0.75, -1.1f), float3(0,0.6,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
-    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Harbor_3_Free_Ref.hdr", 1.2f, 1.f);
+    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 1.2f, 1.f);
     DirectionalLight* light2 = new DirectionalLight(float3(-0.5f, -1.f, 0.75f), float3(1,1,1));
 
     
-    AssimpAssetImporter assimp(texsys, "../../../Resources/dragon/dragonplane.obj");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/contest/classroom.obj");
     
     
     assimp.onmaterial_ = [&world, &texsys](Material* mat)->int
@@ -1745,8 +1745,14 @@ int main_1()
 
 #include "shader_manager.h"
 
-int g_window_width = 256;
-int g_window_height = 256;
+int g_window_width = 512;
+int g_window_height = 512;
+int g_tile_width = 64;
+int g_tile_height = 64;
+int g_tiles_x = 0;
+int g_tiles_y = 0;
+int g_tile_count = 0;
+
 std::unique_ptr<ShaderManager>	g_shader_manager;
 
 std::vector<unsigned char> g_data;
@@ -2028,7 +2034,7 @@ void InitGraphics()
     glBindTexture(GL_TEXTURE_2D, 0);
     
     g_texsys.reset(new OiioTextureSystem("../../../Resources/Textures"));
-    g_world = std::move(BuildWorldSanMiguel(*g_texsys));
+    g_world = std::move(BuildWorldIblTest1(*g_texsys));
     g_camera = (FirstPersonCamera*)g_world->camera_.get();
     
     // Create image plane writing to file
@@ -2040,14 +2046,20 @@ void InitGraphics()
     
     g_renderer.reset(new
                      MtImageRenderer(*g_imgplane, // Image plane
-                                     new GiTracer(10), // Tracer
-                                     new RandomSampler(1, new McRng()), // Image sampler
-                                     new StratifiedSampler(1, new McRng()), // Light sampler
-                                     new StratifiedSampler(1, new McRng()), // Brdf sampler
+                     new GiTracer(5), // Tracer
+                                     new RandomSampler(2, new McRng()), // Image sampler
+                                     new StratifiedSampler(2, new McRng()), // Light sampler
+                                     new StratifiedSampler(2, new McRng()), // Brdf sampler
                                      //&plane.indices_[0],
                                      //plane.numindices_,
                                      nullptr // Progress reporter
                                      ));
+
+
+    g_tiles_x = (g_window_width + g_tile_width - 1) / g_tile_width;
+    g_tiles_y = (g_window_height + g_tile_height - 1) / g_tile_height;
+
+    g_tile_count = 0;
 }
 
 void Update()
@@ -2062,7 +2074,7 @@ void Update()
     float camrotx = 0.f;
     float camroty = 0.f;
     
-    const float kMouseSensitivity = 0.001125f;
+    const float kMouseSensitivity = 0.0005125f;
     float2 delta = g_mouse_delta * float2(kMouseSensitivity, kMouseSensitivity);
     camrotx = -delta.y;
     camroty = -delta.x;
@@ -2079,7 +2091,7 @@ void Update()
         update = true;
     }
     
-    const float kMovementSpeed = 1.25f;
+    const float kMovementSpeed = 10.25f;
     if (g_is_fwd_pressed)
     {
         g_camera->MoveForward((float)dt.count() * kMovementSpeed);
@@ -2095,11 +2107,17 @@ void Update()
     if (update)
     {
         g_imgplane->Clear();
-        
+        g_tile_count = 0;   
     }
     else
     {
-        g_renderer->Render(*g_world);
+        if (g_tile_count == g_tiles_x * g_tiles_y)
+            g_tile_count = 0;
+
+        int tilex = g_tile_count % g_tiles_x;
+        int tiley = g_tile_count / g_tiles_x;
+
+        g_renderer->RenderTile(*g_world, int2(g_tile_width * tilex, g_tile_height * tiley), int2(g_tile_width, g_tile_height));
         
         for (int i = 0; i < g_window_width * g_window_height; ++i)
         {
@@ -2107,6 +2125,8 @@ void Update()
             g_data[3 * i + 1] = (unsigned char)(255 * clamp(powf(g_imgplane->imgbuf_[i].y / g_imgplane->imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
             g_data[3 * i + 2] = (unsigned char)(255 * clamp(powf(g_imgplane->imgbuf_[i].z / g_imgplane->imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
         }
+
+        g_tile_count++;
     }
    
     glActiveTexture(GL_TEXTURE0);

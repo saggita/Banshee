@@ -53,10 +53,10 @@ void AssimpAssetImporter::Import()
             kdmap = path.data;
         }
 
-        if(material->GetTexture(aiTextureType_HEIGHT, 0, &path) == AI_SUCCESS) 
+        /*if(material->GetTexture(aiTextureType_HEIGHT, 0, &path) == AI_SUCCESS)
         {
             nmap = path.data;
-        }
+        }*/
 
         aiColor3D diffuse(0,0,0);
         material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse);

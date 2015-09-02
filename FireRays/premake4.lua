@@ -3,14 +3,22 @@ function fileExists(name)
    if f~=nil then io.close(f) return true else return false end
 end
 
+newoption
+{
+	trigger = "use_embree",
+	description = "Use Intel(R) Embree intersection accelerator"
+}
+
+newoption
+{
+	trigger = "use_oiio16",
+	description = "Use OpeImageIO 1.6 version, default one is 1.5"
+}
+
 solution "Banshee"
 	configurations { "Debug", "Release" }    		
 	language "C++"
 	flags { "NoMinimalRebuild", "EnableSSE", "EnableSSE2" }
-    -- find and add path to Opencl headers
-    --	dofile ("./OpenCLSearch.lua" )
-    -- define common includes
-    includedirs { ".","./3rdParty/include" }
 
     -- perform OS specific initializations
     local targetName;
@@ -27,12 +35,15 @@ solution "Banshee"
         if _ACTION == "vs2010" or _ACTION == "vs2012" or _ACTION == "vs2013" then
             buildoptions { "/MP"  } --multiprocessor build
             defines {"_CRT_SECURE_NO_WARNINGS"}
-            configuration {"Release"}
         end
-		--os.execute("mkdir dist\\debug\\bin\\")
-		--os.execute("cp -R ./contrib/bin/* ./dist/debug/bin/")
-		--os.execute("mkdir dist\\release\\bin\\")
-		--os.execute("cp -R ./contrib/bin/* ./dist/release/bin/")
+	end
+
+	if _OPTIONS["use_embree"] then 
+			defines {"USE_EMBREE"}
+	end
+
+	if _OPTIONS["use_oiio16"] then
+			defines {"USE_OIIO16"}
 	end
 
 	--make configuration specific definitions
@@ -47,18 +58,12 @@ solution "Banshee"
 
 	configuration {"x64", "Debug"}
 		targetsuffix "64D"
-        --libdirs { "./dist/debug/lib/x86_64" }
-        --targetdir "./dist/debug/bin/x86_64"
 	configuration {"x32", "Debug"}
 		targetsuffix "D"
-        --libdirs { "./dist/debug/lib/x86" }
-        --targetdir "./dist/debug/bin/x86"
-
 	configuration {"x64", "Release"}
 		targetsuffix "64"
     
     configuration {} -- back to all configurations
-    -- generate the projects
 	
 	if fileExists("./Banshee/Banshee.lua") then
 		dofile("./Banshee/Banshee.lua")

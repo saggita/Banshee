@@ -70,24 +70,9 @@ public:
             float3 f = brdfs_[idx]->Sample(hit, sample, wi, wo, pdf);
             // Set type
             type = brdfs_[idx]->GetType();
-
-            // For specular just return the value as it has implicit delta function
-            if (!(type & Bsdf::SPECULAR))
-            {
-                // Compute PDF and value
-                for (int i=0;i<(int)brdfs_.size();++i)
-                {
-                    if (i != idx)
-                    {
-                        f += brdfs_[i]->Evaluate(hit, wi, wo);
-                        pdf += brdfs_[i]->GetPdf(hit, wi, wo);
-                    }
-                }
-
-                // Normalize
-                pdf /= brdfs_.size();
-            }
-
+            // Normalize
+            pdf *= (1.f / brdfs_.size());
+            // Return it
             return f;
         }
         else
@@ -100,27 +85,11 @@ public:
             float3 f = btdfs_[idx]->Sample(hit, sample, wi, wo, pdf);
             // Set type
             type = btdfs_[idx]->GetType();
-
-            // For specular just return the value as it has implicit delta function
-            if (!(type & Bsdf::SPECULAR))
-            {
-                // Compute PDF and value
-                for (int i=0;i<(int)btdfs_.size();++i)
-                {
-                    if (i != idx)
-                    {
-                        f += btdfs_[i]->Evaluate(hit, wi, wo);
-                        pdf += btdfs_[i]->GetPdf(hit, wi, wo);
-                    }
-                }
-
-                // Normalize
-                pdf /= btdfs_.size();
-            }
-
+            // Normalize
+            pdf *= (1.f / btdfs_.size());
+            
             return f;
         }
-        
         
         return float3();
     }

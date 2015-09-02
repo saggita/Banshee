@@ -2,11 +2,9 @@
 #include "../accelerator/bvh.h"
 #include "../accelerator/embree.h"
 
-#define EMBREE
-
 void World::Commit()
 {
-#ifndef EMBREE
+#ifndef USE_EMBREE
     Bvh* bvh = new Bvh(true);
     bvh->Build(shapebundles_);
     accel_.reset(bvh);

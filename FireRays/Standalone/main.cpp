@@ -1312,11 +1312,11 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
     // Create camera
     Camera* camera = new FirstPersonCamera(float3(-2, 0.75, -1.1f), float3(0,0.6,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
-    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Apartment.hdr", 1.2f, 1.f);
+    EnvironmentLight* light1 = new EnvironmentLight(texsys, "1.hdr", 1.2f, 1.f);
     DirectionalLight* light2 = new DirectionalLight(float3(-0.5f, -1.f, 0.75f), float3(1,1,1));
 
     
-    AssimpAssetImporter assimp(texsys, "../../../Resources/contest/classroom.obj");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/contest/mercedes.obj");
     
     
     assimp.onmaterial_ = [&world, &texsys](Material* mat)->int
@@ -1328,10 +1328,14 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
         
         world->materials_.push_back(std::unique_ptr<Material>(
                                                               new SimpleMaterial(
-                                                                                 //new Lambert(texsys, float3(0.6f, 0.6f, 0.6f))
-                                                                                 new Microfacet(texsys, 20.5f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new GgxDistribution(0.2f))
-                                                                                 )
-                                                              
+                                                                                 new Lambert(texsys, float3(0.6f, 0.6f, 0.6f))
+                                                                                 //new Microfacet(texsys, 20.5f, float3(0.7f, 0.2f, 0.2f), "", "", new FresnelDielectric(), new GgxDistribution(0.2f))
+                                                              //                  new
+                                                              //new Glass(texsys, 1.6f, float3(0.9f, 0.9f, 0.9f))
+                                                                                 //)
+                                                            
+                                                                //                 new PerfectRefract(texsys, 1.6f, float3(0.6f, 0.6f, 0.6f), "", "", new FresnelDielectric())
+                                                              )
                                                               ));
         return (int)(world->materials_.size() - 1);
     };
@@ -1745,10 +1749,10 @@ int main_1()
 
 #include "shader_manager.h"
 
-int g_window_width = 512;
-int g_window_height = 512;
-int g_tile_width = 64;
-int g_tile_height = 64;
+int g_window_width = 1024;
+int g_window_height = 1024;
+int g_tile_width = 256;
+int g_tile_height = 256;
 int g_tiles_x = 0;
 int g_tiles_y = 0;
 int g_tile_count = 0;
@@ -2062,6 +2066,83 @@ void InitGraphics()
     g_tile_count = 0;
 }
 
+
+
+class UlamSpiral
+{
+public:
+    UlamSpiral()
+    {
+        Reset();
+    }
+    
+    void Reset()
+    {
+        pos = int2(0,0);
+        pmin = int2(-1, -1);
+        pmax = int2(1,1);
+        dir = 0;
+    }
+    
+    int2 Next()
+    {
+        int2 pdir[] =
+        {
+            { 1, 0 },
+            { 0, 1 },
+            { -1, 0},
+            { 0, -1}
+        };
+        
+        int2 res = pos;
+        
+        switch (dir)
+        {
+            case 0:
+                if (pos.x == pmax.x)
+                {
+                    pmax.x++;
+                    ++dir;
+                }
+                break;
+            case 1:
+                if (pos.y == pmax.y)
+                {
+                    pmax.y++;
+                    ++dir;
+                }
+                break;
+            case 2:
+                if (pos.x == pmin.x)
+                {
+                    pmin.x--;
+                    ++dir;
+                }
+                break;
+            case 3:
+                if (pos.y == pmin.y)
+                {
+                    pmin.y--;
+                    dir = 0;
+                }
+                break;
+        }
+        
+        pos += pdir[dir];
+        
+        return res;
+    }
+    
+    
+private:
+    int2 pos;
+    int2 pmin;
+    int2 pmax;
+    int  dir;
+};
+
+UlamSpiral g_spiral;
+
 void Update()
 {
     static auto prevtime = std::chrono::high_resolution_clock::now();
@@ -2091,7 +2172,7 @@ void Update()
         update = true;
     }
     
-    const float kMovementSpeed = 10.25f;
+    const float kMovementSpeed = 100.25f;
     if (g_is_fwd_pressed)
     {
         g_camera->MoveForward((float)dt.count() * kMovementSpeed);
@@ -2107,15 +2188,21 @@ void Update()
     if (update)
     {
         g_imgplane->Clear();
-        g_tile_count = 0;   
+        g_tile_count = 0;
+        g_spiral.Reset();
     }
     else
     {
         if (g_tile_count == g_tiles_x * g_tiles_y)
+        {
             g_tile_count = 0;
+            g_spiral.Reset();
+        }
+        
+        int2 tile = g_spiral.Next();
 
-        int tilex = g_tile_count % g_tiles_x;
-        int tiley = g_tile_count / g_tiles_x;
+        int tilex = tile.x + g_tiles_x / 2 - 1;
+        int tiley = tile.y + g_tiles_y / 2 - 1;
 
         g_renderer->RenderTile(*g_world, int2(g_tile_width * tilex, g_tile_height * tiley), int2(g_tile_width, g_tile_height));
         

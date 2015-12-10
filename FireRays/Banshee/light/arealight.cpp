@@ -48,6 +48,7 @@ float3 AreaLight::GetSample(ShapeBundle::Hit const& hit, float2 const& sample, f
     
     // Otherwise just set probability to 0
     pdf = 0.f;
+    //
     return float3();
 }
 

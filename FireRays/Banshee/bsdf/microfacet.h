@@ -81,10 +81,6 @@ public:
     {
         ShapeBundle::Hit hitlocal = hit;
         
-        float3 n = hit.n;
-        float3 dpdu = hit.dpdu;
-        float3 dpdv = hit.dpdv;
-        
         // Revert normal if needed
         if (dot(hit.n, wi) < 0.f)
         {

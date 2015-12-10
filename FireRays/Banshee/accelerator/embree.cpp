@@ -1,3 +1,5 @@
+#ifdef USE_EMBREE
+
 #include "embree.h"
 #include "../primitive/mesh.h"
 #include "../math/mathutils.h"
@@ -152,3 +154,5 @@ bool Embree::Intersect(ray const& r) const
         return false;
     }
 }
+
+#endif

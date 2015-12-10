@@ -33,6 +33,8 @@
 #ifndef EMBREE_H
 #define EMBREE_H
 
+#ifdef USE_EMBREE
+
 #include "intersectable.h"
 #include <memory>
 
@@ -66,5 +68,5 @@ private:
     std::unique_ptr<EmbreeData> embreedata_;
 };
 
-
+#endif
 #endif // EMBREE_H

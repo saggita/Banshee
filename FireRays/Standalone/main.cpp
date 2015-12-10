@@ -146,7 +146,7 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
 
     rand_init();
 
-    AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.obj");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/orig.objm");
     //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
     //AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.obj");
 
@@ -1312,11 +1312,11 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
     // Create camera
     Camera* camera = new FirstPersonCamera(float3(-2, 0.75, -1.1f), float3(0,0.6,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
     //Camera* camera = new PerscpectiveCamera(float3(0, 3, -4.5), float3(-2,1,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
-    EnvironmentLight* light1 = new EnvironmentLight(texsys, "1.hdr", 1.2f, 1.f);
+    EnvironmentLight* light1 = new EnvironmentLight(texsys, "Harbor_3_Free_Env.hdr", 1.2f, 1.f);
     DirectionalLight* light2 = new DirectionalLight(float3(-0.5f, -1.f, 0.75f), float3(1,1,1));
 
     
-    AssimpAssetImporter assimp(texsys, "../../../Resources/contest/mercedes.obj");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/dragon/dragonplane.obj");
     
     
     assimp.onmaterial_ = [&world, &texsys](Material* mat)->int
@@ -1328,10 +1328,10 @@ std::unique_ptr<World> BuildWorldIblTest1(TextureSystem const& texsys)
         
         world->materials_.push_back(std::unique_ptr<Material>(
                                                               new SimpleMaterial(
-                                                                                 new Lambert(texsys, float3(0.6f, 0.6f, 0.6f))
-                                                                                 //new Microfacet(texsys, 20.5f, float3(0.7f, 0.2f, 0.2f), "", "", new FresnelDielectric(), new GgxDistribution(0.2f))
+                                                                                 //new Lambert(texsys, float3(0.6f, 0.6f, 0.6f))
+                                                                                 new Microfacet(texsys, 5.5f, float3(0.7f, 0.7f, 0.7f), "", "", new FresnelDielectric(), new GgxDistribution(0.4f))
                                                               //                  new
-                                                              //new Glass(texsys, 1.6f, float3(0.9f, 0.9f, 0.9f))
+                                                              // new Glass(texsys, 1.6f, float3(0.9f, 0.9f, 0.9f)
                                                                                  //)
                                                             
                                                                 //                 new PerfectRefract(texsys, 1.6f, float3(0.6f, 0.6f, 0.6f), "", "", new FresnelDielectric())
@@ -1749,10 +1749,10 @@ int main_1()
 
 #include "shader_manager.h"
 
-int g_window_width = 1024;
-int g_window_height = 1024;
-int g_tile_width = 256;
-int g_tile_height = 256;
+int g_window_width = 512;
+int g_window_height = 512;
+int g_tile_width = 128;
+int g_tile_height = 128;
 int g_tiles_x = 0;
 int g_tiles_y = 0;
 int g_tile_count = 0;
@@ -2051,9 +2051,9 @@ void InitGraphics()
     g_renderer.reset(new
                      MtImageRenderer(*g_imgplane, // Image plane
                      new GiTracer(5), // Tracer
-                                     new RandomSampler(2, new McRng()), // Image sampler
-                                     new StratifiedSampler(2, new McRng()), // Light sampler
-                                     new StratifiedSampler(2, new McRng()), // Brdf sampler
+                                     new StratifiedSampler(2, new McRng()), // Image sampler
+                                     new StratifiedSampler(1, new McRng()), // Light sampler
+                                     new StratifiedSampler(1, new McRng()), // Brdf sampler
                                      //&plane.indices_[0],
                                      //plane.numindices_,
                                      nullptr // Progress reporter
@@ -2172,7 +2172,7 @@ void Update()
         update = true;
     }
     
-    const float kMovementSpeed = 100.25f;
+    const float kMovementSpeed = 10.25f;
     if (g_is_fwd_pressed)
     {
         g_camera->MoveForward((float)dt.count() * kMovementSpeed);

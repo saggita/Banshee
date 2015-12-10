@@ -16,7 +16,6 @@
 
 #include "math/mathutils.h"
 #include "world/world.h"
-#include "primitive/sphere.h"
 #include "primitive/mesh.h"
 #include "accelerator/bvh.h"
 #include "imageio/oiioimageio.h"

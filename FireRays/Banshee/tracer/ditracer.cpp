@@ -115,7 +115,7 @@ float3 DiTracer::GetDi(World const& world, Light const& light, Sampler const& li
                 shadowray.d = wi;
                 
                 // TODO: move ray epsilon into some global options object
-                shadowray.t = float2(0.001f, dist - 0.001f);
+                shadowray.t = float2(0.01f, dist - 0.01f);
                 
                 // Check for an occlusion
                 float shadow = world.Intersect(shadowray) ? 0.f : 1.f;
@@ -189,7 +189,7 @@ float3 DiTracer::GetDi(World const& world, Light const& light, Sampler const& li
                     shadowray.d = wi;
 
                     // TODO: move ray epsilon into some global options object
-                    shadowray.t = float2(0.001f, 10000000.f);
+                    shadowray.t = float2(0.01f, 10000000.f);
 
                     // Cast the ray into the scene
                     ShapeBundle::Hit shadowhit;

@@ -16,6 +16,8 @@
 #include "math/distribution1d.h"
 #include "math/distribution2d.h"
 
+#include "primitive/shapebundle.h"
+
 #include "texture/oiio_texturesystem.h"
 #include "light/environment_light_is.h"
 
@@ -131,19 +133,19 @@ TEST_F(Internals, Distribution2D_Pdf)
 TEST_F(Internals, EnvironmentLightIs)
 {
     OiioTextureSystem texsys("../../../Resources/Textures");
-    EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "Apartment.hdr", 0.6f);
+    EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "HDRI_01.jpg", 0.6f);
 
     static int kNumSamples = 10000;
 
     for (int i = 0; i < kNumSamples; ++i)
     {
-        Primitive::Intersection isect;
+        ShapeBundle::Hit isect;
         float2 uv(rand_float(), rand_float());
         float3 d;
         float pdf;
-        light1->Sample(isect, uv, d, pdf);
+        light1->GetSample(isect, uv, d, pdf);
 
-        float pdf1 = light1->Pdf(isect, d);
+        float pdf1 = light1->GetPdf(isect, d);
 
         ASSERT_LE(abs(pdf - pdf1), 0.001f);
     }

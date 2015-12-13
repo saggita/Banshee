@@ -105,7 +105,7 @@ float3 GiTracer::GetLi(ray const& r, World const& world, Sampler const& lightsam
             // Construct ray
             rr.o = hit.p;
             rr.d = normalize(wi);
-            rr.t = float2(0.001f, 1000000.f);
+            rr.t = float2(0.01f, 1000000.f);
             
             // Update througput
             throughput *= (bsdf * (fabs(dot(hit.n, wi)) / bsdfpdf));

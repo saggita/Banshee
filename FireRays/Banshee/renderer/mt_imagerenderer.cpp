@@ -87,7 +87,13 @@ void MtImageRenderer::Render(World const& world) const
                             // Estimate radiance and add to image plane
                             imgplane_.AddSample(int2(xx,yy), sample_weight, tracer_->GetLi(r, world, *private_lightsampler, *private_brdfsampler));
                         }
+
+						imgsampler->Reset();
+						lightsampler->Reset();
+						brdfsampler->Reset();
                     }
+
+
 
                     // Update and report progress
                     if (progress_)

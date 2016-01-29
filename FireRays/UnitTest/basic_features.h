@@ -37,6 +37,7 @@
 #include "sampler/stratified_sampler.h"
 #include "sampler/random_sampler.h"
 #include "sampler/cmj_sampler.h"
+#include "sampler/sobol_sampler.h"
 #include "material/simplematerial.h"
 #include "material/emissive.h"
 #include "bsdf/lambert.h"
@@ -167,7 +168,7 @@ public:
         Camera* camera = new PerscpectiveCamera(float3(0.f, 30.f, 3.f), float3(0.f, 30.f, 0.f), float3(0.f, 1.f, 0.f), float2(0.01f, 10000.f), PI / 4, 1.f);
         
         // Env light
-        EnvironmentLight* light = new EnvironmentLight(*texsys_, "HDRI_01.jpg", 2.f);
+        //EnvironmentLight* light = new EnvironmentLight(*texsys_, "memorial.exr", 2.f);
         
         // Add ground plane
         float3 vertices[4] = {
@@ -218,7 +219,7 @@ public:
         // Set background
         world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
         // Add light
-        world->lights_.push_back(std::unique_ptr<Light>(light));
+        //world->lights_.push_back(std::unique_ptr<Light>(light));
         
         // Build materials
         SimpleMaterial* sm = new SimpleMaterial(new Lambert(*texsys_, float3(0.7f, 0.7f, 0.7f), "checker.jpg", ""));
@@ -242,7 +243,7 @@ public:
         
         rand_init();
         
-        AssimpAssetImporter assimp(*texsys_, "../../../Resources/CornellBox/orig.obj");
+        AssimpAssetImporter assimp(*texsys_, "../../../Resources/CornellBox/orig.objm");
         //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
         //AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.obj");
         
@@ -1034,6 +1035,105 @@ TEST_F(BasicFeatures, SamplerCmj16)
     }
 }
 
+TEST_F(BasicFeatures, SamplerSobol1)
+{
+	// Test file name
+	std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+	// Image plane
+	FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+
+	// Create renderer
+	MtImageRenderer imgrenderer(
+		imgplane, // Image plane
+		new TextureTracer(*texsys_, "checker.png"), // Tracer
+		new SobolSampler(1, new McRng()), // Image sampler
+		new StratifiedSampler(1, new McRng()), // Light sampler
+		new StratifiedSampler(1, new McRng()) // Brdf sampler
+		);
+
+	// Override world settings: we are testning point light
+	world_ = BuildWorldSimple();
+
+	// Start testing
+	ASSERT_NO_THROW(imgrenderer.Render(*world_));
+
+	// Compare
+	if (g_compare)
+	{
+		ImgCompare::Statistics stat;
+		imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+
+		ASSERT_EQ(stat.sizediff, false);
+		ASSERT_EQ(stat.ndiff, 0);
+	}
+}
+
+TEST_F(BasicFeatures, SamplerSobol4)
+{
+	// Test file name
+	std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+	// Image plane
+	FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+
+	// Create renderer
+	MtImageRenderer imgrenderer(
+		imgplane, // Image plane
+		new TextureTracer(*texsys_, "checker.png"), // Tracer
+		new SobolSampler(4, new McRng()), // Image sampler
+		new StratifiedSampler(1, new McRng()), // Light sampler
+		new StratifiedSampler(1, new McRng()) // Brdf sampler
+		);
+
+	// Override world settings: we are testning point light
+	world_ = BuildWorldSimple();
+
+	// Start testing
+	ASSERT_NO_THROW(imgrenderer.Render(*world_));
+
+	// Compare
+	if (g_compare)
+	{
+		ImgCompare::Statistics stat;
+		imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+
+		ASSERT_EQ(stat.sizediff, false);
+		ASSERT_EQ(stat.ndiff, 0);
+	}
+}
+
+TEST_F(BasicFeatures, SamplerSobol16)
+{
+	// Test file name
+	std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+	// Image plane
+	FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+
+	// Create renderer
+	MtImageRenderer imgrenderer(
+		imgplane, // Image plane
+		new TextureTracer(*texsys_, "checker.png"), // Tracer
+		new SobolSampler(16, new McRng()), // Image sampler
+		new StratifiedSampler(1, new McRng()), // Light sampler
+		new StratifiedSampler(1, new McRng()) // Brdf sampler
+		);
+
+	// Override world settings: we are testning point light
+	world_ = BuildWorldSimple();
+
+	// Start testing
+	ASSERT_NO_THROW(imgrenderer.Render(*world_));
+
+	// Compare
+	if (g_compare)
+	{
+		ImgCompare::Statistics stat;
+		imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+
+		ASSERT_EQ(stat.sizediff, false);
+		ASSERT_EQ(stat.ndiff, 0);
+	}
+}
+
 TEST_F(BasicFeatures, AreaLightCmj16)
 {
     // Test file name
@@ -1067,8 +1167,41 @@ TEST_F(BasicFeatures, AreaLightCmj16)
     }
 }
 
+TEST_F(BasicFeatures, AreaLightSobol16)
+{
+	// Test file name
+	std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+	// Image plane
+	FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
 
-TEST_F(BasicFeatures, AreaLightStrarified16)
+	// Create renderer
+	MtImageRenderer imgrenderer(
+		imgplane, // Image plane
+		new DiTracer(), // Tracer
+		new RegularSampler(1), // Image sampler
+		new SobolSampler(16, new McRng()), // Light sampler
+		new SobolSampler(16, new McRng()) // Brdf sampler
+		);
+
+	// Override world settings: we are testning point light
+	world_ = BuildWorldAreaLight();
+
+	// Start testing
+	ASSERT_NO_THROW(imgrenderer.Render(*world_));
+
+	// Compare
+	if (g_compare)
+	{
+		ImgCompare::Statistics stat;
+		imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+
+		ASSERT_EQ(stat.sizediff, false);
+		ASSERT_EQ(stat.ndiff, 0);
+	}
+}
+
+
+TEST_F(BasicFeatures, AreaLightStratified16)
 {
     // Test file name
     std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
@@ -1134,7 +1267,7 @@ TEST_F(BasicFeatures, AreaLightRandom16)
     }
 }
 
-TEST_F(BasicFeatures, ConvergenceRandomDI)
+/*TEST_F(BasicFeatures, ConvergenceRandomDI)
 {
     // Test file name
     std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
@@ -1264,6 +1397,6 @@ TEST_F(BasicFeatures, ConvergenceCmjGI)
         ASSERT_EQ(stat.sizediff, false);
         ASSERT_EQ(stat.ndiff, 0);
     }
-}
+}*/
 
 #endif // FIRERAYS_TEST_H

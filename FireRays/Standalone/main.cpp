@@ -62,6 +62,7 @@
 #include "sampler/regular_sampler.h"
 #include "sampler/stratified_sampler.h"
 #include "sampler/cmj_sampler.h"
+#include "sampler/sobol_sampler.h"
 #include "rng/mcrng.h"
 #include "material/simplematerial.h"
 #include "material/emissive.h"
@@ -147,7 +148,7 @@ std::unique_ptr<World> BuildWorld(TextureSystem const& texsys)
 
     rand_init();
 
-    AssimpAssetImporter assimp(texsys, "../../../Resources/CornellBox/orig.obj");
+    AssimpAssetImporter assimp(texsys, "../../../Resources/CornellBox/orig.objm");
     //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
     //AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.obj");
 
@@ -2039,7 +2040,7 @@ void InitGraphics()
     glBindTexture(GL_TEXTURE_2D, 0);
     
     g_texsys.reset(new OiioTextureSystem("../../../Resources/Textures"));
-    g_world = std::move(BuildWorldIblTest1(*g_texsys));
+    g_world = std::move(BuildWorld(*g_texsys));
     g_camera = (FirstPersonCamera*)g_world->camera_.get();
     
     // Create image plane writing to file
@@ -2052,9 +2053,9 @@ void InitGraphics()
     g_renderer.reset(new
                      MtImageRenderer(*g_imgplane, // Image plane
                      new GiTracer(5), // Tracer
-                                     new CmjSampler(4, new McRng()), // Image sampler
-                                     new CmjSampler(4, new McRng()), // Light sampler
-                                     new CmjSampler(4, new McRng()), // Brdf sampler
+                                     new SobolSampler(16, new McRng()), // Image sampler
+                                     new SobolSampler(16, new McRng()), // Light sampler
+                                     new SobolSampler(16, new McRng()), // Brdf sampler
                                      //&plane.indices_[0],
                                      //plane.numindices_,
                                      nullptr // Progress reporter

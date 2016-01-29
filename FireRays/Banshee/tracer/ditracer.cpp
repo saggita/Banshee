@@ -32,7 +32,7 @@ float3 DiTracer::GetLi(ray const& r, World const& world, Sampler const& lightsam
         }
         else
         {
-            for (int i = 0; i < world.lights_.size(); ++i)
+            for (int i = 0; i < (int)world.lights_.size(); ++i)
             {
                 // TODO: Pass RNG or sampler
                 //int numlights = world.lights_.size();
@@ -45,7 +45,7 @@ float3 DiTracer::GetLi(ray const& r, World const& world, Sampler const& lightsam
     {
         radiance = world.bgcolor_;
 
-        for (int i = 0; i < world.lights_.size(); ++i)
+        for (int i = 0; i < (int)world.lights_.size(); ++i)
         {
             radiance += world.lights_[i]->GetLe(r);
         }

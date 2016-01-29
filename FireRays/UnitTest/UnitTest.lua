@@ -4,6 +4,12 @@ project "UnitTest"
     links {"Banshee", "assimp", "Gtest"}
     files { "**.cpp", "**.h" }
     includedirs{"../3rdParty/assimp/include", "../3rdParty/oiio/include", "../Gtest/include"} 
+
+    if _OPTIONS["use_embree"] then
+            links {"embree"}
+            includedirs{"../3rdParty/embree/include"} 
+            libdirs {"../3rdParty/embree/lib"}
+    end
     
     if  os.is("linux") then
         buildoptions "-std=c++11"

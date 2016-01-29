@@ -11,6 +11,7 @@
 
 struct Embree::EmbreeData
 {
+	RTCDevice device;
     RTCScene scene;
     
     std::map<int, Mesh*> geom2mesh;
@@ -19,15 +20,14 @@ struct Embree::EmbreeData
 Embree::Embree()
 : embreedata_(new EmbreeData)
 {
-    rtcInit();
-    
-    embreedata_->scene = rtcNewScene(RTC_SCENE_STATIC, RTC_INTERSECT1);
+	embreedata_->device = rtcNewDevice();
+    embreedata_->scene = rtcDeviceNewScene(embreedata_->device, RTC_SCENE_STATIC, RTC_INTERSECT1);
 }
 
 Embree::~Embree()
 {
     rtcDeleteScene(embreedata_->scene);
-    rtcExit();
+    rtcDeleteDevice(embreedata_->device);
 }
 
 // Build function: pass bounding boxes and

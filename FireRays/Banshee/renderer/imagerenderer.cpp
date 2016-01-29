@@ -43,6 +43,10 @@ void ImageRenderer::Render(World const& world) const
                 imgplane_.AddSample(int2(x,y), sample_weight, tracer_->GetLi(r, world, *lightsampler_, *brdfsampler_));
             }
 
+			imgsampler_->Reset();
+			lightsampler_->Reset();
+			brdfsampler_->Reset();
+
             // Update progress
             donesamples += imgsampler_->num_samples();
             // Report progress

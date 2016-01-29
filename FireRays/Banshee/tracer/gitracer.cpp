@@ -23,7 +23,7 @@ float3 GiTracer::GetLi(ray const& r, World const& world, Sampler const& lightsam
     {
         radiance += world.bgcolor_;
         
-        for (int i = 0; i < world.lights_.size(); ++i)
+        for (int i = 0; i < (int)world.lights_.size(); ++i)
         {
             radiance += world.lights_[i]->GetLe(r);
         }
@@ -71,13 +71,13 @@ float3 GiTracer::GetLi(ray const& r, World const& world, Sampler const& lightsam
             //
             if (bounce != 0)
             {
-                int numlights = world.lights_.size();
+                int numlights = (int)world.lights_.size();
                 int idx = rand_uint() % numlights;
-                radiance += throughput * GetDi(world, *world.lights_[idx], lightsampler, brdfsampler, -rr.d, hit) * numlights;
+                radiance += throughput * GetDi(world, *world.lights_[idx], lightsampler, brdfsampler, -rr.d, hit) * (float)numlights;
             }
             else
             {
-                for (int i = 0; i < world.lights_.size(); ++i)
+                for (int i = 0; i < (int)world.lights_.size(); ++i)
                 {
                     radiance += throughput * GetDi(world, *world.lights_[i], lightsampler, brdfsampler, -rr.d, hit);
                 }

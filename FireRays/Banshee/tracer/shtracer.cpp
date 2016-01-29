@@ -29,7 +29,7 @@ float3 ShTracer::GetE(float3 const& n) const
     float3 radiance;
     for (int i=0; i<NumShTerms(lmax_); ++i)
     {
-        radiance += ylm[i] * convolvedcoeffs[i] * (0.7f / M_PI);
+        radiance += ylm[i] * convolvedcoeffs[i] * (0.7f / (float)M_PI);
     }
     
     return radiance;
@@ -49,7 +49,7 @@ float3 ShTracer::GetLi(ray const& r, World const& world, Sampler const& lightsam
     {
         radiance = world.bgcolor_;
         
-        for (int i = 0; i < world.lights_.size(); ++i)
+        for (int i = 0; i < (int)world.lights_.size(); ++i)
         {
             radiance += world.lights_[i]->GetLe(r);
         }

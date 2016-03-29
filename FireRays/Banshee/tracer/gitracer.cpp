@@ -7,25 +7,25 @@
 #include "../bsdf/bsdf.h"
 #include "../math/mathutils.h"
 
-float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
+#define MINPDF 0.05f
+#define MAXRADIANCE 4.f
+
+float3 GiTracer::GetLi(ray const& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
 {
     // Accumulated radiance
     float3 radiance = float3();
     
     // Intersection along the ray
-    Primitive::Intersection isectprimary;
-    
-    // Keep ray distance around
-    float t = r.t.y;
+    ShapeBundle::Hit hitprimary;
     
     // Check primary ray
-    if (!world.Intersect(r, t, isectprimary))
+    if (!world.Intersect(r, hitprimary))
     {
         radiance += world.bgcolor_;
         
-        for (int i = 0; i < world.lights_.size(); ++i)
+        for (int i = 0; i < (int)world.lights_.size(); ++i)
         {
-            radiance += world.lights_[i]->Le(r);
+            radiance += world.lights_[i]->GetLe(r);
         }
         
         // Bail out as the ray missed geometry
@@ -46,8 +46,8 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
         // Temporary ray - restore primary hit point
         ray rr = r;
         
-        // Isect
-        Primitive::Intersection isect = isectprimary;
+        // hit
+        ShapeBundle::Hit hit = hitprimary;
         
         // Path throughput
         float3 throughput = float3(1.f, 1.f, 1.f);
@@ -55,22 +55,32 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
         // Start calculating bounces
         for (int bounce=0; bounce<maxdepth_; ++bounce)
         {
-            Material const& mat = *world.materials_[isect.m];
+            Material const& mat = *world.materials_[hit.m];
             
             // If we hit emissive object as a first bounce add its contribution
-            if (bounce == 0 && mat.emissive())
+            if (bounce == 0 && mat.IsEmissive())
             {
-                Primitive::SampleData sampledata(isect);
-                radiance += mat.Le(sampledata, -rr.d);
+                ShapeBundle::Sample sampledata(hit);
+                radiance += mat.GetLe(sampledata, -rr.d);
                 
                 // TODO: implement mixed emissive-bsdf materials
                 break;
             }
             
             // Evaluate DI component
-            for (int i = 0; i < world.lights_.size(); ++i)
+            //
+            if (bounce != 0)
             {
-                radiance += throughput * Di(world, *world.lights_[i], lightsampler, brdfsampler, -rr.d, isect);
+                int numlights = (int)world.lights_.size();
+                int idx = rand_uint() % numlights;
+                radiance += throughput * GetDi(world, *world.lights_[idx], lightsampler, brdfsampler, -rr.d, hit) * (float)numlights;
+            }
+            else
+            {
+                for (int i = 0; i < (int)world.lights_.size(); ++i)
+                {
+                    radiance += throughput * GetDi(world, *world.lights_[i], lightsampler, brdfsampler, -rr.d, hit);
+                }
             }
             
             
@@ -84,21 +94,21 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
             float3 wi;
             
             // Sample material
-            float3 bsdf = mat.Sample(isect, bsdfsample, -rr.d, wi, bsdfpdf, bsdftype);
+            float3 bsdf = mat.Sample(hit, bsdfsample, -rr.d, wi, bsdfpdf, bsdftype);
             
             // Bail out if zero BSDF sampled
-            if (bsdf.sqnorm() == 0.f || bsdfpdf == 0.f)
+            if (bsdf.sqnorm() == 0.f || bsdfpdf < MINPDF)
             {
                 break;
             }
             
             // Construct ray
-            rr.o = isect.p;
+            rr.o = hit.p;
             rr.d = normalize(wi);
-            rr.t = float2(0.001f, 1000000.f);
+            rr.t = float2(0.01f, 1000000.f);
             
             // Update througput
-            throughput *= (bsdf * (fabs(dot(isect.n, wi)) / bsdfpdf));
+            throughput *= (bsdf * (fabs(dot(hit.n, wi)) / bsdfpdf));
             
             //assert(!has_nans(throughput));
             
@@ -118,10 +128,7 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
                 throughput *= (1.f / q);
             }
             
-            // Ray distance
-            t = rr.t.y;
-            
-            if (!world.Intersect(rr, t, isect))
+            if (!world.Intersect(rr, hit))
             {
                 break;
             }
@@ -129,5 +136,5 @@ float3 GiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
         }
     }
     
-    return radiance  * (1.f / numsamples);
+    return clamp(radiance * (1.f / numsamples), float3(0.f, 0.f, 0.f), float3(MAXRADIANCE, MAXRADIANCE, MAXRADIANCE));
 }

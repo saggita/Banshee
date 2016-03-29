@@ -37,7 +37,8 @@
 #include <memory>
 #include <vector>
 
-#include "../primitive/primitive.h"
+#include "../primitive/shapebundle.h"
+#include "../accelerator/intersectable.h"
 #include "../light/light.h"
 #include "../camera/camera.h"
 #include "../material/material.h"
@@ -47,30 +48,36 @@
 ///< For convenience reasons it impelements Primitive interface
 ///< to be able to provide intersection capabilities
 ///<
-class World : public Primitive
+class World : public Intersectable
 {
 public:
     World()
-        : accelerator_(nullptr)
+        : accel_(nullptr)
         , camera_(nullptr)
         , bgcolor_(float3(0,0,0))
     {
     }
 
     virtual ~World(){}
-
+    
+    void Commit();
+    
+    /**
+     Intersectable overrides
+     */
     // Intersection test
-    bool Intersect(ray& r, float& t, Intersection& isect) const;
+    bool Intersect(ray const& r, ShapeBundle::Hit& hit) const;
     // Intersection check test
-    bool Intersect(ray& r) const;
-    // World space bounding box
-    bbox Bounds() const;
+    bool Intersect(ray const& r) const;
+
 
 public:
     // Lights
     std::vector<std::unique_ptr<Light> > lights_;
-    // Primitive representing an acceleration structure
-    std::unique_ptr<Primitive> accelerator_;
+    // Objects in the scene
+    std::vector<std::unique_ptr<ShapeBundle> > shapebundles_;
+    // Accelerator
+    std::unique_ptr<Intersectable> accel_;
     // Camera
     // TODO: account for multiple cameras
     std::unique_ptr<Camera> camera_;

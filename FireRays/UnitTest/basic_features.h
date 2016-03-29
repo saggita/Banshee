@@ -13,24 +13,31 @@
 #include <stdexcept>
 #include <sstream>
 #include <iostream>
+#include <memory>
+
 
 #include "math/mathutils.h"
 #include "world/world.h"
-#include "primitive/sphere.h"
 #include "primitive/mesh.h"
 #include "accelerator/bvh.h"
+#include "import/assimp_assetimporter.h"
 #include "imageio/oiioimageio.h"
 #include "camera/perspective_camera.h"
 #include "camera/environment_camera.h"
 #include "renderer/mt_imagerenderer.h"
 #include "imageplane/fileimageplane.h"
 #include "tracer/ditracer.h"
+#include "tracer/gitracer.h"
+#include "tracer/texturetracer.h"
 #include "light/pointlight.h"
 #include "light/directional_light.h"
 #include "light/arealight.h"
 #include "light/environment_light.h"
 #include "sampler/regular_sampler.h"
 #include "sampler/stratified_sampler.h"
+#include "sampler/random_sampler.h"
+#include "sampler/cmj_sampler.h"
+#include "sampler/sobol_sampler.h"
 #include "material/simplematerial.h"
 #include "material/emissive.h"
 #include "bsdf/lambert.h"
@@ -72,8 +79,7 @@ public:
     {
         // Create world
         World* world = new World();
-        // Create accelerator
-        Bvh* bvh = new Bvh();
+        
         // Create camera
         Camera* camera = new PerscpectiveCamera(float3(0.f, 2.f, -10.5f), float3(0,0,0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
         
@@ -118,19 +124,13 @@ public:
                               indices, sizeof(int),
                               indices, sizeof(int),
                               materials, sizeof(int),
-                              2, worldmat, inverse(worldmat));
+                              2);
         
+        mesh->SetTransform(worldmat, inverse(worldmat));
         
-        std::vector<Primitive*> prims;
-        prims.push_back(mesh);
+        world->shapebundles_.push_back(std::unique_ptr<ShapeBundle>(mesh));
         
-        worldmat = rotation_x(PI/2);
-        prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 0));
-        
-        bvh->Build(prims);
-        
-        // Attach accelerator to world
-        world->accelerator_ = std::unique_ptr<Primitive>(bvh);
+
         // Attach camera
         world->camera_ = std::unique_ptr<Camera>(camera);
         // Set background
@@ -143,10 +143,140 @@ public:
         // Add to scene
         world->materials_.push_back(std::unique_ptr<Material>(sm));
         
+        AssimpAssetImporter assimp(*texsys_, "../../../Resources/test/sphere.obj");
+        assimp.onprimitive_ = [&world](ShapeBundle* prim)
+        {
+            world->shapebundles_.push_back(std::unique_ptr<ShapeBundle>(prim));
+        };
+        
+        
+        // Start assets import
+        assimp.Import();
+        
+        world->Commit();
+        
         // Return world
         return std::unique_ptr<World>(world);
     }
     
+    virtual std::unique_ptr<World> BuildWorldSimple() const
+    {
+        // Create world
+        World* world = new World();
+        
+        // Create camera
+        Camera* camera = new PerscpectiveCamera(float3(0.f, 30.f, 3.f), float3(0.f, 30.f, 0.f), float3(0.f, 1.f, 0.f), float2(0.01f, 10000.f), PI / 4, 1.f);
+        
+        // Env light
+        //EnvironmentLight* light = new EnvironmentLight(*texsys_, "memorial.exr", 2.f);
+        
+        // Add ground plane
+        float3 vertices[4] = {
+            float3(-1, 0, -1),
+            float3(-1, 0, 1),
+            float3(1, 0, 1),
+            float3(1, 0, -1)
+        };
+        
+        float3 normals[4] = {
+            float3(0, 1, 0),
+            float3(0, 1, 0),
+            float3(0, 1, 0),
+            float3(0, 1, 0)
+        };
+        
+        float2 uvs[4] = {
+            float2(0, 0),
+            float2(0, 10),
+            float2(10, 10),
+            float2(10, 0)
+        };
+        
+        int indices[6] = {
+            0, 3, 1,
+            3, 1, 2
+        };
+        
+        int materials[2] = {0,0};
+        
+        matrix worldmat = scale(float3(500, 1, 500));
+        
+        Mesh* mesh = new Mesh(&vertices[0].x, 4, sizeof(float3),
+                              &normals[0].x, 4, sizeof(float3),
+                              &uvs[0].x, 4, sizeof(float2),
+                              indices, sizeof(int),
+                              indices, sizeof(int),
+                              indices, sizeof(int),
+                              materials, sizeof(int),
+                              2);
+        
+        mesh->SetTransform(worldmat, inverse(worldmat));
+        
+        world->shapebundles_.push_back(std::unique_ptr<ShapeBundle>(mesh));
+        
+        // Attach camera
+        world->camera_ = std::unique_ptr<Camera>(camera);
+        // Set background
+        world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
+        // Add light
+        //world->lights_.push_back(std::unique_ptr<Light>(light));
+        
+        // Build materials
+        SimpleMaterial* sm = new SimpleMaterial(new Lambert(*texsys_, float3(0.7f, 0.7f, 0.7f), "checker.jpg", ""));
+        // Add to scene
+        world->materials_.push_back(std::unique_ptr<Material>(sm));
+        
+        world->Commit();
+        
+        // Return world
+        return std::unique_ptr<World>(world);
+    }
+    
+    std::unique_ptr<World> BuildWorldCornellBox()
+    {
+        // Create world
+        World* world = new World();
+        // Create camera
+        Camera* camera = new PerscpectiveCamera(float3(0.0f, 1.0f, 3.5f), float3(0.0f, 1.0f, 0), float3(0, 1.f, 0), float2(0.01f, 10000.f), PI / 4, 1.f);
+        //Camera* camera = new PerscpectiveCamera(float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), float2(0.01f, 10000.f), PI / 3, 1.f);
+        //Camera* camera = new EnvironmentCamera(float3(0, 0, 0), float3(0,-1,0), float3(0, 0, 1), float2(0.01f, 10000.f));
+        
+        rand_init();
+        
+        AssimpAssetImporter assimp(*texsys_, "../../../Resources/CornellBox/orig.objm");
+        //AssimpAssetImporter assimp(texsys, "../../../Resources/cornell-box/CornellBox-Glossy.obj");
+        //AssimpAssetImporter assimp(texsys, "../../../Resources/crytek-sponza/sponza.obj");
+        
+        assimp.onmaterial_ = [&world](Material* mat)->int
+        {
+            world->materials_.push_back(std::unique_ptr<Material>(mat));
+            return (int)(world->materials_.size() - 1);
+        };
+        
+        assimp.onprimitive_ = [&world](ShapeBundle* prim)
+        {
+            world->shapebundles_.push_back(std::unique_ptr<ShapeBundle>(prim));
+        };
+        
+        assimp.onlight_ = [&world](Light* light)
+        {
+            world->lights_.push_back(std::unique_ptr<Light>(light));
+        };
+        
+        // Start assets import
+        assimp.Import();
+        
+        // Build acceleration structure
+        world->Commit();
+        // Attach camera
+        world->camera_ = std::unique_ptr<Camera>(camera);
+        // Set background
+        world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
+        
+        // Return world
+        return std::unique_ptr<World>(world);
+    }
+
     
     virtual std::unique_ptr<World> BuildWorldAreaLight() const
     {
@@ -195,8 +325,9 @@ public:
                               indices, sizeof(int),
                               indices, sizeof(int),
                               materials, sizeof(int),
-                              2, worldmat, inverse(worldmat));
+                              2);
         
+        mesh->SetTransform(worldmat, inverse(worldmat));
         
         worldmat = translation(float3(0, 3.f, 0)) * rotation_x((float)M_PI);
         
@@ -208,24 +339,19 @@ public:
                                    indices, sizeof(int),
                                    indices, sizeof(int),
                                    ematerials, sizeof(int),
-                                   2, worldmat, inverse(worldmat));
+                                   2);
         
+        lightmesh->SetTransform(worldmat, inverse(worldmat));
+
         
-        std::vector<Primitive*> prims;
-        prims.push_back(mesh);
-        prims.push_back(lightmesh);
+        world->shapebundles_.push_back(std::unique_ptr<ShapeBundle>(mesh));
+        world->shapebundles_.push_back(std::unique_ptr<ShapeBundle>(lightmesh));
         
-        worldmat = rotation_x(PI/2);
-        prims.push_back(new Sphere(1.f, worldmat, inverse(worldmat), 0));
-        
-        bvh->Build(prims);
-        
-        // Attach accelerator to world
-        world->accelerator_ = std::unique_ptr<Primitive>(bvh);
+    
         // Attach camera
         world->camera_ = std::unique_ptr<Camera>(camera);
         // Set background
-        world->bgcolor_ = float3(0.0f, 0.0f, 0.0f);
+        world->bgcolor_ = float3(0.f, 0.f, 0.f);
         
         // Build materials
         SimpleMaterial* sm = new SimpleMaterial(new Lambert(*texsys_, float3(0.7f, 0.7f, 0.7f), "", ""));
@@ -234,18 +360,23 @@ public:
         world->materials_.push_back(std::unique_ptr<Material>(sm));
         world->materials_.push_back(std::unique_ptr<Material>(emissive));
         
-        std::vector<Primitive*> meshprims;
-        lightmesh->Refine(meshprims);
-        
-        // Add area lights
-        for (int i=0; i<meshprims.size();++i)
+        for (size_t i = 0; i < lightmesh->GetNumShapes(); ++i)
         {
-            world->lights_.push_back(std::unique_ptr<AreaLight>
-                                     (
-                                      new AreaLight(*meshprims[i], *emissive)
-                                      )
-                                     );
+            AreaLight* light = new AreaLight(i, *lightmesh, *emissive);
+            world->lights_.push_back(std::unique_ptr<Light>(light));
         }
+        
+        AssimpAssetImporter assimp(*texsys_, "../../../Resources/test/sphere.obj");
+        assimp.onprimitive_ = [&world](ShapeBundle* prim)
+        {
+            world->shapebundles_.push_back(std::unique_ptr<ShapeBundle>(prim));
+        };
+        
+        
+        // Start assets import
+        assimp.Import();
+        
+        world->Commit();
         
         
         // Return world
@@ -504,5 +635,768 @@ TEST_F(BasicFeatures, EnvironmentCamera)
     }
 }
 
+TEST_F(BasicFeatures, SamplerRegular1)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new TextureTracer(*texsys_, "checker.png"), // Tracer
+                                new RegularSampler(1), // Image sampler
+                                new StratifiedSampler(1, new McRng()), // Light sampler
+                                new StratifiedSampler(1, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldSimple();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+TEST_F(BasicFeatures, SamplerRegular4)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new TextureTracer(*texsys_, "checker.png"), // Tracer
+                                new RegularSampler(2), // Image sampler
+                                new StratifiedSampler(1, new McRng()), // Light sampler
+                                new StratifiedSampler(1, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldSimple();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+TEST_F(BasicFeatures, SamplerRegular16)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new TextureTracer(*texsys_, "checker.png"), // Tracer
+                                new RegularSampler(4), // Image sampler
+                                new StratifiedSampler(1, new McRng()), // Light sampler
+                                new StratifiedSampler(1, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldSimple();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+TEST_F(BasicFeatures, SamplerRandom1)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new TextureTracer(*texsys_, "checker.png"), // Tracer
+                                new RandomSampler(1, new McRng()), // Image sampler
+                                new StratifiedSampler(1, new McRng()), // Light sampler
+                                new StratifiedSampler(1, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldSimple();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+TEST_F(BasicFeatures, SamplerRandom4)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new TextureTracer(*texsys_, "checker.png"), // Tracer
+                                new RandomSampler(4, new McRng()), // Image sampler
+                                new StratifiedSampler(1, new McRng()), // Light sampler
+                                new StratifiedSampler(1, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldSimple();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+TEST_F(BasicFeatures, SamplerRandom16)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new TextureTracer(*texsys_, "checker.png"), // Tracer
+                                new RandomSampler(16, new McRng()), // Image sampler
+                                new StratifiedSampler(1, new McRng()), // Light sampler
+                                new StratifiedSampler(1, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldSimple();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+
+
+
+TEST_F(BasicFeatures, SamplerStratified1)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new TextureTracer(*texsys_, "checker.png"), // Tracer
+                                new StratifiedSampler(1, new McRng()), // Image sampler
+                                new StratifiedSampler(1, new McRng()), // Light sampler
+                                new StratifiedSampler(1, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldSimple();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+TEST_F(BasicFeatures, SamplerStratified4)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new TextureTracer(*texsys_, "checker.png"), // Tracer
+                                new StratifiedSampler(2, new McRng()), // Image sampler
+                                new StratifiedSampler(1, new McRng()), // Light sampler
+                                new StratifiedSampler(1, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldSimple();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+TEST_F(BasicFeatures, SamplerStratified16)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new TextureTracer(*texsys_, "checker.png"), // Tracer
+                                new StratifiedSampler(4, new McRng()), // Image sampler
+                                new StratifiedSampler(1, new McRng()), // Light sampler
+                                new StratifiedSampler(1, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldSimple();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+
+TEST_F(BasicFeatures, SamplerCmj1)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new TextureTracer(*texsys_, "checker.png"), // Tracer
+                                new CmjSampler(1, new McRng()), // Image sampler
+                                new StratifiedSampler(1, new McRng()), // Light sampler
+                                new StratifiedSampler(1, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldSimple();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+TEST_F(BasicFeatures, SamplerCmj4)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new TextureTracer(*texsys_, "checker.png"), // Tracer
+                                new CmjSampler(2, new McRng()), // Image sampler
+                                new StratifiedSampler(1, new McRng()), // Light sampler
+                                new StratifiedSampler(1, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldSimple();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+TEST_F(BasicFeatures, SamplerCmj16)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new TextureTracer(*texsys_, "checker.png"), // Tracer
+                                new CmjSampler(4, new McRng()), // Image sampler
+                                new StratifiedSampler(1, new McRng()), // Light sampler
+                                new StratifiedSampler(1, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldSimple();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+TEST_F(BasicFeatures, SamplerSobol1)
+{
+	// Test file name
+	std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+	// Image plane
+	FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+
+	// Create renderer
+	MtImageRenderer imgrenderer(
+		imgplane, // Image plane
+		new TextureTracer(*texsys_, "checker.png"), // Tracer
+		new SobolSampler(1, new McRng()), // Image sampler
+		new StratifiedSampler(1, new McRng()), // Light sampler
+		new StratifiedSampler(1, new McRng()) // Brdf sampler
+		);
+
+	// Override world settings: we are testning point light
+	world_ = BuildWorldSimple();
+
+	// Start testing
+	ASSERT_NO_THROW(imgrenderer.Render(*world_));
+
+	// Compare
+	if (g_compare)
+	{
+		ImgCompare::Statistics stat;
+		imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+
+		ASSERT_EQ(stat.sizediff, false);
+		ASSERT_EQ(stat.ndiff, 0);
+	}
+}
+
+TEST_F(BasicFeatures, SamplerSobol4)
+{
+	// Test file name
+	std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+	// Image plane
+	FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+
+	// Create renderer
+	MtImageRenderer imgrenderer(
+		imgplane, // Image plane
+		new TextureTracer(*texsys_, "checker.png"), // Tracer
+		new SobolSampler(4, new McRng()), // Image sampler
+		new StratifiedSampler(1, new McRng()), // Light sampler
+		new StratifiedSampler(1, new McRng()) // Brdf sampler
+		);
+
+	// Override world settings: we are testning point light
+	world_ = BuildWorldSimple();
+
+	// Start testing
+	ASSERT_NO_THROW(imgrenderer.Render(*world_));
+
+	// Compare
+	if (g_compare)
+	{
+		ImgCompare::Statistics stat;
+		imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+
+		ASSERT_EQ(stat.sizediff, false);
+		ASSERT_EQ(stat.ndiff, 0);
+	}
+}
+
+TEST_F(BasicFeatures, SamplerSobol16)
+{
+	// Test file name
+	std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+	// Image plane
+	FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+
+	// Create renderer
+	MtImageRenderer imgrenderer(
+		imgplane, // Image plane
+		new TextureTracer(*texsys_, "checker.png"), // Tracer
+		new SobolSampler(16, new McRng()), // Image sampler
+		new StratifiedSampler(1, new McRng()), // Light sampler
+		new StratifiedSampler(1, new McRng()) // Brdf sampler
+		);
+
+	// Override world settings: we are testning point light
+	world_ = BuildWorldSimple();
+
+	// Start testing
+	ASSERT_NO_THROW(imgrenderer.Render(*world_));
+
+	// Compare
+	if (g_compare)
+	{
+		ImgCompare::Statistics stat;
+		imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+
+		ASSERT_EQ(stat.sizediff, false);
+		ASSERT_EQ(stat.ndiff, 0);
+	}
+}
+
+TEST_F(BasicFeatures, AreaLightCmj16)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new DiTracer(), // Tracer
+                                new RegularSampler(1), // Image sampler
+                                new CmjSampler(4, new McRng()), // Light sampler
+                                new CmjSampler(4, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldAreaLight();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+TEST_F(BasicFeatures, AreaLightSobol16)
+{
+	// Test file name
+	std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+	// Image plane
+	FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+
+	// Create renderer
+	MtImageRenderer imgrenderer(
+		imgplane, // Image plane
+		new DiTracer(), // Tracer
+		new RegularSampler(1), // Image sampler
+		new SobolSampler(16, new McRng()), // Light sampler
+		new SobolSampler(16, new McRng()) // Brdf sampler
+		);
+
+	// Override world settings: we are testning point light
+	world_ = BuildWorldAreaLight();
+
+	// Start testing
+	ASSERT_NO_THROW(imgrenderer.Render(*world_));
+
+	// Compare
+	if (g_compare)
+	{
+		ImgCompare::Statistics stat;
+		imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+
+		ASSERT_EQ(stat.sizediff, false);
+		ASSERT_EQ(stat.ndiff, 0);
+	}
+}
+
+
+TEST_F(BasicFeatures, AreaLightStratified16)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new DiTracer(), // Tracer
+                                new RegularSampler(1), // Image sampler
+                                new StratifiedSampler(4, new McRng()), // Light sampler
+                                new StratifiedSampler(4, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldAreaLight();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+TEST_F(BasicFeatures, AreaLightRandom16)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new DiTracer(), // Tracer
+                                new RegularSampler(1), // Image sampler
+                                new RandomSampler(16, new McRng()), // Light sampler
+                                new RandomSampler(16, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldAreaLight();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+/*TEST_F(BasicFeatures, ConvergenceRandomDI)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new DiTracer(), // Tracer
+                                new RegularSampler(g_num_spp), // Image sampler
+                                new RandomSampler(16, new McRng()), // Light sampler
+                                new RandomSampler(16, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldCornellBox();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+TEST_F(BasicFeatures, ConvergenceCmjDI)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new DiTracer(), // Tracer
+                                new RegularSampler(g_num_spp), // Image sampler
+                                new CmjSampler(4, new McRng()), // Light sampler
+                                new CmjSampler(4, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldCornellBox();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+TEST_F(BasicFeatures, ConvergenceRandomGI)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new GiTracer(3), // Tracer
+                                new RegularSampler(g_num_spp), // Image sampler
+                                new RandomSampler(16, new McRng()), // Light sampler
+                                new RandomSampler(16, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldCornellBox();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}
+
+TEST_F(BasicFeatures, ConvergenceCmjGI)
+{
+    // Test file name
+    std::string testfilename = std::string() + "/" + test_info_->test_case_name() + "." + test_info_->name() + ".png";
+    // Image plane
+    FileImagePlane imgplane(g_output_image_path + testfilename, g_imgres, io_);
+    
+    // Create renderer
+    MtImageRenderer imgrenderer(
+                                imgplane, // Image plane
+                                new GiTracer(3), // Tracer
+                                new RegularSampler(g_num_spp), // Image sampler
+                                new CmjSampler(4, new McRng()), // Light sampler
+                                new CmjSampler(4, new McRng()) // Brdf sampler
+                                );
+    
+    // Override world settings: we are testning point light
+    world_ = BuildWorldCornellBox();
+    
+    // Start testing
+    ASSERT_NO_THROW(imgrenderer.Render(*world_));
+    
+    // Compare
+    if (g_compare)
+    {
+        ImgCompare::Statistics stat;
+        imgcmp_->Compare(g_ref_image_path + testfilename, g_output_image_path + testfilename, stat);
+        
+        ASSERT_EQ(stat.sizediff, false);
+        ASSERT_EQ(stat.ndiff, 0);
+    }
+}*/
 
 #endif // FIRERAYS_TEST_H

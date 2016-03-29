@@ -35,7 +35,7 @@
 #define SHTRACER_H
 
 #include "tracer.h"
-#include "../primitive/primitive.h"
+#include "../primitive/shapebundle.h"
 
 class Light;
 class Sampler;
@@ -50,10 +50,10 @@ public:
     ShTracer(int lmax, float3* const shcoeffs);
     
     // Estimate a radiance coming from r due to direct illumination
-    float3 Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const;
+    float3 GetLi(ray const& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const;
     
 private:
-    float3 E(float3 const& n) const;
+    float3 GetE(float3 const& n) const;
     
     std::vector<float3> shcoeffs_;
     int lmax_;

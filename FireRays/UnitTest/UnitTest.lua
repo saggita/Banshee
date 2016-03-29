@@ -4,12 +4,20 @@ project "UnitTest"
     links {"Banshee", "assimp", "Gtest"}
     files { "**.cpp", "**.h" }
     includedirs{"../3rdParty/assimp/include", "../3rdParty/oiio/include", "../Gtest/include"} 
+
+    if _OPTIONS["use_embree"] then
+            links {"embree"}
+            includedirs{"../3rdParty/embree/include"} 
+            libdirs {"../3rdParty/embree/lib"}
+    end
     
-    if not os.is("windows") then
-        buildoptions "-std=c++11 -stdlib=libc++"
+    if  os.is("linux") then
+        buildoptions "-std=c++11"
+        links {"OpenImageIO"}
     end
 
-    if os.is("macosx") or os.is("linux") then
+    if os.is("macosx") then
+        buildoptions "-std=c++11 -stdlib=libc++"
         links {"OpenImageIO"}
         libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64"}
     end

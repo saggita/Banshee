@@ -33,7 +33,7 @@
 #ifndef BSDF_H
 #define BSDF_H
 
-#include "../primitive/primitive.h"
+#include "../primitive/shapebundle.h"
 #include "../texture/texturesystem.h"
 
 #include <string>
@@ -70,13 +70,13 @@ public:
     virtual ~Bsdf() {}
 
     // Sample material and return outgoing ray direction along with combined BSDF value
-    virtual float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const = 0;
+    virtual float3 Sample(ShapeBundle::Hit& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const = 0;
 
     // Evaluate combined BSDF value
-    virtual float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const = 0;
+    virtual float3 Evaluate(ShapeBundle::Hit& isect, float3 const& wi, float3 const& wo) const = 0;
 
     // PDF of a given direction sampled from isect.p
-    virtual float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const = 0;
+    virtual float GetPdf(ShapeBundle::Hit& isect, float3 const& wi, float3 const& wo) const = 0;
 
     // Get BSDF type
     int GetType() const { return type_; }
@@ -85,7 +85,7 @@ public:
 
 protected:
     // Apply normal mapping
-    void MapNormal(std::string const& nmap, Primitive::Intersection& isect) const;
+    void MapNormal(std::string const& nmap, ShapeBundle::Hit& isect) const;
     
     // Texture system interface
     TextureSystem const& texturesys_;
@@ -94,7 +94,7 @@ protected:
     int type_;
 };
 
-inline void Bsdf::MapNormal(std::string const& nmap, Primitive::Intersection& isect) const
+inline void Bsdf::MapNormal(std::string const& nmap, ShapeBundle::Hit& isect) const
 {
     // We dont need bilinear interpolation while fetching normals
     // Use point instead

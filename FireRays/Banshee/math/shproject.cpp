@@ -30,14 +30,14 @@ void ShProjectEnvironmentMap(TextureSystem const& texsys, std::string const& tex
 
     for (int i = 0; i < texdesc.width; ++i)
     {
-        sinphi[i] = std::sinf(phi0 + i * phistep);
-        cosphi[i] = std::cosf(phi0 + i * phistep);
+        sinphi[i] = std::sin(phi0 + i * phistep);
+        cosphi[i] = std::cos(phi0 + i * phistep);
     }
 
     for (int i = 0; i < texdesc.height; ++i)
     {
-        sintheta[i] = std::sinf(theta0 + i * thetastep);
-        costheta[i] = std::cosf(theta0 + i * thetastep);
+        sintheta[i] = std::sin(theta0 + i * thetastep);
+        costheta[i] = std::cos(theta0 + i * thetastep);
     }
 
     // Iterate over the pixels calculating Riemann sum
@@ -90,14 +90,14 @@ void ShProjectEnvironmentMap(float3 const* envmap, int width, int height, int lm
 
     for (int i = 0; i < width; ++i)
     {
-        sinphi[i] = std::sinf(phi0 + i * phistep);
-        cosphi[i] = std::cosf(phi0 + i * phistep);
+        sinphi[i] = std::sin(phi0 + i * phistep);
+        cosphi[i] = std::cos(phi0 + i * phistep);
     }
 
     for (int i = 0; i < height; ++i)
     {
-        sintheta[i] = std::sinf(theta0 + i * thetastep);
-        costheta[i] = std::cosf(theta0 + i * thetastep);
+        sintheta[i] = std::sin(theta0 + i * thetastep);
+        costheta[i] = std::cos(theta0 + i * thetastep);
     }
 
     // Iterate over the pixels calculating Riemann sum
@@ -151,14 +151,14 @@ void ShEvaluateAndDump(ImageIo& io, std::string const& filename,  int width, int
 
     for (int i = 0; i < width; ++i)
     {
-        sinphi[i] = std::sinf(phi0 + i * phistep);
-        cosphi[i] = std::cosf(phi0 + i * phistep);
+        sinphi[i] = std::sin(phi0 + i * phistep);
+        cosphi[i] = std::cos(phi0 + i * phistep);
     }
 
     for (int i = 0; i < height; ++i)
     {
-        sintheta[i] = std::sinf(theta0 + i * thetastep);
-        costheta[i] = std::cosf(theta0 + i * thetastep);
+        sintheta[i] = std::sin(theta0 + i * thetastep);
+        costheta[i] = std::cos(theta0 + i * thetastep);
     }
 
     // Iterate thru image pixels

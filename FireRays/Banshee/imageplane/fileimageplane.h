@@ -46,34 +46,34 @@
 class FileImagePlane : public ImagePlane
 {
 public:
-    FileImagePlane(std::string filename, int2 res, ImageIo& io)
-        : filename_(filename)
-        , res_(res)
-        , io_(io)
-        , imgbuf_(res.x * res.y)
+    FileImagePlane(std::string filename, int2 res, ImageIo& io, ImageFilter* filter = nullptr)
+        : ImagePlane(res, filter) 
+        , m_filename(filename)
+        , m_io(io)
+        , m_imgbuf(res.x * res.y)
     {
     }
 
+    ~FileImagePlane();
+
     // This method is called by the renderer prior to adding samples
-    void Prepare();
+    void Prepare() override; 
 
     // This method is called by the renderer after adding all the samples
-    void Finalize();
+    void Finalize() override;
+    
+protected:
+	// Add sample to the pixel at position pos
+	// pos should be in the range of [0..res.x]x[0..res.y]
+    void WriteSample(int2 const& pos, float3 const& value) override;
 
-    // Add color contribution to the image plane
-    void AddSample(float2 const& sample, float w, float3 value);
-
-    // This is used by the renderer to decide on the number of samples needed
-    int2 resolution() const { return res_; }
-
+private:
     // File name to write to
-    std::string filename_;
-    // Image resolution
-    int2 res_;
+    std::string m_filename;
     // IO object
-    ImageIo& io_;
+    ImageIo& m_io;
     // Intermediate image buffer
-    std::vector<float3> imgbuf_;
+    std::vector<float3> m_imgbuf;
 };
 
 

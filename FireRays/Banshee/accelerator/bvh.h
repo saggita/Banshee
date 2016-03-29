@@ -1,73 +1,118 @@
 /*
-    Banshee and all code, documentation, and other materials contained
-    therein are:
-
-        Copyright 2013 Dmitry Kozlov
-        All Rights Reserved.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions are
-    met:
-        * Redistributions of source code must retain the above copyright
-        notice, this list of conditions and the following disclaimer.
-        * Redistributions in binary form must reproduce the above copyright
-        notice, this list of conditions and the following disclaimer in the
-        documentation and/or other materials provided with the distribution.
-        * Neither the name of the software's owners nor the names of its
-        contributors may be used to endorse or promote products derived from
-        this software without specific prior written permission.
-
-    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-    A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-    OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-    SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-    LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-    DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-    THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-    (This is the Modified BSD License)
-*/
+ Banshee and all code, documentation, and other materials contained
+ therein are:
+ 
+ Copyright 2015 Dmitry Kozlov
+ All Rights Reserved.
+ 
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are
+ met:
+ * Redistributions of source code must retain the above copyright
+ notice, this list of conditions and the following disclaimer.
+ * Redistributions in binary form must reproduce the above copyright
+ notice, this list of conditions and the following disclaimer in the
+ documentation and/or other materials provided with the distribution.
+ * Neither the name of the software's owners nor the names of its
+ contributors may be used to endorse or promote products derived from
+ this software without specific prior written permission.
+ 
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ (This is the Modified BSD License)
+ */
 #ifndef BVH_H
 #define BVH_H
 
 #include <memory>
 #include <vector>
+#include <atomic>
 
+#include "intersectable.h"
 #include "../math/bbox.h"
-#include "../primitive/primitive.h"
+
+#ifdef USE_TBB
+#define NOMINMAX
+#include <tbb/task_group.h>
+#include <tbb/mutex.h>
+#endif
+
+#include "../primitive/shapebundle.h"
 
 ///< The class represents bounding volume hierarachy
 ///< intersection accelerator
 ///<
-class Bvh : public Primitive
+class Bvh : public Intersectable
 {
 public:
-    Bvh()
+    Bvh(bool usesah = false)
     : root_(nullptr)
+    , usesah_(usesah)
     {
     }
+    
+    ~Bvh();
+    // Build function: pass bounding boxes and
+    void Build(std::vector<std::unique_ptr<ShapeBundle>> const& bundles);
+    
+    /**
+     Intersectable overrides
+     */
     // Intersection test
-    bool Intersect(ray& r, float& t, Intersection& isect) const;
+    bool Intersect(ray const& r, ShapeBundle::Hit& hit) const;
     // Intersection check test
-    bool Intersect(ray& r) const;
-    // World space bounding box
-    bbox Bounds() const;
-    // Build function
-    void Build(std::vector<Primitive*> const& prims);
+    bool Intersect(ray const& r) const;
     
-    // Query BVH statistics
-    struct Statistics;
-    void QueryStatistics(Statistics& stat) const;
-    
+
     
 protected:
     // Build function
-    virtual void BuildImpl(std::vector<Primitive*> const& prims);
+    virtual void BuildImpl(bbox const* bounds, size_t numbounds);
     // BVH node
     struct Node;
+    // Node allocation
+    virtual Node* AllocateNode();
+    virtual void  InitNodeAllocator(size_t maxnum);
+    
+    size_t GetShapeBundleIdx(size_t shapeidx) const;
+    size_t GetShapeIndexInBundle(size_t bundleidx, size_t globalshapeidx) const;
+    
+    
+    struct SplitRequest
+    {
+        // Starting index of a request
+        size_t startidx;
+        // Number of primitives
+        size_t numprims;
+        // Root node
+        Node** ptr;
+        // Bounding box
+        bbox bounds;
+        // Centroid bounds
+        bbox centroid_bounds;
+        // Level
+        int level;
+    };
+    
+    struct SahSplit
+    {
+        int dim;
+        float split;
+    };
+    
+    void BuildNode(SplitRequest const& req, bbox const* bounds, float3 const* centroids, int* primindices);
+    
+    SahSplit FindSahSplit(SplitRequest const& req, bbox const* bounds, float3 const* centroids, int* primindices) const;
+    
     // Enum for node type
     enum NodeType
     {
@@ -75,16 +120,30 @@ protected:
         kLeaf
     };
     
-    // Primitves owned by this instance
-    std::vector<std::unique_ptr<Primitive> > primitive_storage_;
-    // Primitves to intersect (includes refined prims)
-    std::vector<Primitive*> primitives_;
-    // BVH nodes
-    std::vector<std::unique_ptr<Node> > nodes_;
-    // Bounding box
-    bbox bounds_;
+    // Bvh nodes
+    std::vector<Node> nodes_;
+    // Identifiers of leaf primitives
+    std::vector<int> primids_;
+    // Here all the primitives including refined ones
+    std::vector<ShapeBundle*> bundles_;
+    // Here are all the bounds
+    std::vector<bbox> bounds_;
+    //
+    std::vector<int> bundlestartidx_;
+    
+#ifdef USE_TBB
+    tbb::atomic<int> nodecnt_;
+    tbb::mutex primitive_mutex_;
+    tbb::task_group taskgroup_;
+#else
+    // Node allocator counter, atomic for thread safety
+    std::atomic<int> nodecnt_;
+#endif
     // Root node
     Node* root_;
+    // SAH flag
+    bool usesah_;
+    
     
 private:
     Bvh(Bvh const&);
@@ -97,6 +156,7 @@ struct Bvh::Node
     bbox bounds;
     // Type of the node
     NodeType type;
+    
     union
     {
         // For internal nodes: left and right children
@@ -115,13 +175,8 @@ struct Bvh::Node
     };
 };
 
-struct Bvh::Statistics
+inline Bvh::~Bvh()
 {
-    int internalcount;
-    int leafcount;
-    float minoverlaparea;
-    float maxoverlaparea;
-    float avgoverlaparea;
-};
+}
 
 #endif // BVH_H

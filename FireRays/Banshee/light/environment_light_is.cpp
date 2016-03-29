@@ -14,10 +14,12 @@ static int kDistHeight = 256;
 
 EnvironmentLightIs::EnvironmentLightIs(TextureSystem const& texsys,
                    std::string const& texture,
-                   float scale)
+                   float scale,
+                   float gamma)
 : texsys_(texsys)
 , texture_(texture)
 , scale_(scale)
+, invgamma_(1.f / gamma)
 {
     // Prepare values for distribution generation
     std::vector<float> img(kDistWidth*kDistHeight);
@@ -40,7 +42,7 @@ EnvironmentLightIs::EnvironmentLightIs(TextureSystem const& texsys,
     radiancedist_.reset(new Distribution2D(kDistWidth, kDistHeight, &img[0]));
 }
 
-float3 EnvironmentLightIs::Sample(Primitive::Intersection const& isect, float2 const& sample, float3& d, float& pdf) const
+float3 EnvironmentLightIs::GetSample(ShapeBundle::Hit const& hit, float2 const& sample, float3& d, float& pdf) const
 {
     // Sample according to radiance distribution
     float dpdf = 0.f;
@@ -56,13 +58,19 @@ float3 EnvironmentLightIs::Sample(Primitive::Intersection const& isect, float2 c
 
     // Convert PDF to spherical mapping
     pdf = (sintheta == 0.f) ? 0.f : (dpdf / (2.f * PI * PI * sintheta));
+    
+    // Fetch the value
+    float3 val = texsys_.Sample(texture_, uv, float2(0,0));
+    
+    // Apply gamma correction
+    val = float3(pow(val.x, invgamma_), pow(val.y, invgamma_), pow(val.z, invgamma_));
 
     // Fetch radiance value and scale it
-    return scale_ * texsys_.Sample(texture_, uv, float2(0,0));
+    return scale_ * val;
 }
 
 
-float3 EnvironmentLightIs::Le(ray const& r) const
+float3 EnvironmentLightIs::GetLe(ray const& r) const
 {
     // Convert world d coordinates to spherical representation
     float rr, phi, theta;
@@ -70,13 +78,19 @@ float3 EnvironmentLightIs::Le(ray const& r) const
 
     // Compose the textcoord to fetch
     float2 uv(phi / (2*PI), theta / PI);
+    
+    // Fetch the value
+    float3 val = texsys_.Sample(texture_, uv, float2(0,0));
+    
+    // Apply gamma correction
+    val = float3(pow(val.x, invgamma_), pow(val.y, invgamma_), pow(val.z, invgamma_));
 
     // Fetch radiance value and scale it
-    return scale_ * texsys_.Sample(texture_, uv, float2(0,0));
+    return scale_ * val;
 }
 
 // PDF of a given direction sampled from isect.p
-float EnvironmentLightIs::Pdf(Primitive::Intersection const& isect, float3 const& w) const
+float EnvironmentLightIs::GetPdf(ShapeBundle::Hit const& hit, float3 const& w) const
 {
     // Convert world d coordinates to spherical representation
     float rr, phi, theta;

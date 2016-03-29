@@ -51,22 +51,22 @@ public:
     }
 
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf, int& type) const
+    float3 Sample(ShapeBundle::Hit& hit, float2 const& sample, float3 const& wi, float3& wo, float& pdf, int& type) const
     {
         type = bsdf_->GetType();
-        return bsdf_->Sample(isect, sample, wi, wo, pdf);
+        return bsdf_->Sample(hit, sample, wi, wo, pdf);
     }
     
-    // PDF of a given direction sampled from isect.p
-    float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    // PDF of a given direction sampled from hit.p
+    float GetPdf(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const
     {
-        return bsdf_->Pdf(isect, wi, wo);
+        return bsdf_->GetPdf(hit, wi, wo);
     }
 
     // Evaluate combined BSDF value
-    float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    float3 Evaluate(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const
     {
-        return bsdf_->Evaluate(isect, wi, wo);
+        return bsdf_->Evaluate(hit, wi, wo);
     }
     
 private:

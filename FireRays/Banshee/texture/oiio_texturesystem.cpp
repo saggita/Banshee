@@ -44,13 +44,31 @@ float3 OiioTextureSystem::Sample(std::string const& filename, float2 const& uv, 
 {
     ustring name = ustring(filename.c_str());
     TextureOpt options = TextureOpt();
-    options.nchannels = 3;
+    
+#ifdef USE_OIIO16
     options.swrap = OiioWrapMode(opts.wrapmode);
     options.twrap = OiioWrapMode(opts.wrapmode);
     options.interpmode = OiioFilter(opts.filter);
 
     float3 result;
 
+    // TODO: add support for dudv/dxdy
+    if (texturesys_->texture(name, options, uv.x, uv.y, 0.f, 0.f, 0.f, 0.f, 3, &result.x))
+    {
+        return result;
+    }
+    else
+    {
+        throw std::runtime_error("Texture fetch failed");
+    }
+#else
+    options.swrap = OiioWrapMode(opts.wrapmode);
+    options.twrap = OiioWrapMode(opts.wrapmode);
+    options.interpmode = OiioFilter(opts.filter);
+    options.nchannels = 3;
+    
+    float3 result;
+    
     // TODO: add support for dudv/dxdy
     if (texturesys_->texture(name, options, uv.x, uv.y, 0.f, 0.f, 0.f, 0.f, &result.x))
     {
@@ -60,6 +78,7 @@ float3 OiioTextureSystem::Sample(std::string const& filename, float2 const& uv, 
     {
         throw std::runtime_error("Texture fetch failed");
     }
+#endif
 }
 
 // Query texture information

@@ -38,7 +38,14 @@
 
 ///< Sampler class defines and interface to
 ///< entities capable of providing sample points
-///< either in 1D or 2D space
+///< either in 2D space.
+///< Samplers are used by rendering tasks and
+///< cloned if needed to be used in paralled 
+///< environment.
+///< Sampler is generating subsequent "patterns" each consisting of num_samples samples
+///< When Sample2D is called num_samples times the sampler goes to the next pattern.
+///< For some samplers it is required to Flush the seed (for example low-discrepancy Sobol)
+///< to start the new sequence when moving from one pixel to another.
 ///<
 class Sampler
 {
@@ -54,6 +61,9 @@ public:
 
     // Clone an instance of a sampler
     virtual Sampler* Clone() const = 0;
+
+	// Reset the sequence
+	virtual void Reset() {}
 };
 
 

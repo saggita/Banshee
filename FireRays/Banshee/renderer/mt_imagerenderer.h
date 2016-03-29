@@ -71,6 +71,8 @@ public:
     // Render call is always blocking 
     void Render(World const& world) const;
 
+    void RenderTile(World const& world, int2 const& start, int2 const& dim) const;
+
 private:
     // Size of a single tile aka task size
     int2 tilesize_;

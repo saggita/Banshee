@@ -35,6 +35,9 @@
 
 #include "../math/float3.h"
 #include "../math/int2.h"
+#include "../filter/imagefilter.h"
+#include <memory>
+
 
 ///< ImagePlane class represents an image plane and
 ///< is designed for the Renderer to write its result.
@@ -44,20 +47,57 @@
 class ImagePlane
 {
 public:
-    virtual ~ImagePlane(){}
+	// Image filter can be nullptr, in this case simple box filter is used
+	ImagePlane(int2 const& res, ImageFilter* imgfilter);
+
+	// Destructor
+    virtual ~ImagePlane();
 
     // This method is called by the renderer prior to adding samples
-    virtual void Prepare(){};
+    virtual void Prepare(){}
 
     // This method is called by the renderer after adding all the samples
     virtual void Finalize(){}
 
-    // Add weighted color contribution to the image plane
-    virtual void AddSample(float2 const& sample, float w, float3 value) = 0;
-
     // This is used by the renderer to decide on the number of samples needed
-    virtual int2 resolution() const = 0;
+    int2 resolution() const;
+
+	// Add weighted color contribution to the image plane
+	// pos should be in the range of [0..res.x]x[0..res.y]
+	// 
+	void AddSample(float2 const& pos, float3 const& value);
+
+protected:
+	// Add sample to the pixel at position pos
+	// pos should be in the range of [0..res.x]x[0..res.y]
+	virtual void WriteSample(int2 const& pos, float3 const& value) = 0;
+	
+	// Access to image filter
+	ImageFilter const* GetImageFilter() const;
+
+private:
+	// Image filter to use
+	std::unique_ptr<ImageFilter> m_image_filter;
+	// Resolution
+	int2 m_res;
 };
+
+inline ImagePlane::ImagePlane(int2 const& res, ImageFilter* imgfilter)
+	: m_res(res)
+	, m_image_filter(imgfilter)
+{
+}
+
+inline int2 ImagePlane::resolution() const
+{
+	return m_res;
+}
+
+inline ImageFilter const* ImagePlane::GetImageFilter() const
+{
+	return m_image_filter.get();
+}
+
 
 
 #endif

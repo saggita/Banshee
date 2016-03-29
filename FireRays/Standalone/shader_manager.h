@@ -2,7 +2,6 @@
 #define SHADER_MANAGER_H
 
 #ifdef __APPLE__
-#include <OpenCL/OpenCL.h>
 #include <OpenGL/OpenGL.h>
 #include <GLUT/GLUT.h>
 #elif WIN32
@@ -11,7 +10,6 @@
 #include "GL/glew.h"
 #include "GLUT/GLUT.h"
 #else
-#include <CL/cl.h>
 #include <GL/glew.h>
 #include <GL/glut.h>
 #endif

@@ -12,26 +12,32 @@
 #include <cassert>
 #include <iostream>
 
-float3 DiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
+#include "../math/mathutils.h"
+
+#define MINPDF 0.05f
+
+float3 DiTracer::GetLi(ray const& r, World const& world, Sampler const& lightsampler, Sampler const& brdfsampler) const
 {
-    Primitive::Intersection isect;
-    float t = r.t.y;
+    ShapeBundle::Hit hit;
     float3 radiance;
 
-    if (world.Intersect(r, t, isect))
+    if (world.Intersect(r, hit))
     {
         // If we hit emissive object just return its emission characteristic
-        Material const& mat = *world.materials_[isect.m];
+        Material const& mat = *world.materials_[hit.m];
 
-        if (mat.emissive())
+        if (mat.IsEmissive())
         {
             return 0.f;
         }
         else
         {
-            for (int i = 0; i < world.lights_.size(); ++i)
+            for (int i = 0; i < (int)world.lights_.size(); ++i)
             {
-                radiance += Di(world, *world.lights_[i], lightsampler, brdfsampler, -r.d, isect);
+                // TODO: Pass RNG or sampler
+                //int numlights = world.lights_.size();
+                //int idx = rand_uint() % numlights;
+                radiance += GetDi(world, *world.lights_[i], lightsampler, brdfsampler, -r.d, hit);
             }
         }
     }
@@ -39,16 +45,16 @@ float3 DiTracer::Li(ray& r, World const& world, Sampler const& lightsampler, Sam
     {
         radiance = world.bgcolor_;
 
-        for (int i = 0; i < world.lights_.size(); ++i)
+        for (int i = 0; i < (int)world.lights_.size(); ++i)
         {
-            radiance += world.lights_[i]->Le(r);
+            radiance += world.lights_[i]->GetLe(r);
         }
     }
 
     return radiance;
 }
 
-float3 DiTracer::Di(World const& world, Light const& light, Sampler const& lightsampler, Sampler const& bsdfsampler, float3 const& wo, Primitive::Intersection& isect) const
+float3 DiTracer::GetDi(World const& world, Light const& light, Sampler const& lightsampler, Sampler const& bsdfsampler, float3 const& wo, ShapeBundle::Hit& hit) const
 {
     float3 radiance;
     // TODO: fix that later with correct heuristic
@@ -76,10 +82,10 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
         }
         
         // Cache singularity flag to avoid virtual call in the loop below
-        bool singularlight = light.singular();
+        bool singularlight = light.Singular();
         
         // Fetch the material
-        Material const& mat = *world.materials_[isect.m];
+        Material const& mat = *world.materials_[hit.m];
 
         // Start sampling
         for (int i=0; i<numsamples; ++i)
@@ -89,12 +95,12 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
             
             // This is needed to support normal mapping.
             // Original intersection needs to be kept around since bsdf might alter the normal
-            Primitive::Intersection isectlocal = isect;
+            ShapeBundle::Hit hitlocal = hit;
             // Sample light source
-            float3 le = light.Sample(isectlocal, lightsamples[i], lightdir, lightpdf);
+            float3 le = light.GetSample(hitlocal, lightsamples[i], lightdir, lightpdf);
             
             // Continue if intensity > 0 and there is non-zero probability of sampling the point
-            if (lightpdf > 0.0f && le.sqnorm() > 0.f)
+            if (lightpdf > MINPDF && le.sqnorm() > 0.f)
             {
                 // Normalize direction to light
                 float3 wi = normalize(lightdir);
@@ -104,12 +110,12 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                 // Spawn shadow ray
                 ray shadowray;
                 // From an intersection point
-                shadowray.o = isectlocal.p;
+                shadowray.o = hitlocal.p;
                 // Into evaluated direction
                 shadowray.d = wi;
                 
                 // TODO: move ray epsilon into some global options object
-                shadowray.t = float2(0.005f, dist);
+                shadowray.t = float2(0.01f, dist - 0.01f);
                 
                 // Check for an occlusion
                 float shadow = world.Intersect(shadowray) ? 0.f : 1.f;
@@ -118,26 +124,24 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                 if (shadow > 0.f)
                 {
                     // Evaluate BSDF
-                    float3 bsdf = mat.Evaluate(isectlocal, wi, wo);
-                    
-                    //assert(!has_nans(bsdf));
+                    float3 bsdf = mat.Evaluate(hitlocal, wi, wo);
                     
                     // We can't apply MIS for singular lights, so use simple estimator
                     if (singularlight)
                     {
                         // Estimate with Monte-Carlo L(wo) = int{ Ld(wi, wo) * fabs(dot(n, wi)) * dwi }
-                        radiance +=  le * bsdf * fabs(dot(isectlocal.n, wi)) * (1.f / lightpdf);
-                        //assert(!has_nans(radiance));
+                        radiance +=  le * bsdf * fabs(dot(hitlocal.n, wi)) * (1.f / lightpdf);
+                        assert(!has_nans(radiance));
                     }
                     else
                     {
                         // Apply MIS
-                        bsdfpdf = mat.Pdf(isectlocal, wi, wo);
+                        bsdfpdf = mat.GetPdf(hitlocal, wi, wo);
                         // Evaluate weight
                         float weight = PowerHeuristic(1, lightpdf, 1, bsdfpdf);
                         // Estimate with Monte-Carlo L(wo) = int{ Ld(wi, wo) * fabs(dot(n, wi)) * dwi }
-                        radiance +=  le * bsdf * fabs(dot(isectlocal.n, wi)) * weight * (1.f / lightpdf);
-                        //assert(!has_nans(radiance));
+                        radiance +=  le * bsdf * fabs(dot(hitlocal.n, wi)) * weight * (1.f / lightpdf);
+                        assert(!has_nans(radiance));
                     }
                 }
             }
@@ -149,7 +153,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                 float3 wi;
 
                 // Sample material
-                float3 bsdf = mat.Sample(isectlocal, bsdfsamples[i], wo, wi, bsdfpdf, bsdftype);
+                float3 bsdf = mat.Sample(hitlocal, bsdfsamples[i], wo, wi, bsdfpdf, bsdftype);
                 //assert(!has_nans(bsdf));
                 //assert(!has_nans(bsdfpdf < 1000000.f));
 
@@ -157,7 +161,7 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                 wi = normalize(wi);
                 
                 // If something would be reflected
-                if (bsdf.sqnorm() > 0.f && bsdfpdf > 0.f)
+                if (bsdf.sqnorm() > 0.f && bsdfpdf > MINPDF)
                 {
                     float weight = 1.f;
                 
@@ -165,10 +169,10 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                     if (! (bsdftype & Bsdf::SPECULAR))
                     {
                         // Evaluate light PDF
-                        lightpdf = light.Pdf(isectlocal, wi);
+                        lightpdf = light.GetPdf(hitlocal, wi);
 
                         // If light PDF is zero skip to next sample
-                        if (lightpdf == 0.f)
+                        if (lightpdf < MINPDF)
                         {
                             continue;
                         }
@@ -180,29 +184,28 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                     // Spawn shadow ray
                     ray shadowray;
                     // From an intersection point
-                    shadowray.o = isectlocal.p;
+                    shadowray.o = hitlocal.p;
                     // Into evaluated direction
                     shadowray.d = wi;
 
                     // TODO: move ray epsilon into some global options object
-                    shadowray.t = float2(0.05f, 10000000.f);
+                    shadowray.t = float2(0.01f, 10000000.f);
 
                     // Cast the ray into the scene
-                    float t = 0.f;
-                    Primitive::Intersection shadowisect;
+                    ShapeBundle::Hit shadowhit;
                     float3 le(0.f, 0.f, 0.f);
                     // If the ray intersects the scene check if we have intersected this light
                     // TODO: move that to area light class
-                    if (world.Intersect(shadowray, t, shadowisect))
+                    if (world.Intersect(shadowray, shadowhit))
                     {
                         // Only sample if this is our light
-                        if ((Light const*)shadowisect.primitive->arealight_ == &light)
+                        if ((Light const*)shadowhit.bundle->GetAreaLight() == &light)
                         {
-                            Material const& lightmat = *world.materials_[shadowisect.m];
+                            Material const& lightmat = *world.materials_[shadowhit.m];
                             // Get material emission properties
-                            Primitive::SampleData sampledata(shadowisect);
+                            ShapeBundle::Sample sampledata(shadowhit);
 
-                            float3 d = sampledata.p - isectlocal.p;
+                            float3 d = sampledata.p - hitlocal.p;
 
                             // If the object facing the light compute emission
                             if (dot(sampledata.n, -wi) > 0.f)
@@ -211,20 +214,20 @@ float3 DiTracer::Di(World const& world, Light const& light, Sampler const& light
                                 float d2inv = 1.f / d.sqnorm();
 
                                 // Return emission characteristic of the material
-                                le = lightmat.Le(sampledata, -wi) * d2inv;
+                                le = lightmat.GetLe(sampledata, -wi) * d2inv;
                             }
                         }
                     }
                     else
                     {
                         // This is to give a chance for IBL to contribute
-                        le = light.Le(shadowray);
+                        le = light.GetLe(shadowray);
                     }
                     
                     if (le.sqnorm() > 0.f)
                     {
                         // Estimate with Monte-Carlo L(wo) = int{ Ld(wi, wo) * fabs(dot(n, wi)) * dwi }
-                        radiance +=  le * bsdf * fabs(dot(isectlocal.n, wi)) * weight * (1.f / bsdfpdf);
+                        radiance +=  le * bsdf * fabs(dot(hitlocal.n, wi)) * weight * (1.f / bsdfpdf);
                         //assert(!has_nans(radiance));
                     }
                 }

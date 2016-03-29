@@ -2,7 +2,7 @@
 
 #include <numeric>
 
-float3 DirectionalLight::Sample(Primitive::Intersection const& isect, float2 const& sample, float3& d, float& pdf) const
+float3 DirectionalLight::GetSample(ShapeBundle::Hit const& isect, float2 const& sample, float3& d, float& pdf) const
 {
     // Need to return direction opposite to the light which is long enough
     // TODO: remove the constant

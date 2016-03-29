@@ -4,56 +4,55 @@
 #include <cassert>
 #include <stdexcept>
 
-#include "../primitive/primitive.h"
+#include "../primitive/shapebundle.h"
 #include "../material/material.h"
+#include "../math/mathutils.h"
 
-AreaLight::AreaLight(Primitive& primitive, Material const& material)
-    : primitive_(primitive)
+AreaLight::AreaLight(size_t shapeidx, ShapeBundle& bundle, Material const& material)
+    : bundle_(bundle)
     , material_(material)
+    , shapeidx_(shapeidx)
 {
-    // TODO: dont like this code. Design issue?
-    if(primitive_.surface_area() <= 0.f)
-    {
-        throw std::runtime_error("AreaLight: The primitive passed cannot be used as area light");
-    }
-
-    if (!material_.emissive())
+    if (!material_.IsEmissive())
     {
         throw std::runtime_error("AreaLight: The material passed is not an emissive one");
     }
     
     // Set this area light for the primitive
-    primitive_.arealight_ = this;
+    bundle_.arealight_ = this;
 }
 
-
-float3 AreaLight::Sample(Primitive::Intersection const& isect, float2 const& sample, float3& d, float& pdf) const
+float3 AreaLight::GetSample(ShapeBundle::Hit const& hit, float2 const& sample, float3& d, float& pdf) const
 {
     // Get the sample point in world space
-    Primitive::SampleData sampledata;
-    primitive_.Sample(sample, sampledata, pdf);
-
+    ShapeBundle::Sample sampledata;
+    
+    bundle_.GetSampleOnShape(shapeidx_, sample, sampledata);
+    
     // Set direction to the light
-    d = sampledata.p - isect.p;
+    d = sampledata.p - hit.p;
     
     // If the object facing the light compute emission
-    if (pdf > 0.f && dot(sampledata.n, -normalize(d)) > 0.f)
+    if (sampledata.pdf > 0.f && dot(sampledata.n, -normalize(d)) > 0.f)
     {
+        // Return PDF
+        pdf = sampledata.pdf;
+        
         // Emissive power with squared fallof
         float d2inv = 1.f / d.sqnorm();
 
         // Return emission characteristic of the material
-        return material_.Le(sampledata, -normalize(d)) * d2inv;
+        return material_.GetLe(sampledata, -normalize(d)) * d2inv;
     }
-    else
-    {
-        // Otherwise just set probability to 0
-        pdf = 0.f;
-        return float3(0,0,0);
-    }
+
+    
+    // Otherwise just set probability to 0
+    pdf = 0.f;
+    //
+    return float3();
 }
 
-float AreaLight::Pdf(Primitive::Intersection const& isect, float3 const& w) const
+float AreaLight::GetPdf(ShapeBundle::Hit const& hit, float3 const& w) const
 {
-    return primitive_.Pdf(isect.p, w);
+    return bundle_.GetPdfOnShape(shapeidx_, hit.p, w);
 }

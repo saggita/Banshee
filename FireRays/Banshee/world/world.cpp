@@ -1,16 +1,29 @@
 #include "world.h"
+#include "../accelerator/bvh.h"
+#include "../accelerator/embree.h"
 
-bool World::Intersect(ray& r, float& t, Intersection& isect) const
+void World::Commit()
 {
-    return accelerator_->Intersect(r, t, isect);
+#ifndef USE_EMBREE
+    Bvh* bvh = new Bvh(true);
+    bvh->Build(shapebundles_);
+    accel_.reset(bvh);
+#else
+    Embree* embree = new Embree();
+    embree->Build(shapebundles_);
+    accel_.reset(embree);
+#endif
 }
 
-bool World::Intersect(ray& r) const
+// Intersection test
+bool World::Intersect(ray const& r, ShapeBundle::Hit& hit) const
 {
-    return accelerator_->Intersect(r);
+    hit.t = r.t.y;
+    return accel_->Intersect(r, hit);
 }
 
-bbox World::Bounds() const
+// Intersection check test
+bool World::Intersect(ray const& r) const
 {
-    return accelerator_->Bounds();
+    return accel_->Intersect(r);
 }

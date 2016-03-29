@@ -39,16 +39,33 @@
 
 #include "../math/float3.h"
 #include "../math/float2.h"
-#include "transformable_primitive.h"
-#include "indexed_triangle.h"
+#include "shapebundle.h"
 
 ///< Transformable primitive implementation which represents
 ///< triangle mesh. Vertices, normals and uvs are indixed separately
 ///< using their own index buffers each.
 ///<
-class Mesh : public TransformablePrimitive
+class Mesh : public ShapeBundle
 {
 public:
+    /**
+     Data types
+     */
+    // Mesh faces
+    // Keeps indices for all components
+    // and material index
+    struct Face
+    {
+        int vi0, vi1, vi2;
+        int ni0, ni1, ni2;
+        int ti0, ti1, ti2;
+        int m;
+    };
+    
+    /**
+     Mesh methods
+     */
+    // Constructor
     Mesh(float const* vertices, int vnum, int vstride,
          float const* normals, int nnum, int nstride,
          float const* uvs, int unum, int ustride,
@@ -56,26 +73,98 @@ public:
          int const* nidx, int nistride,
          int const* uidx, int uistride,
          int const* materials, int mstride,
-         int nfaces,
-         matrix const& wm = matrix(), matrix const& wmi = matrix());
-
-    // Intersection test
-    bool Intersect(ray& r, float& t, Intersection& isect) const { return false; }
-    // Intersection check test
-    bool Intersect(ray& r) const { return false; }
-    // World space bounding box
-    bbox Bounds() const;
-    // Intersectable flag: determines whether the primitive is
-    // capable of direct intersection evaluation
-    // By default it returns true
-    bool intersectable() const { return false; }
-    // If the shape is not intersectable, the following method is 
-    // supposed to break it into parts (which might or might not be intersectable themselves)
-    // Note that memory of the parts is owned by the primitive 
-    void Refine (std::vector<Primitive*>& prims);
+         int nfaces);
+    
+    // Fill hit information (normal. uv, etc)
+    // REQUIRED: IntersectFace(face, ro, t, a, b) == true
+    void FillHit(size_t idx, float t, float a, float b, Hit& hit) const;
+    
+    //
+    float3 const* GetVertices() const;
+    //
+    size_t GetNumVertices() const;
+    //
+    Face const* GetFaces() const;
+    //
+    size_t GetNumFaces() const;
+    
+    /** 
+     ShapeBundle overrides
+     */
+    
+    // Number of shapes in the bundle
+    std::size_t GetNumShapes() const { return faces_.size(); }
+    
+    // Test shape number idx against the ray
+    // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
+    // REQUIRED: hit.t initialized for some value which is used as a current closest hit distance
+    // CONTRACT:   true is returned if r intersects shape idx with hit distance closer to hit.t
+    //           hit.t updated accordingly, other data in hit updated accordingly
+    //           false if no hits found, hit is unchanged in this case
+    //
+    bool IntersectShape(std::size_t idx, ray const& r, Hit& hit) const;
+    
+    // Test shape number idx against the ray
+    // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
+    // CONTRACT: true is returned if r intersects shape idx, false otherwise
+    //
+    bool IntersectShape(std::size_t idx, ray const& r) const;
+    
+    // Get shape number idx world bounding box
+    // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
+    // CONTRACT: Bounding box returned
+    //
+    bbox GetShapeWorldBounds(std::size_t idx) const;
+    
+    // Get shape number idx object bounding box
+    // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
+    // CONTRACT: Bounding box returned
+    //
+    bbox GetShapeObjectBounds(std::size_t idx) const;
+    
+    // Get shape number idx surface area
+    // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
+    // CONTRACT: Surface area returned
+    //
+    float GetShapeSurfaceArea(std::size_t idx) const;
+    
+    // Sample point on idx shape
+    // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
+    // REQUIRED: uv belongs to [0..1]x[0..1], otherwise effect undefined
+    // CONTRACT: The method fills int sample data and provides PDF for the sample,
+    //           note that PDF might be 0 in which case data is not filled in.
+    // IMPORTANT: PDF returned by the method with regards to surface area.
+    //
+    virtual void GetSampleOnShape(std::size_t idx, float2 const& uv, Sample& sample) const;
+    
+    // Sample point on idx shape from point p
+    // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
+    // REQUIRED: uv belongs to [0..1]x[0..1], otherwise effect undefined
+    // CONTRACT: The method fills int sample data and provides PDF for the sample
+    //           note that PDF might be 0 in which case data is not filled in.
+    // IMPORTANT: PDF returned by the method with regards to solid angle subtended by shape
+    //           at the point p.
+    //
+    virtual void GetSampleOnShape(std::size_t idx, float3 const& p, float2 const& uv, Sample& sample) const;
+    
+    // Get PDF value of a particular direction from a point p
+    // REQUIRED: 0 <= idx < GetNumShapes(), otherwise effect undefined
+    // CONTRACT: The method retuns PDF of w direction with respect solid angle subtended by shape
+    //           at the point p.
+    //
+    virtual float GetPdfOnShape(std::size_t idx, float3 const& p, float3 const& w) const;
+    
+protected:
+    // Test face against a given ray returning barycentric coords of a hit
+    // and ray hit distance
+    bool IntersectFace(Face const& face, ray const& ro, float tmax, float& t, float& a, float& b) const;
+    // Fill hit information (normal. uv, etc)
+    // REQUIRED: IntersectFace(face, ro, t, a, b) == true
+    void FillHit(Face const& face, float t, float a, float b, Hit& hit) const;
+    // Fill sample information
+    void FillSample(Face const& face, float a, float b, Sample& sample) const;
 
 private:
-    void CalcBounds();
 
     /// Disallow to copy meshes, too heavy
     Mesh(Mesh const& o);
@@ -88,11 +177,7 @@ private:
     /// UVs
     std::vector<float2> uvs_;
     /// Triangles
-    std::vector<std::unique_ptr<IndexedTriangle> > triangles_;
-    /// Cached bbox
-    bbox bounds_;
-    /// Friend IndexedTriangle to allow data access
-    friend class IndexedTriangle;
+    std::vector<Face> faces_;
 };
 
 #endif // MESH_H

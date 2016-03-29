@@ -22,7 +22,7 @@ static void EvaluateLegendrePolynomial(float x, int lmax, float* out)
     // Calculate edge values m=l
     float neg = -1.f;
     float dfact = 1.f;
-    float xroot = sqrtf(std::max(0.f, 1.f - x*x));
+    float xroot = std::sqrt(std::max(0.f, 1.f - x*x));
     float xpow = xroot;
     for (int l = 1; l <= lmax; ++l) 
     {
@@ -59,7 +59,7 @@ static float DivFact(int a, int b)
     }
 
     float fa = (float)a;
-    float fb = std::fabsf((float)b);
+    float fb = std::fabs((float)b);
     float v = 1.f;
 
     for (float x = fa-fb+1.f; x <= fa+fb; x += 1.f)
@@ -73,7 +73,7 @@ static float DivFact(int a, int b)
 ///< The function computes normalization constants for Y_l_m terms
 static float K(int l, int m)
 {
-    return std::sqrtf((2.f * l + 1.f) * 1.f / (4 * PI) * DivFact(l, m));
+    return std::sqrt((2.f * l + 1.f) * 1.f / (4 * PI) * DivFact(l, m));
 }
 
 ///< Calculates sin(i*s) and cos(i*c) for i up to n 
@@ -115,7 +115,7 @@ void ShEvaluate(float3 const& p, int lmax, float* coefs)
     std::vector<float> cosmphi(lmax + 1);
     std::vector<float> sinmphi(lmax + 1);
 
-    float xylen = std::sqrtf(std::max(0.f, 1.f - p.z*p.z));
+    float xylen = std::sqrt(std::max(0.f, 1.f - p.z*p.z));
 
     // If degenerate set to 0 and 1
     if (xylen == 0.f) 
@@ -132,7 +132,7 @@ void ShEvaluate(float3 const& p, int lmax, float* coefs)
     }
 
     // Multiply in normalization coeffs and sin and cos where needed
-    const float sqrt2 = sqrtf(2.f);
+    const float sqrt2 = std::sqrt(2.f);
     for (int l = 0; l <= lmax; ++l) 
     {
         // For negative multiply by sin and Klm
@@ -154,7 +154,7 @@ void ShEvaluate(float3 const& p, int lmax, float* coefs)
 
 static inline float lambda(float l)
 {
-    return sqrtf((4.f * (float)M_PI) / (2.f * l + 1.f));
+    return std::sqrt((4.f * (float)M_PI) / (2.f * l + 1.f));
 }
 
 void ShConvolveCosTheta(int lmax, float3 const* cin, float3* cout)

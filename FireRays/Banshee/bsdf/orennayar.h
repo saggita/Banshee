@@ -71,17 +71,10 @@ public:
     }
     
     // Sample material and return outgoing ray direction along with combined BSDF value
-    float3 Sample(Primitive::Intersection& isect, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
+    float3 Sample(ShapeBundle::Hit& hit, float2 const& sample, float3 const& wi, float3& wo, float& pdf) const
     {
-        // Backup for normal mapping
-        Primitive::Intersection isectlocal = isect;
-        
-        // Alter normal if needed
-        // TODO: fix tangents as well
-        MAP_NORMAL(nmap_, isectlocal);
-        
         // Revert normal based on ORIGINAL normal, not mapped one
-        float3 n = dot(wi, isect.n) >= 0.f ? isectlocal.n : -isectlocal.n;
+        float3 n = dot(wi, hit.n) >= 0.f ? hit.n : -hit.n;
         
         // Map random sample to hemisphere getting cosine weigted distribution
         wo = map_to_hemisphere(n, sample, 1.f);
@@ -93,30 +86,23 @@ public:
         pdf = dot(n, wo) * invpi;
         
         // Evaluate
-        return Evaluate(isect, wi, wo);
+        return Evaluate(hit, wi, wo);
     }
     
     // Evaluate combined BSDF value
-    float3 Evaluate(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    float3 Evaluate(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const
     {
         // Return 0 if wo and wi are on different sides
-        float sameside = dot(wi, isect.n) * dot(wo, isect.n) ;
+        float sameside = dot(wi, hit.n) * dot(wo, hit.n) ;
         if (sameside < 0.f)
             return float3(0, 0, 0);
         
-        // Backup for normal mapping
-        Primitive::Intersection isectlocal = isect;
-        
-        // Alter normal if needed
-        // TODO: fix tangents as well
-        MAP_NORMAL(nmap_, isectlocal);
-        
-        float3 n = isectlocal.n;
-        float3 s = isectlocal.dpdu;
-        float3 t = isectlocal.dpdv;
+        float3 n = hit.n;
+        float3 s = hit.dpdu;
+        float3 t = hit.dpdv;
         
         // Revert normal based on ORIGINAL normal, not mapped one
-        if (dot(wi, isect.n) < 0.f)
+        if (dot(wi, hit.n) < 0.f)
         {
             n = -n;
             s = -s;
@@ -124,7 +110,7 @@ public:
         }
         
         // Get roughness value
-        float kr = GET_VALUE(kr_, krmap_, isectlocal.uv).x;
+        float kr = GET_VALUE(kr_, krmap_, hit.uv).x;
         float invpi = 1.f / PI;
         float r2 = kr*kr;
         
@@ -165,20 +151,20 @@ public:
             tan_beta = sin_theta_o / cos_theta_o;
         }
         
-        float3 kd = GET_VALUE(kd_, kdmap_, isect.uv);
+        float3 kd = GET_VALUE(kd_, kdmap_, hit.uv);
         
         return kd * float3(invpi, invpi, invpi) * (a + b * maxcos * sin_alpha * tan_beta);
     }
     
     // Return pdf for wo to be sampled for wi
-    float Pdf(Primitive::Intersection& isect, float3 const& wi, float3 const& wo) const
+    float GetPdf(ShapeBundle::Hit& hit, float3 const& wi, float3 const& wo) const
     {
         // If wi and wo are on the same side of the surface
-        float sameside = dot(wi, isect.n) * dot(wo, isect.n);
+        float sameside = dot(wi, hit.n) * dot(wo, hit.n);
         
         if (sameside > 0.f)
         {
-            float3 n = dot(wi, isect.n) >= 0.f ? isect.n : -isect.n;
+            float3 n = dot(wi, hit.n) >= 0.f ? hit.n : -hit.n;
             
             float invpi = 1.f / PI;
             

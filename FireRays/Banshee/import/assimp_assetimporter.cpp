@@ -5,7 +5,7 @@
 #include <cassert>
 
 #include "Importer.hpp"
-#include "Mesh.h"
+#include "mesh.h"
 #include "postprocess.h"
 #include "scene.h"
 
@@ -53,10 +53,10 @@ void AssimpAssetImporter::Import()
             kdmap = path.data;
         }
 
-        if(material->GetTexture(aiTextureType_HEIGHT, 0, &path) == AI_SUCCESS) 
+        /*if(material->GetTexture(aiTextureType_HEIGHT, 0, &path) == AI_SUCCESS)
         {
             nmap = path.data;
-        }
+        }*/
 
         aiColor3D diffuse(0,0,0);
         material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse);
@@ -134,14 +134,11 @@ void AssimpAssetImporter::Import()
             onprimitive_(mymesh);
         }
 
-        if (onlight_ && idx2mat[mat]->emissive())
+        if (onlight_ && idx2mat[mat]->IsEmissive())
         {
-            std::vector<Primitive*> prims;
-            mymesh->Refine(prims);
-
-            for (int i = 0; i < (int)prims.size(); ++i)
+            for (size_t i = 0; i < mymesh->GetNumShapes(); ++i)
             {
-                AreaLight* light = new AreaLight(*prims[i], *idx2mat[mat]);
+                AreaLight* light = new AreaLight(i, *mymesh, *idx2mat[mat]);
                 onlight_(light);
             }
         }

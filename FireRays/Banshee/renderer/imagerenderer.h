@@ -39,6 +39,7 @@ class ProgressReporter;
 
 #include <memory>
 
+#include "../math/int2.h"
 #include "../tracer/tracer.h"
 #include "../sampler/sampler.h"
 #include "renderer.h"
@@ -70,6 +71,8 @@ public:
     }
 
     void Render(World const& world) const;
+
+    void RenderTile(World const& world, int2 const& start, int2 const& dim) const;
 
 protected:
     // Image plane for an output

@@ -51,25 +51,26 @@ class EnvironmentLightIs: public Light
 {
 public:
     EnvironmentLightIs(TextureSystem const& texsys,
-                     std::string const& texture,
-                       float scale = 1.f);
+                       std::string const& texture,
+                       float scale = 1.f,
+                       float gamma = 2.2f);
     
     // Sample method generates a direction to the light(d), calculates pdf in that direction (pdf)
     // and returns radiance emitted(return value) into the direction specified by isect
     // Note that no shadow testing occurs here, the method knows nothing about world's geometry
     // and it is renderers responsibility to account for visibility term
     // [PARTIALLY DONE] TODO: account for different sampling modes here, need to pass sampler/sample?
-    float3 Sample(Primitive::Intersection const& isect, float2 const& sample, float3& d, float& pdf) const;
+    float3 GetSample(ShapeBundle::Hit const& hit, float2 const& sample, float3& d, float& pdf) const;
     
     // This method is supposed to be called by the renderer when the ray misses the geometry.
     // It allows implementing IBL, etc.
-    float3 Le(ray const& r) const;
+    float3 GetLe(ray const& r) const;
     
     // PDF of a given direction sampled from isect.p
-    float Pdf(Primitive::Intersection const& isect, float3 const& w) const;
+    float GetPdf(ShapeBundle::Hit const& hit, float3 const& w) const;
     
     // Check if the light is singular (represented by delta function or not)
-    bool singular() const { return false; }
+    bool Singular() const { return false; }
     
     
 private:
@@ -79,6 +80,8 @@ private:
     std::string texture_;
     // Radiance scale
     float scale_;
+    // Gamma
+    float invgamma_;
     // Distribution for radiance
     std::unique_ptr<Distribution2D> radiancedist_;
 };

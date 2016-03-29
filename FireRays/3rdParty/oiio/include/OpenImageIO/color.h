@@ -33,9 +33,10 @@
 
 #include "export.h"
 #include "oiioversion.h"
+#include "typedesc.h"
 
-OIIO_NAMESPACE_ENTER
-{
+
+OIIO_NAMESPACE_BEGIN
 
 /// The ColorProcessor encapsulates a baked color transformation, suitable for
 /// application to raw pixels, or ImageBuf(s). These are generated using
@@ -59,21 +60,24 @@ class OIIO_API ColorProcessor;
 class OIIO_API ColorConfig
 {
 public:
-    /// If OpenColorIO is enabled at build time, initialize with the current
-    /// color configuration. ($OCIO)
-    /// If OpenColorIO is not enabled, this does nothing.
+    /// Construct a ColorConfig using the named OCIO configuration file,
+    /// or if filename is empty, to the current color configuration
+    /// specified by env variable $OCIO.
     ///
-    /// Multiple calls to this are inexpensive.
-    ColorConfig();
-    
-    /// If OpenColorIO is enabled at build time, initialize with the 
-    /// specified color configuration (.ocio) file
-    /// If OpenColorIO is not enabled, this will result in an error.
-    /// 
-    /// Multiple calls to this are potentially expensive.
-    ColorConfig(const char * filename);
+    /// Multiple calls to this are potentially expensive. A ColorConfig
+    /// should usually be shared by an app for its entire runtime.
+    ColorConfig (string_view filename = "");
     
     ~ColorConfig();
+
+    /// Reset the config to the named OCIO configuration file, or if
+    /// filename is empty, to the current color configuration specified
+    /// by env variable $OCIO. Return true for success, false if there
+    /// was an error.
+    ///
+    /// Multiple calls to this are potentially expensive. A ColorConfig
+    /// should usually be shared by an app for its entire runtime.
+    bool reset (string_view filename = "");
     
     /// Has an error string occurred?
     /// (This will not affect the error state.)
@@ -88,17 +92,22 @@ public:
     int getNumColorSpaces() const;
     
     /// Query the name of the specified ColorSpace.
-    const char * getColorSpaceNameByIndex(int index) const;
+    const char * getColorSpaceNameByIndex (int index) const;
 
     /// Get the name of the color space representing the named role,
     /// or NULL if none could be identified.
-    const char * getColorSpaceNameByRole (const char *role) const;
+    const char * getColorSpaceNameByRole (string_view role) const;
+
+    /// Get the data type that OCIO thinks this color space is. The name
+    /// may be either a color space name or a role.
+    OIIO::TypeDesc getColorSpaceDataType (string_view name, int *bits) const;
+
     
     /// Get the number of Looks defined in this configuration
     int getNumLooks() const;
     
     /// Query the name of the specified Look.
-    const char * getLookNameByIndex(int index) const;
+    const char * getLookNameByIndex (int index) const;
 
     /// Given the specified input and output ColorSpace, construct the
     /// processor.  It is possible that this will return NULL, if the
@@ -113,8 +122,8 @@ public:
     /// call once to create a ColorProcessor to use on an entire image
     /// (or multiple images), NOT for every scanline or pixel
     /// separately!
-    ColorProcessor* createColorProcessor(const char * inputColorSpace,
-                                         const char * outputColorSpace) const;
+    ColorProcessor* createColorProcessor (string_view inputColorSpace,
+                                          string_view outputColorSpace) const;
     
     /// Given the named look(s), input and output color spaces,
     /// construct a color processor that applies an OCIO look
@@ -133,30 +142,30 @@ public:
     /// call once to create a ColorProcessor to use on an entire image
     /// (or multiple images), NOT for every scanline or pixel
     /// separately!
-    ColorProcessor* createLookTransform (const char * looks,
-                                         const char * inputColorSpace,
-                                         const char * outputColorSpace,
+    ColorProcessor* createLookTransform (string_view looks,
+                                         string_view inputColorSpace,
+                                         string_view outputColorSpace,
                                          bool inverse=false,
-                                         const char *context_key=NULL,
-                                         const char *context_value=NULL) const;
+                                         string_view context_key="",
+                                         string_view context_value="") const;
 
     /// Get the number of displays defined in this configuration
     int getNumDisplays() const;
 
     /// Query the name of the specified display.
-    const char * getDisplayNameByIndex(int index) const;
+    const char * getDisplayNameByIndex (int index) const;
 
     /// Get the number of views for a given display defined in this configuration
-    int getNumViews(const char * display) const;
+    int getNumViews (string_view display) const;
 
     /// Query the name of the specified view for the specified display
-    const char * getViewNameByIndex(const char * display, int index) const;
+    const char * getViewNameByIndex (string_view display, int index) const;
 
     /// Query the name of the default display
     const char * getDefaultDisplayName() const;
 
     /// Query the name of the default view for the specified display
-    const char * getDefaultViewName(const char * display) const;
+    const char * getDefaultViewName (string_view display) const;
 
     /// Construct a processor to transform from the given color space
     /// to the color space of the given display and view. You may optionally
@@ -179,12 +188,34 @@ public:
     /// call once to create a ColorProcessor to use on an entire image
     /// (or multiple images), NOT for every scanline or pixel
     /// separately!
-    ColorProcessor* createDisplayTransform (const char * display,
-                                            const char * view,
-                                            const char * inputColorSpace,
-                                            const char * looks=NULL,
-                                            const char * context_key=NULL,
-                                            const char * context_value=NULL) const;
+    ColorProcessor* createDisplayTransform (string_view display,
+                                            string_view view,
+                                            string_view inputColorSpace,
+                                            string_view looks="",
+                                            string_view context_key="",
+                                            string_view context_value="") const;
+
+    /// Construct a processor to perform color transforms determined by an
+    /// OpenColorIO FileTransform.
+    ///
+    /// It is possible that this will return NULL, if the FileTransform
+    /// doesn't exist or is not allowed.  When the user is finished with a
+    /// ColorProcess, deleteColorProcessor should be called.
+    /// ColorProcessor(s) remain valid even if the ColorConfig that created
+    /// them no longer exists.
+    ///
+    /// Multiple calls to this are potentially expensive, so you should
+    /// call once to create a ColorProcessor to use on an entire image
+    /// (or multiple images), NOT for every scanline or pixel
+    /// separately!
+    ColorProcessor* createFileTransform (string_view name,
+                                         bool inverse=false) const;
+
+    /// Given a string (like a filename), look for the longest, right-most
+    /// colorspace substring that appears. Returns "" if no such color space
+    /// is found. (This is just a wrapper around OCIO's
+    /// ColorConfig::parseColorSpaceFromString.)
+    string_view parseColorSpaceFromString (string_view str) const;
 
     /// Delete the specified ColorProcessor
     static void deleteColorProcessor(ColorProcessor * processor);
@@ -243,7 +274,6 @@ inline float linear_to_Rec709 (float x)
 }
 
 
-}
-OIIO_NAMESPACE_EXIT
+OIIO_NAMESPACE_END
 
 #endif // OPENIMAGEIO_COLOR_H

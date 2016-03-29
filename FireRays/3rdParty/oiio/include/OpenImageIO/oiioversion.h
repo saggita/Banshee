@@ -37,10 +37,10 @@
 
 #define OIIO_NAMESPACE OpenImageIO
 #define OIIO_VERSION_MAJOR 1
-#define OIIO_VERSION_MINOR 5
-#define OIIO_VERSION_PATCH 2
+#define OIIO_VERSION_MINOR 6
+#define OIIO_VERSION_PATCH 11
 #define OIIO_VERSION_RELEASE_TYPE dev
-#define OIIO_VERSION_NS v1_5
+#define OIIO_VERSION_NS v1_6
 
 #define OIIO_VERSION (10000 * OIIO_VERSION_MAJOR + \
                         100 * OIIO_VERSION_MINOR + \
@@ -58,9 +58,21 @@
 #define OIIO_INTRO_STRING "OpenImageIO " OIIO_VERSION_STRING " http://www.openimageio.org"
 
 
+#ifndef NAMESPACE_BEGIN
+#  define NAMESPACE_BEGIN(name) namespace name {
+#endif
+#ifndef NAMESPACE_END
+#  define NAMESPACE_END(name) }
+#endif
+
 // Macros to use in each file to enter and exit the right name spaces.
-#define OIIO_NAMESPACE_ENTER namespace OIIO_NAMESPACE { namespace OIIO_VERSION_NS
-#define OIIO_NAMESPACE_EXIT using namespace OIIO_VERSION_NS; }
+#define OIIO_NAMESPACE_BEGIN \
+            NAMESPACE_BEGIN(OIIO_NAMESPACE) \
+            NAMESPACE_BEGIN(OIIO_VERSION_NS)
+#define OIIO_NAMESPACE_END \
+            NAMESPACE_END(OIIO_VERSION_NS) \
+            using namespace OIIO_VERSION_NS;\
+            NAMESPACE_END(OIIO_NAMESPACE)
 #define OIIO_NAMESPACE_USING using namespace OIIO_NAMESPACE;
 
 // Establish the name spaces and make an alias 'OIIO' that gives us what
@@ -91,11 +103,14 @@ namespace OIIO = OIIO_NAMESPACE::OIIO_VERSION_NS;
 ///     ImageInput, ImageOutput).
 /// Version 16 changed the ImageInput functions taking channel ranges
 ///     from firstchan,nchans to chbegin,chend.
+/// Version 17 changed to int supports(string_view) rather than
+///     bool supports(const std::string&)). (OIIO 1.6)
+/// Version 18 changed to add an m_threads member to ImageInput/Output.
 
-#define OIIO_PLUGIN_VERSION 16
+#define OIIO_PLUGIN_VERSION 18
 
-#define OIIO_PLUGIN_NAMESPACE_BEGIN OIIO_NAMESPACE_ENTER {
-#define OIIO_PLUGIN_NAMESPACE_END } OIIO_NAMESPACE_EXIT
+#define OIIO_PLUGIN_NAMESPACE_BEGIN OIIO_NAMESPACE_BEGIN
+#define OIIO_PLUGIN_NAMESPACE_END OIIO_NAMESPACE_END
 
 #ifdef EMBED_PLUGINS
 #define OIIO_PLUGIN_EXPORTS_BEGIN
@@ -104,6 +119,12 @@ namespace OIIO = OIIO_NAMESPACE::OIIO_VERSION_NS;
 #define OIIO_PLUGIN_EXPORTS_BEGIN extern "C" {
 #define OIIO_PLUGIN_EXPORTS_END }
 #endif
+
+/// OIIO_BUILD_CPP11 will be 1 if this OIIO was built using C++11
+#define OIIO_BUILD_CPP11
+/// OIIO_BUILD_CPP14 will be 1 if this OIIO was built using C++14
+/// OIIO_BUILD_USELIBPLUSPLUS will be 1 if this OIIO was built using libc++
+#define OIIO_BUILD_LIBCPLUSPLUS
 
 #endif
 

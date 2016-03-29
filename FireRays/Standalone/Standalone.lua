@@ -18,7 +18,7 @@ project "Standalone"
 
     if os.is("macosx") or os.is("linux") then
         links {"OpenImageIO"} 
-	    libdirs {"../3rdParty/assimp/lib/x64", "../3rdParty/oiio/lib/x64"}
+	    libdirs {"../3rdParty/assimp/lib/x64"}
     end
 
     if os.is("macosx") then

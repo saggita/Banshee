@@ -26,8 +26,6 @@ void ImageRenderer::Render(World const& world) const
         {
             ray r;
 
-            float sample_weight = 1.f / imgsampler_->num_samples();
-
             for (int s = 0; s < imgsampler_->num_samples(); ++s)
             {
                 // Generate sample
@@ -40,7 +38,7 @@ void ImageRenderer::Render(World const& world) const
                 cam.GenerateRay(imgsample, r);
 
                 // Estimate radiance and add to image plane
-                imgplane_.AddSample(int2(x,y), sample_weight, tracer_->GetLi(r, world, *lightsampler_, *brdfsampler_));
+                imgplane_.AddSample(int2(x,y), tracer_->GetLi(r, world, *lightsampler_, *brdfsampler_));
             }
 
 			imgsampler_->Reset();
@@ -76,9 +74,7 @@ void ImageRenderer::RenderTile(World const& world, int2 const& start, int2 const
         for(int x = start.x; x < start.x + dim.x; ++x)
         {
             ray r;
-
-            float sample_weight = 1.f / imgsampler_->num_samples();
-
+            
             for (int s = 0; s < imgsampler_->num_samples(); ++s)
             {
                 // Generate sample
@@ -91,7 +87,7 @@ void ImageRenderer::RenderTile(World const& world, int2 const& start, int2 const
                 cam.GenerateRay(imgsample, r);
 
                 // Estimate radiance and add to image plane
-                imgplane_.AddSample(int2(x,y), sample_weight, tracer_->GetLi(r, world, *lightsampler_, *brdfsampler_));
+                imgplane_.AddSample(int2(x,y), tracer_->GetLi(r, world, *lightsampler_, *brdfsampler_));
             }
 
             // Update progress

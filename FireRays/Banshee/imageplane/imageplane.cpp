@@ -1,10 +1,12 @@
 #include "imageplane.h"
 #include "../filter/imagefilter.h"
 
+ImagePlane::~ImagePlane() = default;
+
 void ImagePlane::AddSample(float2 const& pos, float3 const& value)
 {
 	// Get the filter
-	auto filter = GetImageFilter();
+	auto* filter = GetImageFilter();
 
 	if (filter)
 	{

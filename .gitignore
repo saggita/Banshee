@@ -9,3 +9,15 @@
 *.obj
 *.ilk
 *.idb
+
+*.d
+
+*.o
+
+*.a
+
+FireRays/Bin/Debug/x64/UnitTest64D
+
+FireRays/Bin/Debug/x64/Standalone64D
+
+*.png

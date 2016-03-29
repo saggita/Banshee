@@ -71,8 +71,6 @@ void MtImageRenderer::Render(World const& world) const
 
                         ray r;
 
-                        float sample_weight = 1.f / private_imgsampler->num_samples();
-
                         for (int s = 0; s < private_imgsampler->num_samples(); ++s)
                         {
                             // Generate sample
@@ -85,7 +83,7 @@ void MtImageRenderer::Render(World const& world) const
                             cam.GenerateRay(imgsample, r);
 
                             // Estimate radiance and add to image plane
-                            imgplane_.AddSample(int2(xx,yy), sample_weight, tracer_->GetLi(r, world, *private_lightsampler, *private_brdfsampler));
+                            imgplane_.AddSample(int2(xx,yy), tracer_->GetLi(r, world, *private_lightsampler, *private_brdfsampler));
                         }
 
 						imgsampler->Reset();
@@ -173,8 +171,6 @@ void MtImageRenderer::RenderTile(World const& world, int2 const& start, int2 con
 
                         ray r;
 
-                        float sample_weight = 1.f / private_imgsampler->num_samples();
-
                         for (int s = 0; s < private_imgsampler->num_samples(); ++s)
                         {
                             // Generate sample
@@ -187,7 +183,7 @@ void MtImageRenderer::RenderTile(World const& world, int2 const& start, int2 con
                             cam.GenerateRay(imgsample, r);
 
                             // Estimate radiance and add to image plane
-                            imgplane_.AddSample(int2(xx,yy), sample_weight, tracer_->GetLi(r, world, *private_lightsampler, *private_brdfsampler));
+                            imgplane_.AddSample(int2(xx,yy), tracer_->GetLi(r, world, *private_lightsampler, *private_brdfsampler));
                         }
                     }
 

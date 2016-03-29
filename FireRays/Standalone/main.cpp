@@ -1662,7 +1662,7 @@ std::unique_ptr<World> BuildWorldSanMiguel(TextureSystem const& texsys)
 //}
 
 
-int main_1()
+int main()
 {
     try
     {
@@ -1671,7 +1671,7 @@ int main_1()
 
         // File name to render
         std::string filename = "result.png";
-        int2 imgres = int2(1024, 1024);
+        int2 imgres = int2(512, 512);
         // Create texture system
         OiioTextureSystem texsys("../../../Resources/Textures");
 
@@ -1710,9 +1710,9 @@ int main_1()
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
             new GiTracer(3), // Tracer
-            new StratifiedSampler(8, new McRng()), // Image sampler
-            new StratifiedSampler(1, new McRng()), // Light sampler
-            new StratifiedSampler(1, new McRng()), // Brdf sampler
+            new SobolSampler(4, new McRng()), // Image sampler
+            new SobolSampler(4, new McRng()), // Light sampler
+            new SobolSampler(4, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter
             );
 
@@ -1734,7 +1734,7 @@ int main_1()
     return 0;
 }
 
-
+#ifdef INTERACTIVE
 #ifdef __APPLE__
 #include <OpenCL/OpenCL.h>
 #include <OpenGL/OpenGL.h>
@@ -2295,3 +2295,4 @@ int main(int argc, char** argv)
     }
 
 }
+#endif

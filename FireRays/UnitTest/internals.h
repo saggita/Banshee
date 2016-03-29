@@ -133,7 +133,7 @@ TEST_F(Internals, Distribution2D_Pdf)
 TEST_F(Internals, EnvironmentLightIs)
 {
     OiioTextureSystem texsys("../../../Resources/Textures");
-    EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "HDRI_01.jpg", 0.6f);
+    EnvironmentLightIs* light1 = new EnvironmentLightIs(texsys, "Apartment.hdr", 0.6f);
 
     static int kNumSamples = 10000;
 

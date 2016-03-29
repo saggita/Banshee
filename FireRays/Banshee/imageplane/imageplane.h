@@ -35,10 +35,9 @@
 
 #include "../math/float3.h"
 #include "../math/int2.h"
-
+#include "../filter/imagefilter.h"
 #include <memory>
 
-class ImageFilter;
 
 ///< ImagePlane class represents an image plane and
 ///< is designed for the Renderer to write its result.
@@ -52,7 +51,7 @@ public:
 	ImagePlane(int2 const& res, ImageFilter* imgfilter);
 
 	// Destructor
-    virtual ~ImagePlane(){}
+    virtual ~ImagePlane();
 
     // This method is called by the renderer prior to adding samples
     virtual void Prepare(){}
@@ -78,25 +77,25 @@ protected:
 
 private:
 	// Image filter to use
-	std::unique_ptr<ImageFilter> imagefilter_;
+	std::unique_ptr<ImageFilter> m_image_filter;
 	// Resolution
-	int2 res_;
+	int2 m_res;
 };
 
 inline ImagePlane::ImagePlane(int2 const& res, ImageFilter* imgfilter)
-	: res_(res)
-	, imagefilter_(imgfilter)
+	: m_res(res)
+	, m_image_filter(imgfilter)
 {
 }
 
 inline int2 ImagePlane::resolution() const
 {
-	return res_;
+	return m_res;
 }
 
 inline ImageFilter const* ImagePlane::GetImageFilter() const
 {
-	return imagefilter_.get();
+	return m_image_filter.get();
 }
 
 

@@ -494,7 +494,7 @@ TEST_F(BasicFeatures, EnvironmentLight)
     world_->lights_.clear();
     
     // Simple directional light
-    EnvironmentLight* light = new EnvironmentLight(*texsys_, "HDRI_01.jpg", 0.6f);
+    EnvironmentLight* light = new EnvironmentLight(*texsys_, "Apartment.hdr", 0.6f);
     
     // Add our point light
     world_->lights_.push_back(std::unique_ptr<EnvironmentLight>(light));

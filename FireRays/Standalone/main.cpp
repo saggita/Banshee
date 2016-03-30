@@ -1662,7 +1662,7 @@ std::unique_ptr<World> BuildWorldSanMiguel(TextureSystem const& texsys)
 //}
 
 
-int main()
+int main_1()
 {
     try
     {
@@ -1710,7 +1710,7 @@ int main()
         std::cout << "Kicking off rendering engine...\n";
         MtImageRenderer renderer(plane, // Image plane
             new GiTracer(3), // Tracer
-            new SobolSampler(4, new McRng()), // Image sampler
+            new SobolSampler(1, new McRng()), // Image sampler
             new SobolSampler(4, new McRng()), // Light sampler
             new SobolSampler(4, new McRng()), // Brdf sampler
             new MyReporter() // Progress reporter
@@ -1734,7 +1734,8 @@ int main()
     return 0;
 }
 
-#ifdef INTERACTIVE
+#define INTERACTIVE
+#ifdef INTERACTIVE 
 #ifdef __APPLE__
 #include <OpenCL/OpenCL.h>
 #include <OpenGL/OpenGL.h>
@@ -1785,85 +1786,35 @@ std::unique_ptr<World> g_world;
 class BufferImagePlane : public ImagePlane
 {
 public:
-    BufferImagePlane(int2 res)
-    :  res_(res)
-    , imgbuf_(res.x * res.y)
-    //        , imgbuf2_(res.x * res.y)
-    //        , imgbufr_(res.x * res.y)
-    //        , indices_(res.x * res.y)
-    //	, numindices_(res.x * res.y)
+    BufferImagePlane(int2 res, ImageFilter* filter = nullptr)
+    :  ImagePlane(res, filter)
+    , m_imgbuf(res.x * res.y)
     {
-        std::fill(imgbuf_.begin(), imgbuf_.end(), float3(0.f, 0.f, 0.f, 0.f));
-        //        std::fill(imgbuf2_.begin(), imgbuf2_.end(), float3(0.f, 0.f, 0.f, 0.f));
-        //        std::fill(imgbufr_.begin(), imgbufr_.end(), float3(0.f, 0.f, 0.f, 0.f));
-        //
-        //	for (int x = 0; x < res_.x; ++x)
-        //		for (int y = 0; y < res_.y; ++y)
-        //	{
-        //		indices_[res_.x * (res_.y - 1 - y) + x] = int2(x,y);
-        //	}
-        
+        std::fill(m_imgbuf.begin(), m_imgbuf.end(), float3(0.f, 0.f, 0.f, 0.f));
     }
     
     void Clear()
     {
-        std::fill(imgbuf_.begin(), imgbuf_.end(), float3(0.f, 0.f, 0.f, 0.f));
+        std::fill(m_imgbuf.begin(), m_imgbuf.end(), float3(0.f, 0.f, 0.f, 0.f));
     }
     
-    // This method is called by the renderer prior to adding samples
-    void Prepare()
-    {
-    }
-    
-    
-    // This method is called by the renderer after adding all the samples
-    void Finalize()
-    {
-        //	numindices_ = 0;
-        //	for (int x = 0; x < res_.x; ++x)
-        //		for (int y = 0; y < res_.y; ++y)
-        //	{
-        //		int idx = res_.x * (res_.y - 1 - y) + x;
-        //		float3 v = imgbuf_[idx];
-        //		float3 v2 = imgbuf2_[idx];
-        //		float invw = 1.f / v.w;
-        //
-        //		imgbufr_[idx] = ((v2 * invw) - (v * invw) * (v * invw))*((v2 * invw) - (v * invw) * (v * invw));
-        //		imgbufr_[idx].w = 1.f;
-        //
-        //		if (imgbufr_[idx].sqnorm() > 0.05f)
-        //		{
-        //			indices_[numindices_++] = int2(x, y);
-        //		}
-        //	}
-    }
     
     // Add color contribution to the image plane
-    void AddSample(int2 const& pos, float w, float3 value)
+    void WriteSample(int2 const& pos, float3 const& value) override
     {
         int2   imgpos;
-        
+        auto res = resolution();
+
         // Make sure we are in the image space as (<0.5f,<0.5f) might map outside of the image
-        imgpos.x = (int)clamp((float)pos.x, 0.f, (float)res_.x-1);
-        imgpos.y = (int)clamp((float)pos.y, 0.f, (float)res_.y-1);
+        imgpos.x = (int)clamp((float)pos.x, 0.f, (float)res.x-1);
+        imgpos.y = (int)clamp((float)pos.y, 0.f, (float)res.y-1);
         
-        imgbuf_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x] += value;
-        imgbuf_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x].w += 1.f;
-        //        imgbuf2_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x] += (value*value);
-        //        imgbuf2_[res_.x * (res_.y - 1 - imgpos.y) + imgpos.x].w += 1.f;
+        m_imgbuf[res.x * (res.y - 1 - imgpos.y) + imgpos.x] += value;
+        m_imgbuf[res.x * (res.y - 1 - imgpos.y) + imgpos.x].w += 1.f;
     }
     
-    // This is used by the renderer to decide on the number of samples needed
-    int2 resolution() const { return res_; }
-    
-    // Image resolution
-    int2 res_;
     // Intermediate image buffer
-    std::vector<float3> imgbuf_;
-    //    std::vector<float3> imgbuf2_;
-    //    std::vector<float3> imgbufr_;
-    //    std::vector<int2> indices_;
-    //    int numindices_;
+    std::vector<float3> m_imgbuf;
 };
 
 void OnMouseMove(int x, int y)
@@ -2053,9 +2004,9 @@ void InitGraphics()
     g_renderer.reset(new
                      MtImageRenderer(*g_imgplane, // Image plane
                      new GiTracer(5), // Tracer
-                                     new SobolSampler(16, new McRng()), // Image sampler
-                                     new SobolSampler(16, new McRng()), // Light sampler
-                                     new SobolSampler(16, new McRng()), // Brdf sampler
+                                     new SobolSampler(1, new McRng()), // Image sampler
+                                     new SobolSampler(4, new McRng()), // Light sampler
+                                     new SobolSampler(4, new McRng()), // Brdf sampler
                                      //&plane.indices_[0],
                                      //plane.numindices_,
                                      nullptr // Progress reporter
@@ -2210,9 +2161,9 @@ void Update()
         
         for (int i = 0; i < g_window_width * g_window_height; ++i)
         {
-            g_data[3 * i] = (unsigned  char)(255 * clamp(powf(g_imgplane->imgbuf_[i].x / g_imgplane->imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
-            g_data[3 * i + 1] = (unsigned char)(255 * clamp(powf(g_imgplane->imgbuf_[i].y / g_imgplane->imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
-            g_data[3 * i + 2] = (unsigned char)(255 * clamp(powf(g_imgplane->imgbuf_[i].z / g_imgplane->imgbuf_[i].w, 1.f / 2.2f), 0.f, 1.f));
+            g_data[3 * i] = (unsigned  char)(255 * clamp(powf(g_imgplane->m_imgbuf[i].x / g_imgplane->m_imgbuf[i].w, 1.f / 2.2f), 0.f, 1.f));
+            g_data[3 * i + 1] = (unsigned char)(255 * clamp(powf(g_imgplane->m_imgbuf[i].y / g_imgplane->m_imgbuf[i].w, 1.f / 2.2f), 0.f, 1.f));
+            g_data[3 * i + 2] = (unsigned char)(255 * clamp(powf(g_imgplane->m_imgbuf[i].z / g_imgplane->m_imgbuf[i].w, 1.f / 2.2f), 0.f, 1.f));
         }
 
         g_tile_count++;

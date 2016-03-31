@@ -30,15 +30,19 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 (This is the Modified BSD License)
 */
-#ifndef IMAGEFILTER_H
-#define IMAGEFILTER_H
+#pragma once 
 
+// Represents image reconstruction filter. The renderer passes sample 
+// position respective in local coordinates (pixel center corresponds 
+// to (0,0) and the filter returns kernel value at this postition.
+//
 class ImageFilter
 {
 public:
-	virtual ~ImageFilter() {}
+    // Destructor
+	virtual ~ImageFilter() = default;
+    // Return weight at particular local coordinates position
 	virtual float Evaluate(float2 const& p) const = 0;
+    // Return filter radius in local units
 	virtual int GetRadius() const = 0;
 };
-
-#endif // IMAGEFILTER_H

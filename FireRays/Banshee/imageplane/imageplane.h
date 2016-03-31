@@ -40,7 +40,7 @@
 
 
 ///< ImagePlane class represents an image plane and
-///< is designed for the Renderer to write its result.
+///< is designed for the Renderer to write its result to.
 ///< Note that default image plane doesn't guarantee
 ///< atomicity of operations.
 ///<
